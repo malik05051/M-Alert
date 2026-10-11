@@ -47,7 +47,10 @@ self.addEventListener('push', (event) => {
         ? alert.levelName // « Avis de tsunami », « Alerte séisme élevé »…
         : alert.level === 1 ? 'Information' : alert.level === 5 ? 'ALERTE MAJEURE' : 'Alerte ' + LEVELS[alert.level];
       title = `${prefix}${levelText} — ${alert.title}`;
-      const waves = alert.category === 'tsunami' && typeof alert.waveHeight === 'number' ? `Vagues jusqu'à ${alert.waveHeight} m\n` : '';
+      const heights = alert.category === 'tsunami'
+        ? [alert.waveHeight, ...(alert.tsunamiTable || []).map((r) => r.height)].filter((h) => typeof h === 'number')
+        : [];
+      const waves = heights.length ? `Vagues jusqu'à ${Math.max(...heights)} m\n` : '';
       body = `Départements : ${deps}\n${waves}${alert.description}`;
     }
     await self.registration.showNotification(title, {

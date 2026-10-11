@@ -9,6 +9,7 @@
  *   majeur.mp3       alertes majeures (même tsunami, crues…), sauf tremblement de terre
  *   tsunami.mp3      crues, pluie-inondation, tsunami et vagues-submersion (sauf en majeure)
  * Si un fichier manque ou ne peut pas être lu, une sirène synthétique est jouée.
+ * Chaque son peut être remplacé par un autre et avoir son propre volume (réglages, configure()).
  */
 (function () {
   'use strict';
@@ -99,6 +100,28 @@
 
   // Sons des tremblements de terre (EEW, Earthquake Early Warning), choisis par M-Alert pour chaque alerte.
   const QUAKE_SOUNDS = { eew: 'seisme-eew', eew2: 'seisme-eew2', leger: 'seisme-leger' };
+
+  // Réglages de l'utilisateur : { clé: { file, volume } }. Clés : information, eew, rouge, majeur,
+  // tsunami, seisme (les trois sons de séisme), countdown. file vide : son par défaut ;
+  // volume : de 0 à 1, multiplie le volume général.
+  let custom = {};
+  const SOUND_FILES = ['information', 'eew', 'rouge', 'majeur', 'tsunami', 'seisme-eew', 'seisme-eew2', 'seisme-leger', 'countdown'];
+
+  function configure(map) {
+    custom = map && typeof map === 'object' ? map : {};
+  }
+
+  function soundKey(name) {
+    return String(name).startsWith('seisme-') ? 'seisme' : name;
+  }
+
+  /** Son réellement joué pour un son par défaut, et son volume relatif. */
+  function resolve(name) {
+    const c = custom[soundKey(name)] || {};
+    const file = SOUND_FILES.includes(c.file) ? c.file : name;
+    const volume = Number.isFinite(Number(c.volume)) && c.volume !== null && c.volume !== '' ? Math.max(0, Math.min(1, Number(c.volume))) : 1;
+    return { file, volume };
+  }
 
   /** Fichier son d'une alerte (ou d'un simple niveau). */
   function soundFile(alert) {
@@ -222,19 +245,21 @@
   /**
    * Joue le son d'alerte.
    * @param {number|{level: number, category?: string, phenomenon?: number}} what niveau (1 à 5) ou alerte
-   * @param {{volume?: number, loop?: boolean, maxSeconds?: number, untilStopped?: boolean}} opts
+   * @param {{volume?: number, loop?: boolean, maxSeconds?: number, untilStopped?: boolean, file?: string}} opts
    *   untilStopped : la répétition ne s'arrête qu'avec stop() (pas de limite de durée)
+   *   file : fichier à jouer tel quel (essai d'un son dans les réglages), sans les réglages des sons
    */
   async function play(what, opts = {}) {
     stop();
     const alert = typeof what === 'object' && what ? what : { level: Number(what) };
     const level = Math.max(1, Math.min(5, Number(alert.level) || 1));
     const token = loopToken;
-    const volume = Math.max(0, Math.min(1, opts.volume == null ? 0.8 : opts.volume));
+    const chosen = opts.file && SOUND_FILES.includes(opts.file) ? { file: opts.file, volume: 1 } : resolve(soundFile({ ...alert, level }));
+    const volume = Math.max(0, Math.min(1, opts.volume == null ? 0.8 : opts.volume)) * chosen.volume;
     const loop = Boolean(opts.loop);
     const maxMs = opts.untilStopped ? Infinity : (opts.maxSeconds || 120) * 1000;
 
-    const name = soundFile({ ...alert, level });
+    const name = chosen.file;
     if (WEB) {
       // Au premier clic, le déblocage du son prend un instant : on l'attend un peu.
       const c = audioContext();
@@ -281,6 +306,9 @@
    * en cours : il ne l'interrompt pas et stop() ne le concerne pas.
    */
   async function oneShot(name, volume = 0.8) {
+    const chosen = resolve(name);
+    name = chosen.file;
+    volume *= chosen.volume;
     if (WEB && !isLocked()) {
       try {
         const buffer = await loadBuffer(name);
@@ -304,5 +332,5 @@
     } catch (_) { /* son bloqué par le navigateur */ }
   }
 
-  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot };
+  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot, configure, resolve, SOUND_FILES };
 })();

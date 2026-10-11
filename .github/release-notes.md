@@ -1,5 +1,11 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.8.0
+- **Tableau des tsunamis** dans le style japonais : pour chaque côte, son niveau (Avertissement majeur, Avertissement, Avis), l'heure d'arrivée prévue (« Déjà arrivé », « Arrivée imminente », heure exacte ou estimée « ≈ ») et la hauteur des vagues quand elle est connue. Votre département est marqué d'un 📍 et chaque côte est tracée sur la carte à la couleur de son niveau.
+- **Origine de l'alerte** : chaque alerte indique si elle est manuelle (✍️), automatique (🤖, d'après l'EMSC) ou proposée par l'EMSC et validée par M-Alert (✅).
+- Une alerte tsunami automatique n'est diffusée qu'après **3 minutes d'attente**, pour que M-Alert puisse la vérifier, la modifier ou l'annuler.
+- **Sons des alertes réglables** (⚙ Réglages) : pour chaque type d'alerte (information, jaune et orange, rouge, majeure, crues et tsunamis, tremblement de terre, bip du compte à rebours), choisissez le son et son volume, avec un bouton ▶ pour l'écouter.
+
 ## Nouveautés de la 1.7.2
 - **Intensité chez vous** : pour un séisme, l'intensité attendue dans votre département (estimée) s'affiche à côté de l'intensité maximale.
 - **Répliques** : une réplique d'un séisme récent a sa propre alerte, avec la mention du séisme principal.

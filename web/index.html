@@ -79,6 +79,7 @@
       <p class="alert-deps" id="ovDeps"></p>
       <p class="alert-epi hidden" id="ovEpi"></p>
       <p class="alert-waves hidden" id="ovWaves" aria-live="off"></p>
+      <div class="tsu-board hidden" id="ovTsunami"></div>
       <div class="alert-body">
         <p id="ovDesc"></p>
         <div id="ovAdviceWrap" class="advice"><strong>Consignes</strong><p id="ovAdvice"></p></div>
@@ -145,6 +146,10 @@
         </label>
         <label class="check"><input type="checkbox" id="setSound"> Son d'alerte</label>
         <label class="field">Volume <input type="range" id="setVolume" min="0" max="1" step="0.05"></label>
+        <div class="field">Sons des alertes
+          <span class="muted small">Choisissez le son de chaque type d'alerte et son volume (par rapport au volume général) ; ▶ pour l'écouter.</span>
+          <div class="sound-rows" id="setSounds"></div>
+        </div>
         <label class="check"><input type="checkbox" id="setRepeat"> Répéter le son jusqu'à « J'ai compris » (orange et rouge)</label>
         <label class="check"><input type="checkbox" id="setVigNotify"> Me prévenir quand la vigilance de mes départements passe en jaune, orange ou rouge</label>
         <label class="check native-only hidden"><input type="checkbox" id="setFront"> Afficher la fenêtre au premier plan lors d'une alerte</label>

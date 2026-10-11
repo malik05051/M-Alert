@@ -23,11 +23,85 @@
     front: true,
     push: false,
     notices: true, // notifications de M-Alert (messages hors alerte)
+    sounds: {}, // sons choisis par type d'alerte : { clé: { file, volume } } (voir sound.js)
     tiles: false,
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
   const saveSettings = () => M.storage.set('malert.settings', settings);
+  window.MAlertSound.configure(settings.sounds);
+
+  // ---------- Sons des alertes (réglages) ----------
+
+  const SOUND_ROWS = [
+    ['information', 'Information et notifications'],
+    ['eew', 'Jaune et orange'],
+    ['rouge', 'Rouge'],
+    ['majeur', 'Majeure'],
+    ['tsunami', 'Crues, inondations, tsunamis'],
+    ['seisme', 'Tremblement de terre'],
+    ['countdown', 'Bip du compte à rebours (séismes)'],
+  ];
+  const SOUND_NAMES = {
+    information: 'Information',
+    eew: 'Jaune / orange',
+    rouge: 'Rouge',
+    majeur: 'Majeure',
+    tsunami: 'Crues et tsunami',
+    'seisme-eew': 'Séisme EEW',
+    'seisme-eew2': 'Séisme EEW 2',
+    'seisme-leger': 'Séisme EEW léger',
+    countdown: 'Bip du compte à rebours',
+  };
+
+  function renderSoundRows() {
+    $('setSounds').innerHTML = SOUND_ROWS.map(([key, label]) => `
+      <div class="sound-row" data-sound="${key}">
+        <span class="sound-label">${label}</span>
+        <select data-k="file" aria-label="Son : ${label}">
+          <option value="">${key === 'seisme' ? 'Choisi par M-Alert' : 'Par défaut'}</option>
+          ${window.MAlertSound.SOUND_FILES.map((f) => `<option value="${f}">${SOUND_NAMES[f]}</option>`).join('')}
+        </select>
+        <input type="range" data-k="volume" min="0" max="1" step="0.05" aria-label="Volume : ${label}">
+        <span class="sound-vol" data-k="pct"></span>
+        <button type="button" class="btn small sound-test" title="Écouter ce son" aria-label="Écouter : ${label}">▶</button>
+      </div>`).join('');
+  }
+  renderSoundRows();
+
+  function fillSoundRows(sounds) {
+    $('setSounds').querySelectorAll('.sound-row').forEach((row) => {
+      const c = (sounds || {})[row.dataset.sound] || {};
+      row.querySelector('[data-k="file"]').value = window.MAlertSound.SOUND_FILES.includes(c.file) ? c.file : '';
+      row.querySelector('[data-k="volume"]').value = String(c.volume == null ? 1 : c.volume);
+      row.querySelector('[data-k="pct"]').textContent = `${Math.round(Number(row.querySelector('[data-k="volume"]').value) * 100)} %`;
+    });
+  }
+
+  function readSoundRows() {
+    const out = {};
+    $('setSounds').querySelectorAll('.sound-row').forEach((row) => {
+      const file = row.querySelector('[data-k="file"]').value;
+      const volume = Number(row.querySelector('[data-k="volume"]').value);
+      if (file || volume !== 1) out[row.dataset.sound] = { file, volume };
+    });
+    return out;
+  }
+
+  $('setSounds').addEventListener('input', (e) => {
+    const row = e.target.closest('.sound-row');
+    if (row && e.target.dataset.k === 'volume') row.querySelector('[data-k="pct"]').textContent = `${Math.round(Number(e.target.value) * 100)} %`;
+  });
+  $('setSounds').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sound-test');
+    if (!btn) return;
+    const row = btn.closest('.sound-row');
+    const key = row.dataset.sound;
+    const file = row.querySelector('[data-k="file"]').value || (key === 'seisme' ? 'seisme-eew' : key);
+    const volume = Number($('setVolume').value) * Number(row.querySelector('[data-k="volume"]').value);
+    window.MAlertSound.unlock();
+    window.MAlertSound.play(1, { file, volume, loop: false });
+  });
 
   function myDepartments() {
     const list = settings.department ? [settings.department] : [];
@@ -250,7 +324,7 @@
     return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
       <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
-      <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}</div>
+      <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${a.source === 'auto' ? ' · 🤖 automatique' : ''}</div>
     </div>`;
   }
 
@@ -550,6 +624,46 @@
     waveTicker = setInterval(tick, 250);
   }
 
+  // Tableau d'arrivée du tsunami (comme les bulletins japonais) : par niveau, chaque côte avec
+  // son heure d'arrivée et la hauteur des vagues (affichées seulement si connues).
+  const TSUNAMI_GROUPS = [[5, 'Avertissement majeur de tsunami'], [4, 'Avertissement de tsunami'], [2, 'Avis de tsunami']];
+  function tsunamiArrivalText(r) {
+    if (r.arrival === 'arrived') return 'Déjà arrivé';
+    if (r.arrival === 'imminent') return 'Arrivée imminente';
+    if (!r.arrival) return '';
+    const t = new Date(r.arrival);
+    if (t.getTime() <= Date.now()) return r.estimated ? 'Probablement arrivé' : 'Déjà arrivé';
+    const sameDay = t.toDateString() === new Date().toDateString();
+    const hm = t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return `${r.estimated ? '≈ ' : ''}${sameDay ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} ${hm}`}`;
+  }
+  function renderTsunamiBoard(alert) {
+    const el = $('ovTsunami');
+    const rows = alert.category === 'tsunami' && Array.isArray(alert.tsunamiTable) ? alert.tsunamiTable : [];
+    el.classList.toggle('hidden', !rows.length);
+    if (!rows.length) {
+      el.innerHTML = '';
+      return;
+    }
+    const mine = myDepartments();
+    const html = ['<div class="tsu-title">Arrivée prévue du tsunami</div>'];
+    for (const [level, name] of TSUNAMI_GROUPS) {
+      const group = rows.filter((r) => r.level === level);
+      if (!group.length) continue;
+      html.push(`<div class="tsu-head tsu-l${level}">${name}</div>`);
+      for (const r of group) {
+        const arrival = tsunamiArrivalText(r);
+        html.push(`<div class="tsu-row${mine.includes(r.department) ? ' mine' : ''}">
+          <span class="tsu-name">${mine.includes(r.department) ? '📍 ' : ''}${escapeHtml(M.departmentName(r.department).replace(/ \(\w+\)$/, ''))}</span>
+          <span class="tsu-arr${arrival ? '' : ' empty'}">${escapeHtml(arrival)}</span>
+          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}">${typeof r.height === 'number' ? `${r.height.toLocaleString('fr-FR')}<small>m</small>` : ''}</span>
+        </div>`);
+      }
+    }
+    if (rows.some((r) => r.estimated)) html.push('<div class="tsu-note">≈ : heure d\'arrivée estimée</div>');
+    el.innerHTML = html.join('');
+  }
+
   /** Intensité (shindo) attendue dans mon département pour un séisme, ou null. */
   function localIntensity(alert) {
     if (alert.category !== 'seisme' || !alert.epicenter || typeof alert.magnitude !== 'number' || !settings.department) return null;
@@ -574,7 +688,8 @@
     $('ovLevel').textContent = M.alertLevelLabel(alert);
     $('ovPhen').textContent = `${ph.icon} ${ph.name}`;
     $('ovTest').classList.toggle('hidden', !alert.test);
-    $('ovTime').textContent = M.formatDateTime(alert.createdAt) + (alert.updatedAt ? ` · modifiée ${M.formatTime(alert.updatedAt)}` : '');
+    $('ovTime').textContent = M.formatDateTime(alert.createdAt) + (alert.updatedAt ? ` · modifiée ${M.formatTime(alert.updatedAt)}` : '') + ` · ${M.sourceLabel(alert)}`;
+    renderTsunamiBoard(alert);
     $('ovTitle').textContent = alert.title;
     $('ovDeps').textContent = M.departmentsLabel(alert.departments, 8);
     // Tremblement de terre : intensité (shindo), magnitude et épicentre.
@@ -1096,6 +1211,7 @@
     $('setPhenomena').querySelectorAll('input').forEach((i) => { i.checked = !(settings.phenomenaOff || []).includes(Number(i.value)); });
     $('setSound').checked = settings.sound;
     $('setVolume').value = String(settings.volume);
+    fillSoundRows(settings.sounds);
     $('setRepeat').checked = settings.repeat;
     $('setVigNotify').checked = settings.vigNotify;
     $('setFront').checked = settings.front;
@@ -1119,6 +1235,8 @@
 
   $('btnSettings').addEventListener('click', () => openSettings());
   $('settingsClose').addEventListener('click', () => dlg.close());
+  // Un son en cours d'écoute s'arrête à la fermeture des réglages (sauf alerte de test, qui a son propre son).
+  dlg.addEventListener('close', () => { if (!current) window.MAlertSound.stop(); });
   dlg.addEventListener('cancel', (e) => {
     if (dlg.dataset.welcome) e.preventDefault(); // le choix du département est obligatoire au premier lancement
   });
@@ -1142,6 +1260,7 @@
       phenomenaOff: [...$('setPhenomena').querySelectorAll('input:not(:checked)')].map((i) => Number(i.value)),
       sound: $('setSound').checked,
       volume: Number($('setVolume').value),
+      sounds: readSoundRows(),
       repeat: $('setRepeat').checked,
       vigNotify: $('setVigNotify').checked,
       front: $('setFront').checked,
@@ -1192,6 +1311,7 @@
   });
 
   function onSettingsChanged(serverChanged) {
+    window.MAlertSound.configure(settings.sounds);
     map.setTiles(settings.tiles);
     renderAll();
     renderNotices();

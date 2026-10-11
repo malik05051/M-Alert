@@ -132,8 +132,17 @@
 
   /** Tsunami : « vagues jusqu'à 1,5 m » si la hauteur a été indiquée, sinon rien. */
   function tsunamiSummary(alert) {
-    if (!alert || alert.category !== 'tsunami' || typeof alert.waveHeight !== 'number') return '';
-    return `vagues jusqu'à ${alert.waveHeight.toLocaleString('fr-FR')} m`;
+    if (!alert || alert.category !== 'tsunami') return '';
+    const heights = (alert.tsunamiTable || []).map((r) => r.height).filter((h) => typeof h === 'number');
+    if (typeof alert.waveHeight === 'number') heights.push(alert.waveHeight);
+    return heights.length ? `vagues jusqu'à ${Math.max(...heights).toLocaleString('fr-FR')} m` : '';
+  }
+
+  /** Mention de l'origine d'une alerte : automatique (règles EMSC), EMSC validée, ou manuelle. */
+  function sourceLabel(alert) {
+    if (alert && alert.source === 'auto') return '🤖 Alerte automatique (EMSC)';
+    if (alert && alert.source === 'emsc') return '✅ Alerte EMSC validée par M-Alert';
+    return '✍️ Alerte manuelle';
   }
 
   function quakeSummary(alert) {
@@ -325,7 +334,7 @@
 
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
-    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, isTsunami, alertLevelLabel, alertLevelName,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,

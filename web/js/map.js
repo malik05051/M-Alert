@@ -295,6 +295,11 @@
           // Tsunami et vagues-submersion : la côte est colorée, pas le département.
           const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
           const target = coastal ? tsunami : levels;
+          // Tsunami avec tableau par côte : chaque côte prend son propre niveau.
+          if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
+            for (const r of a.tsunamiTable) target[r.department] = Math.max(target[r.department] || 0, r.level);
+            continue;
+          }
           for (const c of codes) target[c] = Math.max(target[c] || 0, a.level);
         }
         state.alertLevels = levels;

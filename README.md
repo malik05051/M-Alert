@@ -12,13 +12,14 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 
 - **Carte interactive** des départements, colorés selon la **vigilance Météo-France** (vert, jaune, orange, rouge, et rose pour le niveau **majeur** fixé par M-Alert), pour aujourd'hui et demain. Survolez un département pour voir les phénomènes (orages, vent, crues…).
 - **Alerte plein écran** dans le style de JQuake / GlobalQuake : cadre clignotant à la couleur du niveau, titre, départements concernés, description et consignes.
-- **Son d'alerte** selon le niveau (information ; jaune et orange ; rouge ; majeure), avec un son dédié aux crues, inondations, tsunamis et vagues-submersion. Pour l'orange et le rouge, le son peut être répété jusqu'à « J'ai compris » ; le son majeur se répète toujours jusqu'à « J'ai compris ».
+- **Son d'alerte** selon le niveau (information ; jaune et orange ; rouge ; majeure), avec un son dédié aux crues, inondations, tsunamis et vagues-submersion. Pour l'orange et le rouge, le son peut être répété jusqu'à « J'ai compris » ; le son majeur se répète toujours jusqu'à « J'ai compris ». Dans les réglages, chaque type d'alerte peut avoir **son propre son et son propre volume**, avec un bouton ▶ pour l'écouter.
 - **Notification système** avec la description de l'alerte.
 - **Tremblement de terre** : quatre niveaux, **Faible**, **Moyen**, **Élevé** et **Majeur**, avec la magnitude, la profondeur, l'intensité maximale (échelle japonaise **shindo**, de 0 à 7) et une **croix ✕ sur l'épicentre**, avec son propre son d'alerte (EEW, EEW 2 ou EEW léger, choisi par M-Alert). Pendant un séisme, les **ondes P et S** s'étendent sur la carte (cercles bleu et rouge) et le bandeau affiche le **compte à rebours** de leur arrivée dans votre département, avec un bip chaque seconde pendant les 10 dernières secondes avant l'onde S (« Couper le son » coupe l'alarme mais garde ce bip ; « Couper aussi le son du compte à rebours » le coupe), et l'**intensité attendue dans votre département** à côté de l'intensité maximale. Les **répliques** d'un séisme sont signalées comme telles. Pour un tsunami, la **hauteur des vagues** s'affiche quand elle est connue (estimation à vitesses moyennes : 6,5 km/s pour P, 3,75 km/s pour S). Les séismes de France métropolitaine peuvent être signalés automatiquement à partir des données de l'EMSC (Centre sismologique euro-méditerranéen), tout comme un risque de tsunami après un fort séisme en mer. L'alerte s'affiche en **bandeau compact en haut** de l'écran pour laisser voir l'épicentre et les départements concernés.
-- **Tsunami** : trois niveaux seulement, **Avis de tsunami** (jaune), **Avertissement de tsunami** (rouge) et **Avertissement majeur de tsunami** (rose), affichés comme dans JQuake par un trait de la couleur du niveau le long des côtes touchées. Les alertes **vagues-submersion** sont affichées de la même façon, sur les côtes.
+- **Tsunami** : trois niveaux seulement, **Avis de tsunami** (jaune), **Avertissement de tsunami** (rouge) et **Avertissement majeur de tsunami** (rose), affichés comme dans JQuake par un trait de la couleur du niveau le long des côtes touchées, et un **tableau d'arrivée** comme au Japon : pour chaque côte, son niveau, l'heure d'arrivée prévue (« Déjà arrivé », « Arrivée imminente », heure exacte ou estimée « ≈ ») et la hauteur des vagues quand elle est connue (jamais estimée). Une alerte tsunami automatique n'est diffusée qu'après 3 minutes d'attente, le temps que M-Alert la vérifie. Les alertes **vagues-submersion** sont affichées de la même façon, sur les côtes.
 - **Départements en alerte** remplis de la couleur du niveau, avec la même luminosité et les mêmes frontières noires que la vigilance.
 - Les alertes envoyées pendant que l'application était fermée s'affichent au démarrage (seulement celles-là : une alerte déjà reçue ne revient pas). Si votre département est **ajouté à une alerte existante** ou si son niveau monte, vous êtes alerté, en direct ou à l'ouverture.
 - **Notifications de M-Alert** : messages d'information (sans alerte) affichés en **bandeau en haut de l'écran** (comme un séisme, avec le son « information »), en notification système et dans la section « 🔔 Notifications » pendant 24 h ; l'application de bureau revient au premier plan. Reçues aussi à l'ouverture si l'application était fermée ; une alerte passe toujours devant. Désactivables dans les réglages.
+- Chaque alerte indique son **origine** : ✍️ manuelle, 🤖 automatique (EMSC) ou ✅ proposée par l'EMSC et validée par M-Alert.
 - Certaines alertes peuvent être **silencieuses** : affichées sur la carte et dans la liste, sans son ni notification.
 - Prévenu aussi quand la vigilance de vos départements passe en jaune, orange ou rouge (désactivable).
 - **Fonctionne en arrière-plan** : fermer la fenêtre laisse M-Alert actif dans la zone de notification ; il reste connecté, sonne et réaffiche la fenêtre dès qu'une alerte arrive. Reconnexion immédiate après une mise en veille.
@@ -29,7 +30,7 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 - **Tornade** : niveau sur l'échelle **EF0 à EF5** (EF0 jaune, EF1 orange, EF2 rouge, EF3 à EF5 majeure) et vent attendu.
 - **Blocus / manifestation** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose).
 - **Filtre par phénomène** : liste « Alertes en cours » filtrable par catégorie ou par phénomène météo.
-- **Réglages** : département principal, autres départements suivis, catégories d'alertes et phénomènes météo reçus, alertes de toute la France, niveau minimum, son et volume, notifications, notifications de M-Alert, notifications push, fond de carte détaillé, lancement au démarrage, adresse du serveur.
+- **Réglages** : département principal, autres départements suivis, catégories d'alertes et phénomènes météo reçus, alertes de toute la France, niveau minimum, son et volume (général et par type d'alerte, avec écoute), notifications, notifications de M-Alert, notifications push, fond de carte détaillé, lancement au démarrage, adresse du serveur.
 
 ## Utilisation
 
@@ -90,12 +91,14 @@ Les sons sont dans `web/sounds/` :
 | Fichier | Joué pour |
 | --- | --- |
 | `information.mp3` | Information |
-| `eew.mp3` | **Tremblements de terre** (tous niveaux, majeure comprise), sinon jaune et orange |
+| `eew.mp3` | Jaune et orange |
+| `seisme-eew.mp3`, `seisme-eew2.mp3`, `seisme-leger.mp3` | **Tremblements de terre** (tous niveaux), son choisi par M-Alert |
+| `countdown.mp3` | Bip du compte à rebours avant l'onde S |
 | `rouge.mp3` | Rouge |
 | `majeur.mp3` | Alertes **majeures** (rose), même tsunami ou crues, sauf tremblement de terre |
 | `tsunami.mp3` | **Crues**, **pluie-inondation**, **tsunami** et **vagues-submersion** (sauf en majeure) |
 
-Pour changer un son, remplacez le fichier en gardant son nom (sans fichier, une sirène synthétique est jouée). Réglages > **Tester une alerte** permet de vérifier le son, l'affichage et les notifications.
+Chaque utilisateur peut choisir un autre de ces sons et un volume pour chaque type d'alerte dans ⚙ Réglages > **Sons des alertes** (bouton ▶ pour écouter). Pour changer un son pour tout le monde, remplacez le fichier en gardant son nom (sans fichier, une sirène synthétique est jouée). Réglages > **Tester une alerte** permet de vérifier le son, l'affichage et les notifications.
 
 ## Structure
 
