@@ -163,6 +163,7 @@
 
     // Aperçu des épicentres (séismes EMSC dans M-Alert-sender), indépendant des alertes en cours.
     const previewGroup = L.layerGroup().addTo(map);
+    let simMarker = null; // séisme à simuler (onglet 📡 du sender)
 
     function renderEpicenters(alerts) {
       epicenterGroup.clearLayers();
@@ -262,6 +263,15 @@
           if (onClick) marker.on('click', () => onClick(q.id));
           previewGroup.addLayer(marker);
         }
+      },
+
+      /** Croix du séisme à simuler (sender), avec son étiquette ; null pour la retirer. */
+      setSimEpicenter(point, label) {
+        if (simMarker) simMarker.remove();
+        simMarker = null;
+        if (!point) return;
+        simMarker = L.marker([point.lat, point.lon], { icon: crossIcon(0, true, 34), pane: 'epicenter', interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
+        if (label) simMarker.bindTooltip(label, { direction: 'top', offset: [0, -16], permanent: true, className: 'epi-tip' });
       },
 
       /** Code du département contenant ce point, ou null (en mer, hors de France). */
