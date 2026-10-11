@@ -1,5 +1,11 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.7.2
+- **Intensité chez vous** : pour un séisme, l'intensité attendue dans votre département (estimée) s'affiche à côté de l'intensité maximale.
+- **Répliques** : une réplique d'un séisme récent a sa propre alerte, avec la mention du séisme principal.
+- **Tsunami** : hauteur des vagues attendue en mètres, quand elle est connue.
+- « Couper le son » coupe l'alarme mais garde le bip du compte à rebours ; le bouton devient alors « Couper aussi le son du compte à rebours ».
+
 ## Nouveautés de la 1.7.1
 - **Ondes P et S** : pendant un séisme, les ondes P (bleu) et S (rouge) s'étendent sur la carte depuis l'épicentre.
 - **Compte à rebours** de l'arrivée des ondes P et S dans votre département, avec un bip chaque seconde pendant les 10 dernières secondes avant l'onde S.

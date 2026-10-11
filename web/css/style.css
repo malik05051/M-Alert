@@ -191,6 +191,9 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .alert-waves .wave-s { color: #fb7185; }
 .alert-waves b { font-variant-numeric: tabular-nums; }
 .alert-waves .done { opacity: .75; }
+.alert-epi .int-pair { display: inline-flex; align-items: center; gap: 4px; }
+.alert-epi .int-pair small { color: var(--muted); font-size: 12px; }
+.alert-epi .aftershock { font-weight: 700; color: #fbbf24; }
 /* Bandeau de notification (en haut, comme un séisme) : sans cadre clignotant, texte en entier. */
 .alert-overlay.notice .alert-frame { display: none; }
 .alert-overlay.notice .alert-body { cursor: default; }

@@ -249,7 +249,7 @@
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
-      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
+      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}</div>
     </div>`;
   }
@@ -501,10 +501,12 @@
 
   // Compte à rebours de l'arrivée des ondes P et S dans mon département (séisme avec épicentre).
   let waveTicker = null;
-  let waveMuted = false; // « Couper le son » coupe aussi les bips du compte à rebours
+  let waveMuted = false; // bips du compte à rebours coupés (second clic sur le bouton du son)
+  let waveState = null; // { arrival, t0 } du compte à rebours en cours
   function stopWaveCountdown() {
     clearInterval(waveTicker);
     waveTicker = null;
+    waveState = null;
     $('ovWaves').classList.add('hidden');
   }
 
@@ -523,6 +525,7 @@
     if (alert.category !== 'seisme' || !alert.epicenter || !home) return;
     const arrival = map.waveArrival(alert.epicenter, alert.depth, home.lat, home.lon);
     const t0 = new Date(alert.originTime || alert.createdAt).getTime();
+    waveState = { arrival, t0 };
     const el = $('ovWaves');
     const wave = (name, cls, at, t) => (t < at
       ? `<span class="${cls}">Onde ${name} : dans <b>${formatSeconds(at - t)}</b></span>`
@@ -538,6 +541,8 @@
         }
       }
       el.innerHTML = `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · ${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
+      // Onde S arrivée : plus de bips, le bouton « Couper aussi le son du compte à rebours » disparaît.
+      if (t >= arrival.s && $('ovMute').dataset.stage === 'countdown') $('ovMute').classList.add('hidden');
       if (t - arrival.s > 3600) stopWaveCountdown(); // plus d'une heure après : inutile de continuer
     };
     el.classList.remove('hidden');
@@ -545,8 +550,19 @@
     waveTicker = setInterval(tick, 250);
   }
 
+  /** Intensité (shindo) attendue dans mon département pour un séisme, ou null. */
+  function localIntensity(alert) {
+    if (alert.category !== 'seisme' || !alert.epicenter || typeof alert.magnitude !== 'number' || !settings.department) return null;
+    const home = map.departmentCenter(settings.department);
+    if (!home) return null;
+    const { km } = map.waveArrival(alert.epicenter, alert.depth, home.lat, home.lon);
+    return M.toShindo(M.estimateIntensity(alert.magnitude, Number(alert.depth) || 10, km));
+  }
+
   function showOverlay(alert, { silent } = {}) {
     current = alert;
+    $('ovMute').textContent = 'Couper le son';
+    $('ovMute').dataset.stage = 'alarm';
     startWaveCountdown(alert, { silent });
     const lv = LEVELS[alert.level];
     const ph = M.alertKind(alert);
@@ -563,13 +579,24 @@
     $('ovDeps').textContent = M.departmentsLabel(alert.departments, 8);
     // Tremblement de terre : intensité (shindo), magnitude et épicentre.
     const quake = [];
-    if (alert.category === 'seisme' && alert.shindo && M.SHINDO[alert.shindo]) {
-      const sh = M.SHINDO[alert.shindo];
-      quake.push(`<span class="shindo" style="background:${sh.color};color:${sh.text}" title="Intensité maximale (échelle shindo)">${escapeHtml(alert.shindo)}</span>`);
+    const badge = (s, title) => {
+      const sh = M.SHINDO[s];
+      return sh ? `<span class="shindo" style="background:${sh.color};color:${sh.text}" title="${title}">${escapeHtml(s)}</span>` : '';
+    };
+    if (alert.category === 'seisme' && alert.aftershockOf && typeof alert.aftershockOf.mag === 'number') {
+      quake.push(`<span class="aftershock">🔁 Réplique du séisme M${alert.aftershockOf.mag.toFixed(1)}${alert.aftershockOf.time ? ` du ${escapeHtml(M.formatDateTime(alert.aftershockOf.time))}` : ''}</span>`);
     }
+    if (alert.category === 'seisme' && alert.shindo && M.SHINDO[alert.shindo]) {
+      quake.push(`<span class="int-pair">${badge(alert.shindo, 'Intensité maximale (échelle shindo)')}<small>max</small></span>`);
+    }
+    // Intensité attendue dans mon département (estimée d'après magnitude, profondeur et distance).
+    const local = localIntensity(alert);
+    if (local) quake.push(`<span class="int-pair">${badge(local, 'Intensité attendue dans votre département (estimation)')}<small>chez vous</small></span>`);
     if (alert.category === 'seisme' && typeof alert.magnitude === 'number') quake.push(`<b>M${alert.magnitude.toFixed(1)}</b>`);
     if (alert.category === 'seisme' && typeof alert.depth === 'number') quake.push(`<span>Profondeur : <b>${alert.depth} km</b></span>`);
     if (alert.epicenter) quake.push(`✕ Épicentre : ${escapeHtml(epicenterText(alert.epicenter))}`);
+    // Tsunami : hauteur des vagues, seulement si elle a été indiquée.
+    if (alert.category === 'tsunami' && typeof alert.waveHeight === 'number') quake.push(`<span>🌊 Vagues attendues : <b>jusqu'à ${alert.waveHeight.toLocaleString('fr-FR')} m</b></span>`);
     // Tornade : niveau EF et vent attendu.
     if (M.isTornado(alert)) {
       quake.push(`<span class="shindo" style="background:${lv.color};color:${lv.text}" title="Échelle de Fujita améliorée">EF${alert.ef}</span>`);
@@ -618,11 +645,24 @@
   $('ovAck').addEventListener('click', acknowledge);
   // Bandeau compact (séisme) : un clic sur le texte l'affiche en entier.
   document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => e.currentTarget.classList.toggle('expanded'));
+  // « Couper le son » coupe le son d'alerte ; si le compte à rebours de l'onde S doit encore sonner,
+  // le bouton devient « Couper aussi le son du compte à rebours ».
   $('ovMute').addEventListener('click', () => {
+    const btn = $('ovMute');
+    if (btn.dataset.stage === 'countdown') {
+      waveMuted = true;
+      btn.classList.add('hidden');
+      return;
+    }
     pendingSound = null;
-    waveMuted = true;
     window.MAlertSound.stop();
-    $('ovMute').classList.add('hidden');
+    const beepsLeft = waveState && !waveMuted && settings.sound && (Date.now() - waveState.t0) / 1000 < waveState.arrival.s;
+    if (beepsLeft) {
+      btn.dataset.stage = 'countdown';
+      btn.textContent = 'Couper aussi le son du compte à rebours';
+    } else {
+      btn.classList.add('hidden');
+    }
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && current && !$('settings').open) acknowledge();

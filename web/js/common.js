@@ -112,9 +112,34 @@
   const SHINDO_ORDER = ['0', '1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'];
 
   /** « M6.3 · profondeur 10 km · intensité max 6- » pour un tremblement de terre (vide si rien n'est renseigné). */
+  /**
+   * Intensité estimée (JMA) d'un séisme à une distance épicentrale donnée : vitesse du sol par la
+   * loi d'atténuation de Si et Midorikawa (1999), sol moyen, puis I = 2,68 + 1,72 log PGV.
+   * Même calcul que le serveur (estimation à l'épicentre) : distance 0.
+   */
+  function estimateIntensity(mag, depth, distKm = 0) {
+    const d = Math.max(0, Number(depth) || 0);
+    const x = Math.max(3, Math.hypot(distKm, d)); // distance à la faille ≈ distance au foyer
+    const logPgv = 0.58 * mag + 0.0038 * d - Math.log10(x + 0.0028 * 10 ** (0.5 * mag)) - 0.002 * x - 1.29;
+    return 2.68 + 1.72 * Math.log10(10 ** logPgv * 1.31);
+  }
+
+  function toShindo(i) {
+    const steps = [0.5, 1.5, 2.5, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5];
+    const k = steps.findIndex((v) => i < v);
+    return SHINDO_ORDER[k === -1 ? 9 : k];
+  }
+
+  /** Tsunami : « vagues jusqu'à 1,5 m » si la hauteur a été indiquée, sinon rien. */
+  function tsunamiSummary(alert) {
+    if (!alert || alert.category !== 'tsunami' || typeof alert.waveHeight !== 'number') return '';
+    return `vagues jusqu'à ${alert.waveHeight.toLocaleString('fr-FR')} m`;
+  }
+
   function quakeSummary(alert) {
     if (!alert || alert.category !== 'seisme') return '';
     const parts = [];
+    if (alert.aftershockOf && typeof alert.aftershockOf.mag === 'number') parts.push(`réplique du M${alert.aftershockOf.mag.toFixed(1)}`);
     if (typeof alert.magnitude === 'number') parts.push(`M${alert.magnitude.toFixed(1)}`);
     if (typeof alert.depth === 'number') parts.push(`profondeur ${alert.depth} km`);
     if (alert.shindo) parts.push(`intensité max ${alert.shindo} (shindo)`);
@@ -300,7 +325,7 @@
 
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
-    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, isTsunami, alertLevelLabel, alertLevelName,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,
