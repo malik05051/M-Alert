@@ -424,6 +424,7 @@
   /** Bandeau compact en haut de l'écran pour une notification de M-Alert. */
   function showNoticeBanner(n) {
     current = { ...n, __notice: true };
+    stopWaveCountdown();
     const ov = $('alertOverlay');
     ov.className = 'alert-overlay compact notice';
     ov.style.setProperty('--c', NOTICE_COLOR);
@@ -498,8 +499,56 @@
     });
   }
 
+  // Compte à rebours de l'arrivée des ondes P et S dans mon département (séisme avec épicentre).
+  let waveTicker = null;
+  let waveMuted = false; // « Couper le son » coupe aussi les bips du compte à rebours
+  function stopWaveCountdown() {
+    clearInterval(waveTicker);
+    waveTicker = null;
+    $('ovWaves').classList.add('hidden');
+  }
+
+  function formatSeconds(sec) {
+    const s = Math.round(sec);
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    return m < 60 ? `${m} min ${String(s % 60).padStart(2, '0')} s` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+  }
+
+  function startWaveCountdown(alert, { silent } = {}) {
+    stopWaveCountdown();
+    waveMuted = Boolean(silent);
+    let lastBeep = null;
+    const home = settings.department && map.departmentCenter(settings.department);
+    if (alert.category !== 'seisme' || !alert.epicenter || !home) return;
+    const arrival = map.waveArrival(alert.epicenter, alert.depth, home.lat, home.lon);
+    const t0 = new Date(alert.originTime || alert.createdAt).getTime();
+    const el = $('ovWaves');
+    const wave = (name, cls, at, t) => (t < at
+      ? `<span class="${cls}">Onde ${name} : dans <b>${formatSeconds(at - t)}</b></span>`
+      : `<span class="${cls} done">Onde ${name} arrivée${t - at >= 1 ? ` (il y a ${formatSeconds(t - at)})` : ''}</span>`);
+    const tick = () => {
+      const t = (Date.now() - t0) / 1000;
+      // Bip chaque seconde pendant les 10 dernières secondes avant l'arrivée de la prochaine onde.
+      const next = t < arrival.p ? arrival.p : t < arrival.s ? arrival.s : null;
+      if (next !== null && next - t <= 10) {
+        const sec = Math.ceil(next - t);
+        if (sec !== lastBeep) {
+          lastBeep = sec;
+          if (settings.sound && !waveMuted) window.MAlertSound.oneShot('countdown', settings.volume);
+        }
+      }
+      el.innerHTML = `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · ${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
+      if (t - arrival.s > 3600) stopWaveCountdown(); // plus d'une heure après : inutile de continuer
+    };
+    el.classList.remove('hidden');
+    tick();
+    waveTicker = setInterval(tick, 250);
+  }
+
   function showOverlay(alert, { silent } = {}) {
     current = alert;
+    startWaveCountdown(alert, { silent });
     const lv = LEVELS[alert.level];
     const ph = M.alertKind(alert);
     const ov = $('alertOverlay');
@@ -564,6 +613,7 @@
       return;
     }
     $('alertOverlay').classList.add('hidden');
+    stopWaveCountdown();
   }
 
   $('ovAck').addEventListener('click', acknowledge);
@@ -571,6 +621,7 @@
   document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => e.currentTarget.classList.toggle('expanded'));
   $('ovMute').addEventListener('click', () => {
     pendingSound = null;
+    waveMuted = true;
     window.MAlertSound.stop();
     $('ovMute').classList.add('hidden');
   });

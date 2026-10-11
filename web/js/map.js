@@ -175,6 +175,68 @@
     }
 
     // Point dans un polygone Leaflet (anneaux et multipolygones, règle pair-impair).
+    // Ondes sismiques P et S : cercles qui s'élargissent depuis l'épicentre (vitesses moyennes dans
+    // la croûte), visibles tant que l'onde S n'a pas parcouru WAVE_MAX_KM.
+    const VP = 6.5; // km/s
+    const VS = 3.75; // km/s
+    const WAVE_MAX_KM = 1500;
+    const wavePane = map.createPane('waves');
+    wavePane.style.zIndex = 465; // au-dessus du masque hors de France : les ondes passent aussi en mer
+    wavePane.style.pointerEvents = 'none';
+    const waves = new Map(); // id -> { lat, lon, depth, t0, p, s }
+    let waveTimer = null;
+
+    /** Rayon (km) en surface du front d'onde de vitesse v, t secondes après le séisme. */
+    function frontKm(v, t, depth) {
+      const d = v * t;
+      return d > depth ? Math.sqrt(d * d - depth * depth) : 0;
+    }
+
+    function drawWaves() {
+      const now = Date.now();
+      for (const [id, w] of waves) {
+        const t = (now - w.t0) / 1000;
+        if (t < 0) continue;
+        const sKm = frontKm(VS, t, w.depth);
+        if (sKm > WAVE_MAX_KM) {
+          w.p.remove();
+          w.s.remove();
+          waves.delete(id);
+          continue;
+        }
+        w.p.setRadius(Math.max(1, frontKm(VP, t, w.depth) * 1000));
+        w.s.setRadius(Math.max(1, sKm * 1000));
+      }
+      if (!waves.size) {
+        clearInterval(waveTimer);
+        waveTimer = null;
+      }
+    }
+
+    /** Ondes des séismes en cours : [{ id, lat, lon, depth, originTime }]. */
+    function setWaves(list) {
+      const keep = new Set();
+      for (const q of list) {
+        const t0 = new Date(q.originTime).getTime();
+        if (!Number.isFinite(t0) || frontKm(VS, (Date.now() - t0) / 1000, q.depth || 0) > WAVE_MAX_KM) continue;
+        keep.add(q.id);
+        const old = waves.get(q.id);
+        if (old && old.t0 === t0 && old.lat === q.lat && old.lon === q.lon) continue;
+        if (old) { old.p.remove(); old.s.remove(); }
+        const renderer = L.svg({ pane: 'waves' });
+        waves.set(q.id, {
+          lat: q.lat, lon: q.lon, depth: q.depth || 0, t0,
+          p: L.circle([q.lat, q.lon], { radius: 1, pane: 'waves', renderer, interactive: false, color: '#60a5fa', weight: 2, opacity: 0.9, fill: false }).addTo(map),
+          s: L.circle([q.lat, q.lon], { radius: 1, pane: 'waves', renderer, interactive: false, color: '#f43f5e', weight: 3, opacity: 0.95, fillColor: '#f43f5e', fillOpacity: 0.08 }).addTo(map),
+        });
+      }
+      for (const [id, w] of waves) {
+        if (!keep.has(id)) { w.p.remove(); w.s.remove(); waves.delete(id); }
+      }
+      drawWaves();
+      if (waves.size && !waveTimer) waveTimer = setInterval(drawWaves, 100);
+    }
+
     function containsPoint(latlngs, lat, lon) {
       const rings = [];
       (function collect(arr) {
@@ -239,6 +301,27 @@
         refreshAll();
         renderTsunami(tsunami);
         renderEpicenters((alerts || []).filter((a) => a.epicenter));
+        setWaves((alerts || []).filter((a) => a.category === 'seisme' && a.epicenter).map((a) => ({
+          id: a.id, lat: a.epicenter.lat, lon: a.epicenter.lon, depth: Number(a.depth) || 10, originTime: a.originTime || a.createdAt,
+        })));
+      },
+
+      /**
+       * Arrivée des ondes P et S en un point : { km (distance épicentrale), p, s } en secondes
+       * depuis le séisme (estimation à vitesses moyennes).
+       */
+      waveArrival(epicenter, depth, lat, lon) {
+        const km = map.distance([epicenter.lat, epicenter.lon], [lat, lon]) / 1000;
+        const hypo = Math.hypot(km, Number(depth) || 10);
+        return { km, p: hypo / VP, s: hypo / VS };
+      },
+
+      /** Centre (approximatif) d'un département. */
+      departmentCenter(code) {
+        const layer = layers[code];
+        if (!layer) return null;
+        const c = layer.getBounds().getCenter();
+        return { lat: c.lat, lon: c.lng };
       },
 
       /** Croix d'épicentre en cours de saisie (sender), ou null pour la retirer. */

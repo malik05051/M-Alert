@@ -182,6 +182,15 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Afficher les consignes ▾'; display: block; font-size: 12px; color: var(--muted); margin-top: -2px; }
 .alert-overlay.compact .advice { padding: 6px 10px; }
 .alert-overlay.compact .alert-foot { margin-top: 8px; }
+/* Bandeau compact : texte déjà raccourci, pas de barre de défilement (sauf texte déplié). */
+.alert-overlay.compact .alert-banner { overflow: hidden; max-height: none; }
+.alert-overlay.compact .alert-banner:has(.alert-body.expanded) { max-height: 70vh; overflow: auto; }
+/* Ondes P et S : compte à rebours (séisme). */
+.alert-waves { margin: 0 0 6px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+.alert-waves .wave-p { color: #60a5fa; }
+.alert-waves .wave-s { color: #fb7185; }
+.alert-waves b { font-variant-numeric: tabular-nums; }
+.alert-waves .done { opacity: .75; }
 /* Bandeau de notification (en haut, comme un séisme) : sans cadre clignotant, texte en entier. */
 .alert-overlay.notice .alert-frame { display: none; }
 .alert-overlay.notice .alert-body { cursor: default; }

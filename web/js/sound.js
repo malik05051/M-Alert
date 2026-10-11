@@ -84,7 +84,7 @@
       s.connect(c.destination);
       s.start(0);
       // Sons préchargés pour qu'une alerte sonne immédiatement.
-      if (WEB) ['information', 'eew', 'rouge', 'majeur', 'tsunami', ...Object.values(QUAKE_SOUNDS)].forEach((n) => loadBuffer(n).catch(() => {}));
+      if (WEB) ['information', 'eew', 'rouge', 'majeur', 'tsunami', 'countdown', ...Object.values(QUAKE_SOUNDS)].forEach((n) => loadBuffer(n).catch(() => {}));
     }
   }
 
@@ -276,5 +276,33 @@
     again();
   }
 
-  window.MAlertSound = { play, stop, unlock, isLocked, soundFile };
+  /**
+   * Son court joué une fois (bip du compte à rebours des ondes sismiques), en plus du son d'alerte
+   * en cours : il ne l'interrompt pas et stop() ne le concerne pas.
+   */
+  async function oneShot(name, volume = 0.8) {
+    if (WEB && !isLocked()) {
+      try {
+        const buffer = await loadBuffer(name);
+        const c = audioContext();
+        if (c && c.state === 'running') {
+          const src = c.createBufferSource();
+          const gain = c.createGain();
+          src.buffer = buffer;
+          gain.gain.value = volume;
+          src.connect(gain);
+          gain.connect(c.destination);
+          src.start();
+          return;
+        }
+      } catch (_) { /* repli sur <audio> */ }
+    }
+    try {
+      const a = new Audio(`sounds/${name}.mp3`);
+      a.volume = volume;
+      await a.play();
+    } catch (_) { /* son bloqué par le navigateur */ }
+  }
+
+  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot };
 })();
