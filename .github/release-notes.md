@@ -2,7 +2,8 @@ Alertes météo en temps réel par département, avec la carte de vigilance Mét
 
 ## Nouveautés de la 1.8.1
 - **Tsunami** : une alerte tsunami corrigée par M-Alert (niveau, arrivée ou hauteur des vagues sur une côte) n'est plus écrasée par les mises à jour automatiques du séisme.
-- Une alerte tsunami automatique en attente peut être diffusée **sans attendre les 3 minutes** quand M-Alert la confirme. Les alertes séisme ne subissent aucune attente.
+- **Séisme et tsunami séparés** : un fort séisme en mer a désormais sa propre alerte séisme, envoyée tout de suite aux départements où il est ressenti, en plus de l'éventuelle alerte tsunami. L'attente de 3 minutes ne concerne que les alertes tsunami automatiques, jamais les séismes.
+- Une alerte tsunami automatique en attente peut être diffusée **sans attendre les 3 minutes** quand M-Alert la confirme.
 
 ## Nouveautés de la 1.8.0
 - **Tableau des tsunamis** dans le style japonais : pour chaque côte, son niveau (Avertissement majeur, Avertissement, Avis), l'heure d'arrivée prévue (« Déjà arrivé », « Arrivée imminente », heure exacte ou estimée « ≈ ») et la hauteur des vagues quand elle est connue. Votre département est marqué d'un 📍 et chaque côte est tracée sur la carte à la couleur de son niveau.
