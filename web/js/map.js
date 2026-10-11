@@ -265,12 +265,12 @@
         }
       },
 
-      /** Croix du séisme à simuler (sender), avec son étiquette ; null pour la retirer. */
+      /** Croix rouge du séisme à simuler (sender), avec son étiquette ; null pour la retirer. */
       setSimEpicenter(point, label) {
         if (simMarker) simMarker.remove();
         simMarker = null;
         if (!point) return;
-        simMarker = L.marker([point.lat, point.lon], { icon: crossIcon(0, true, 34), pane: 'epicenter', interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
+        simMarker = L.marker([point.lat, point.lon], { icon: crossIcon(4, false, 34), pane: 'epicenter', interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
         if (label) simMarker.bindTooltip(label, { direction: 'top', offset: [0, -16], permanent: true, className: 'epi-tip' });
       },
 
