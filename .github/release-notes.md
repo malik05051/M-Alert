@@ -1,7 +1,7 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 1.7.0
-- **Séismes en temps réel** : les séismes de France métropolitaine détectés par l'EMSC (Centre sismologique euro-méditerranéen) peuvent déclencher automatiquement une alerte séisme, avec épicentre, magnitude et profondeur, mise à jour si le séisme est corrigé.
+- **Séismes en temps réel** : les séismes de France métropolitaine détectés par l'EMSC (Centre sismologique euro-méditerranéen) peuvent déclencher automatiquement une alerte séisme, avec épicentre, magnitude, profondeur et intensité maximale estimée (échelle shindo), mise à jour si le séisme est corrigé.
 - **Tsunami** : un fort séisme en mer près des côtes françaises peut déclencher une alerte tsunami sur le littoral concerné.
 
 ## Nouveautés de la 1.6.4
