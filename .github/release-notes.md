@@ -2,7 +2,7 @@ Alertes météo en temps réel par département, avec la carte de vigilance Mét
 
 ## Nouveautés de la 1.7.1
 - **Ondes P et S** : pendant un séisme, les ondes P (bleu) et S (rouge) s'étendent sur la carte depuis l'épicentre.
-- **Compte à rebours** de l'arrivée des ondes P et S dans votre département, avec un bip chaque seconde pendant les 10 dernières secondes.
+- **Compte à rebours** de l'arrivée des ondes P et S dans votre département, avec un bip chaque seconde pendant les 10 dernières secondes avant l'onde S.
 - Le bandeau des séismes n'affiche plus de barre de défilement inutile.
 
 ## Nouveautés de la 1.7.0

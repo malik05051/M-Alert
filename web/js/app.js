@@ -529,10 +529,9 @@
       : `<span class="${cls} done">Onde ${name} arrivée${t - at >= 1 ? ` (il y a ${formatSeconds(t - at)})` : ''}</span>`);
     const tick = () => {
       const t = (Date.now() - t0) / 1000;
-      // Bip chaque seconde pendant les 10 dernières secondes avant l'arrivée de la prochaine onde.
-      const next = t < arrival.p ? arrival.p : t < arrival.s ? arrival.s : null;
-      if (next !== null && next - t <= 10) {
-        const sec = Math.ceil(next - t);
+      // Bip chaque seconde pendant les 10 dernières secondes avant l'arrivée de l'onde S (secousses fortes).
+      if (t < arrival.s && arrival.s - t <= 10) {
+        const sec = Math.ceil(arrival.s - t);
         if (sec !== lastBeep) {
           lastBeep = sec;
           if (settings.sound && !waveMuted) window.MAlertSound.oneShot('countdown', settings.volume);
