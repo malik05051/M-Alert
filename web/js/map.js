@@ -151,15 +151,18 @@
     const epicenterGroup = L.layerGroup().addTo(map);
     let draftMarker = null;
 
-    function crossIcon(level, draft) {
+    function crossIcon(level, draft, size = 32) {
       const color = LEVELS[level] ? LEVELS[level].color : '#ffffff';
-      const svg = `<svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+      const svg = `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true">
         <path d="M6 6 26 26 M26 6 6 26" stroke="#0b1220" stroke-width="11" stroke-linecap="round"/>
         <path d="M6 6 26 26 M26 6 6 26" stroke="#ffffff" stroke-width="7.5" stroke-linecap="round"/>
         <path d="M6 6 26 26 M26 6 6 26" stroke="${color}" stroke-width="4" stroke-linecap="round"${draft ? ' stroke-dasharray="4 3"' : ''}/>
       </svg>`;
-      return L.divIcon({ className: 'epicenter-icon', html: svg, iconSize: [32, 32], iconAnchor: [16, 16] });
+      return L.divIcon({ className: 'epicenter-icon', html: svg, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
     }
+
+    // Aperçu des épicentres (séismes EMSC dans M-Alert-sender), indépendant des alertes en cours.
+    const previewGroup = L.layerGroup().addTo(map);
 
     function renderEpicenters(alerts) {
       epicenterGroup.clearLayers();
@@ -241,6 +244,24 @@
       setDraftEpicenter(epicenter, level) {
         if (draftMarker) draftMarker.remove();
         draftMarker = epicenter ? L.marker([epicenter.lat, epicenter.lon], { icon: crossIcon(level, true), pane: 'epicenter', interactive: false, keyboard: false }).addTo(map) : null;
+      },
+
+      /**
+       * Aperçu d'épicentres : [{ id, lat, lon, level, label }] en croix pointillées ; celui dont
+       * l'id vaut selected est agrandi avec son info-bulle ouverte. onClick(id) au clic.
+       */
+      setPreviewEpicenters(list, { selected, onClick } = {}) {
+        previewGroup.clearLayers();
+        const sorted = [...(list || [])].sort((a, b) => (a.id === selected) - (b.id === selected) || (a.level || 0) - (b.level || 0));
+        for (const q of sorted) {
+          const big = q.id === selected;
+          const marker = L.marker([q.lat, q.lon], {
+            icon: crossIcon(q.level, true, big ? 34 : 22), pane: 'epicenter', keyboard: false, zIndexOffset: big ? 1000 : 0,
+          });
+          if (q.label) marker.bindTooltip(q.label, { direction: 'top', offset: [0, big ? -16 : -10], permanent: big, className: 'epi-tip' });
+          if (onClick) marker.on('click', () => onClick(q.id));
+          previewGroup.addLayer(marker);
+        }
       },
 
       /** Code du département contenant ce point, ou null (en mer, hors de France). */
