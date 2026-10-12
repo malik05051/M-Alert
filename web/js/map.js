@@ -153,6 +153,22 @@
       }
     }
 
+    // Stations sismiques (détection dans M-Alert-sender) : points colorés selon le signal, comme
+    // GlobalQuake ; dessinés sur un canvas (plusieurs centaines de points mis à jour chaque seconde).
+    const stationPane = map.createPane('stations');
+    stationPane.style.zIndex = 465;
+    stationPane.style.pointerEvents = 'none';
+    const stationRenderer = L.canvas({ pane: 'stations', padding: 0.2 });
+    const stationGroup = L.layerGroup().addTo(map);
+    const stationMarkers = new Map();
+
+    function stationStyle(s) {
+      if (!s.live) return { color: '#1e293b', fillColor: '#64748b', fillOpacity: 0.45, weight: 1 };
+      if (s.triggered) return { color: '#ffffff', fillColor: '#ef4444', fillOpacity: 1, weight: 1.5 };
+      const fill = s.ratio >= 3 ? '#eab308' : s.ratio >= 2 ? '#22c55e' : '#3b82f6';
+      return { color: '#0b1220', fillColor: fill, fillOpacity: 0.9, weight: 1 };
+    }
+
     // Épicentres des tremblements de terre : croix de la couleur du niveau (comme JQuake).
     const epicenterPane = map.createPane('epicenter');
     epicenterPane.style.zIndex = 640; // au-dessus des contours, sous les info-bulles (650)
@@ -293,6 +309,27 @@
       setVigilance(departments) {
         state.vigilance = departments || {};
         refreshAll();
+      },
+
+      /** Stations sismiques [{ key, lat, lon, ratio, triggered, live }] ; null ou [] pour les retirer. */
+      setStations(list) {
+        const seen = new Set();
+        for (const s of list || []) {
+          seen.add(s.key);
+          let m = stationMarkers.get(s.key);
+          if (!m) {
+            m = L.circleMarker([s.lat, s.lon], { renderer: stationRenderer, interactive: false, radius: 3.5 });
+            stationGroup.addLayer(m);
+            stationMarkers.set(s.key, m);
+          }
+          m.setStyle(stationStyle(s));
+          m.setRadius(s.triggered ? 6 : 3.5);
+        }
+        for (const [key, m] of stationMarkers) {
+          if (seen.has(key)) continue;
+          stationGroup.removeLayer(m);
+          stationMarkers.delete(key);
+        }
       },
 
       setAlerts(alerts) {

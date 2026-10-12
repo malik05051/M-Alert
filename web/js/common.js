@@ -142,6 +142,8 @@
   function sourceLabel(alert) {
     if (alert && alert.source === 'auto') return '🤖 Alerte automatique (EMSC)';
     if (alert && alert.source === 'emsc') return '✅ Alerte EMSC validée par M-Alert';
+    if (alert && alert.source === 'stations-auto') return '📶 Alerte automatique (détection par les stations sismiques)';
+    if (alert && alert.source === 'stations') return '📶 Détection par les stations, validée par M-Alert';
     return '✍️ Alerte manuelle';
   }
 

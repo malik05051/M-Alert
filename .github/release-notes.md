@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.9.0
+- **Détection des séismes par les stations** (expérimental), comme GlobalQuake : M-Alert peut signaler un séisme français en une vingtaine de secondes, directement à partir des stations sismiques d'Epos-France, sans attendre l'EMSC (plusieurs minutes). Avec le compte à rebours des ondes P et S, vous pouvez être prévenu quelques secondes avant l'onde S si vous êtes assez loin de l'épicentre. Magnitude et position sont des estimations provisoires, remplacées par celles de l'EMSC dès sa publication.
+- Ces alertes portent la mention « 📶 Détection par les stations ».
+
 ## Nouveautés de la 1.8.2
 - **Côtes clignotantes** comme dans JQuake : pour un tsunami ou des vagues-submersion, le trait des côtes touchées clignote (2 s allumé, 0,75 s éteint), avec un liseré sombre pour mieux ressortir sur la carte. Pas de clignotement si le système demande de réduire les animations.
 
