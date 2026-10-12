@@ -1,5 +1,10 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.9.1
+- **Départements ajoutés qui clignotent** : quand un département est ajouté à une alerte en cours (séisme qui se précise, alerte étendue…), il clignote quelques secondes sur la carte, comme dans les alertes précoces japonaises.
+- **Magnitude révisée** : pendant une alerte séisme automatique, la magnitude suit les révisions, à la hausse comme à la baisse (même sous le seuil « Faible »).
+- **Tsunami calculé** : un séisme en mer signalé par M-Alert peut déclencher une alerte tsunami calculée automatiquement (mention « 🧮 Tsunami calculé automatiquement »).
+
 ## Nouveautés de la 1.9.0
 - **Détection des séismes par les stations** (expérimental), comme GlobalQuake : M-Alert peut signaler un séisme français en une vingtaine de secondes, directement à partir des stations sismiques d'Epos-France, sans attendre l'EMSC (plusieurs minutes). Avec le compte à rebours des ondes P et S, vous pouvez être prévenu quelques secondes avant l'onde S si vous êtes assez loin de l'épicentre. Magnitude et position sont des estimations provisoires, remplacées par celles de l'EMSC dès sa publication.
 - Ces alertes portent la mention « 📶 Détection par les stations ».

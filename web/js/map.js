@@ -153,6 +153,33 @@
       }
     }
 
+    // Départements ajoutés à une alerte déjà en cours : ils clignotent quelques secondes (comme les
+    // alertes précoces japonaises), les autres restent fixes.
+    const knownDeps = new Map(); // id d'alerte -> départements déjà affichés
+    const blinkTimers = new Map(); // code -> minuterie de fin du clignotement
+    function blinkAdded(alerts) {
+      const live = new Set();
+      for (const a of alerts) {
+        live.add(a.id);
+        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
+        const codes = a.departments.includes('ALL') ? Object.keys(layers) : a.departments;
+        const before = knownDeps.get(a.id);
+        knownDeps.set(a.id, new Set(codes));
+        if (!before || coastal) continue; // nouvelle alerte : pas de clignotement
+        for (const code of codes) {
+          if (before.has(code) || !layers[code]) continue;
+          const el = layers[code].getElement && layers[code].getElement();
+          if (!el) continue;
+          el.classList.remove('dep-added');
+          void el.getBoundingClientRect(); // relance l'animation si le département clignotait déjà
+          el.classList.add('dep-added');
+          clearTimeout(blinkTimers.get(code));
+          blinkTimers.set(code, setTimeout(() => { el.classList.remove('dep-added'); blinkTimers.delete(code); }, 5200));
+        }
+      }
+      for (const id of [...knownDeps.keys()]) if (!live.has(id)) knownDeps.delete(id);
+    }
+
     // Stations sismiques (détection dans M-Alert-sender) : points colorés selon le signal, comme
     // GlobalQuake ; dessinés sur un canvas (plusieurs centaines de points mis à jour chaque seconde).
     const stationPane = map.createPane('stations');
@@ -348,6 +375,7 @@
           for (const c of codes) target[c] = Math.max(target[c] || 0, a.level);
         }
         state.alertLevels = levels;
+        blinkAdded(alerts || []);
         refreshAll();
         renderTsunami(tsunami);
         renderEpicenters((alerts || []).filter((a) => a.epicenter));

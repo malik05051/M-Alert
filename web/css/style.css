@@ -311,3 +311,8 @@ input[type="range"] { accent-color: var(--accent); }
 .leaflet-pane.coast-blink { animation: coast-blink 2.75s step-end infinite; }
 @keyframes coast-blink { 0% { opacity: 1; } 72.7% { opacity: 0; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .leaflet-pane.coast-blink { animation: none; } }
+
+/* Département ajouté à une alerte en cours : 5 clignotements (0,5 s allumé, 0,5 s éteint). */
+.leaflet-interactive.dep-added { animation: dep-added 1s step-end 5; }
+@keyframes dep-added { 50% { fill-opacity: 0.08; } }
+@media (prefers-reduced-motion: reduce) { .leaflet-interactive.dep-added { animation: none; } }
