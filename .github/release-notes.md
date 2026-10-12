@@ -1,5 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.8.2
+- **Côtes clignotantes** comme dans JQuake : pour un tsunami ou des vagues-submersion, le trait des côtes touchées clignote (2 s allumé, 0,75 s éteint), avec un liseré sombre pour mieux ressortir sur la carte. Pas de clignotement si le système demande de réduire les animations.
+
 ## Nouveautés de la 1.8.1
 - **Tsunami** : une alerte tsunami corrigée par M-Alert (niveau, arrivée ou hauteur des vagues sur une côte) n'est plus écrasée par les mises à jour automatiques du séisme.
 - **Séisme et tsunami séparés** : un fort séisme en mer a désormais sa propre alerte séisme, envoyée tout de suite aux départements où il est ressenti, en plus de l'éventuelle alerte tsunami. L'attente de 3 minutes ne concerne que les alertes tsunami automatiques, jamais les séismes.

@@ -123,10 +123,12 @@
     ro.observe(document.getElementById(elementId));
 
     // Alertes tsunami et vagues-submersion : trait épais de la couleur du niveau le long des côtes touchées (comme
-    // JQuake), au-dessus de tout le reste. Les départements sans côte ne sont pas tracés.
+    // JQuake), au-dessus de tout le reste, qui clignote (2 s allumé, 0,75 s éteint : classe coast-blink).
+    // Les départements sans côte ne sont pas tracés.
     const tsunamiPane = map.createPane('tsunami');
     tsunamiPane.style.zIndex = 470;
     tsunamiPane.style.pointerEvents = 'none';
+    tsunamiPane.classList.add('coast-blink');
     const tsunamiRenderer = L.svg({ pane: 'tsunami', padding: 0.5 });
     const tsunamiGroup = L.layerGroup().addTo(map);
     let tsunamiKey = '';
@@ -138,6 +140,12 @@
       if (key === tsunamiKey) return;
       tsunamiKey = key;
       tsunamiGroup.clearLayers();
+      // Liseré sombre sous les traits (comme JQuake), pour qu'ils ressortent sur la carte.
+      for (const c of codes) {
+        tsunamiGroup.addLayer(L.polyline(coasts[c], {
+          renderer: tsunamiRenderer, interactive: false, color: '#05070d', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
+        }));
+      }
       for (const c of codes) { // niveaux croissants : le plus grave est tracé par-dessus
         tsunamiGroup.addLayer(L.polyline(coasts[c], {
           renderer: tsunamiRenderer, interactive: false, color: LEVELS[levels[c]].color, weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
