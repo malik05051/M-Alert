@@ -40,6 +40,9 @@
       selected: new Set(),
     };
     const layers = {};    // code -> layer
+    const blinking = new Map(); // départements ajoutés qui clignotent : code -> fin (ms)
+    const blinkPhaseOff = () => Math.floor(Date.now() / 500) % 2 === 1;
+    const reducedMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     function styleFor(code) {
       const vig = state.vigilance[code];
@@ -61,7 +64,9 @@
       // Alerte M-Alert en cours : tout le département prend la couleur du niveau d'alerte, avec la
       // même luminosité et la même frontière noire que les autres départements.
       const alertLevel = state.alertLevels[code];
-      if (alertLevel) {
+      // Département ajouté à l'alerte : phase « éteinte » du clignotement, couleur habituelle.
+      const blinkOff = blinking.has(code) && blinkPhaseOff();
+      if (alertLevel && !blinkOff) {
         style.fillColor = LEVELS[alertLevel].color;
         style.color = '#0b1220';
         style.weight = 1.1;
@@ -153,12 +158,15 @@
       }
     }
 
-    // Départements ajoutés à une alerte déjà en cours : ils clignotent quelques secondes (comme les
-    // alertes précoces japonaises), les autres restent fixes.
+    // Départements ajoutés à une alerte déjà en cours : ils clignotent 5 s (0,5 s couleur de
+    // l'alerte, 0,5 s couleur habituelle), tous ensemble sur la même horloge, comme les alertes
+    // précoces japonaises ; les autres restent fixes.
     const knownDeps = new Map(); // id d'alerte -> départements déjà affichés
-    const blinkTimers = new Map(); // code -> minuterie de fin du clignotement
+    const blinkTimer = { id: null };
     function blinkAdded(alerts) {
       const live = new Set();
+      const now = Date.now();
+      let added = false;
       for (const a of alerts) {
         live.add(a.id);
         const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
@@ -167,17 +175,24 @@
         knownDeps.set(a.id, new Set(codes));
         if (!before || coastal) continue; // nouvelle alerte : pas de clignotement
         for (const code of codes) {
-          if (before.has(code) || !layers[code]) continue;
-          const el = layers[code].getElement && layers[code].getElement();
-          if (!el) continue;
-          el.classList.remove('dep-added');
-          void el.getBoundingClientRect(); // relance l'animation si le département clignotait déjà
-          el.classList.add('dep-added');
-          clearTimeout(blinkTimers.get(code));
-          blinkTimers.set(code, setTimeout(() => { el.classList.remove('dep-added'); blinkTimers.delete(code); }, 5200));
+          if (before.has(code) || !layers[code] || reducedMotion()) continue;
+          blinking.set(code, 0);
+          added = true;
         }
       }
+      if (added) {
+        // Fin commune, sur une seconde ronde (phase allumée) : tous s'arrêtent ensemble.
+        const end = Math.ceil((now + 5000) / 1000) * 1000;
+        for (const code of blinking.keys()) blinking.set(code, Math.max(end, blinking.get(code)));
+      }
       for (const id of [...knownDeps.keys()]) if (!live.has(id)) knownDeps.delete(id);
+      if (added && !blinkTimer.id) blinkTick();
+    }
+    function blinkTick() {
+      const now = Date.now();
+      for (const [code, until] of [...blinking]) if (now >= until) blinking.delete(code);
+      for (const code of Object.keys(layers)) if (state.alertLevels[code] || blinking.has(code)) refreshLayer(code);
+      blinkTimer.id = blinking.size ? setTimeout(blinkTick, 500 - (now % 500) + 5) : null;
     }
 
     // Stations sismiques (détection dans M-Alert-sender) : points colorés selon le signal, comme
