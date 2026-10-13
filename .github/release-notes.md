@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.0.1
+- **M-Alert-sender** : les stations sismiques s'affichent sur la carte même quand la détection tourne sur la VM (détecteur distant) : elles passent au rouge quand elles se déclenchent, avec quelques secondes de décalage (5 s au plus pendant un séisme).
+- **M-Alert-sender** : chaque séisme de l'onglet 📡 indique sa source : 📶 Stations, 📶 Stations + EMSC, 🌐 EMSC (avec l'agence), 🧪 Simulation ou ✍️ Saisi.
+
 ## Nouveautés de la 2.0.0
 - **Nouveaux phénomènes** : 🔥 **Incendie**, avec trois niveaux seulement (Avis, Avertissement, Avertissement majeur) et le **type de feu** (feu de forêt, de végétation / broussailles, agricole, d'habitation, urbain / immeuble, industriel / entrepôt), et 💧 **Inondation**.
 - **Consignes types pour tous les phénomènes** (tornade, incendie selon le type de feu, inondation…), affichées dès le niveau jaune (Avis) quand l'alerte n'a pas de consignes écrites.
