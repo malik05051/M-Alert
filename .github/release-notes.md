@@ -1,5 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 1.9.2
+- **Clignotement des départements ajoutés** corrigé : tous les départements ajoutés clignotent en même temps (plus de décalage entre eux) et reprennent leur couleur habituelle (vigilance) en phase éteinte, puis restent fixes à la couleur de l'alerte.
+
 ## Nouveautés de la 1.9.1
 - **Départements ajoutés qui clignotent** : quand un département est ajouté à une alerte en cours (séisme qui se précise, alerte étendue…), il clignote quelques secondes sur la carte, comme dans les alertes précoces japonaises.
 - **Magnitude révisée** : pendant une alerte séisme automatique, la magnitude suit les révisions, à la hausse comme à la baisse (même sous le seuil « Faible »).
