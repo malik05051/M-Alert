@@ -251,6 +251,10 @@
     wavePane.style.pointerEvents = 'none';
     const waves = new Map(); // id -> { lat, lon, depth, t0, p, s }
     let waveTimer = null;
+    // Une seule surface de dessin (canvas) pour toutes les ondes, réutilisée à chaque révision du
+    // séisme : recréer un rendu SVG par révision les accumulait et ralentissait l'application.
+    const waveRenderer = L.canvas({ pane: 'waves', padding: 0.1 });
+    const appHidden = () => document.hidden || document.documentElement.classList.contains('app-hidden');
 
     /** Rayon (km) en surface du front d'onde de vitesse v, t secondes après le séisme. */
     function frontKm(v, t, depth) {
@@ -258,19 +262,32 @@
       return d > depth ? Math.sqrt(d * d - depth * depth) : 0;
     }
 
+    /** Distance (km) de l'épicentre au coin le plus éloigné de la carte affichée. */
+    function farthestVisibleKm(lat, lon) {
+      const b = map.getBounds();
+      const c = L.latLng(lat, lon);
+      return Math.max(...[b.getNorthWest(), b.getNorthEast(), b.getSouthWest(), b.getSouthEast()].map((p) => c.distanceTo(p) / 1000));
+    }
+
     function drawWaves() {
+      if (appHidden()) return; // fenêtre cachée : rien à dessiner
       const now = Date.now();
       for (const [id, w] of waves) {
         const t = (now - w.t0) / 1000;
         if (t < 0) continue;
         const sKm = frontKm(VS, t, w.depth);
-        if (sKm > WAVE_MAX_KM) {
+        // Onde S au-delà de WAVE_MAX_KM ou de toute la carte affichée : plus rien à montrer.
+        if (sKm > WAVE_MAX_KM || sKm > farthestVisibleKm(w.lat, w.lon)) {
           w.p.remove();
           w.s.remove();
           waves.delete(id);
           continue;
         }
-        w.p.setRadius(Math.max(1, frontKm(VP, t, w.depth) * 1000));
+        const pKm = frontKm(VP, t, w.depth);
+        // Onde P sortie de la carte : on ne la redessine plus.
+        if (!w.pOut) {
+          if (pKm > farthestVisibleKm(w.lat, w.lon)) { w.p.remove(); w.pOut = true; } else w.p.setRadius(Math.max(1, pKm * 1000));
+        }
         w.s.setRadius(Math.max(1, sKm * 1000));
       }
       if (!waves.size) {
@@ -287,19 +304,23 @@
         if (!Number.isFinite(t0) || frontKm(VS, (Date.now() - t0) / 1000, q.depth || 0) > WAVE_MAX_KM) continue;
         keep.add(q.id);
         const old = waves.get(q.id);
-        if (old && old.t0 === t0 && old.lat === q.lat && old.lon === q.lon) continue;
-        if (old) { old.p.remove(); old.s.remove(); }
-        const renderer = L.svg({ pane: 'waves' });
+        if (old) {
+          // Révision du séisme : mêmes cercles, déplacés (pas de nouveau calque).
+          if (old.lat !== q.lat || old.lon !== q.lon) { old.p.setLatLng([q.lat, q.lon]); old.s.setLatLng([q.lat, q.lon]); }
+          Object.assign(old, { lat: q.lat, lon: q.lon, depth: q.depth || 0, t0 });
+          continue;
+        }
         waves.set(q.id, {
-          lat: q.lat, lon: q.lon, depth: q.depth || 0, t0,
-          p: L.circle([q.lat, q.lon], { radius: 1, pane: 'waves', renderer, interactive: false, color: '#60a5fa', weight: 2, opacity: 0.9, fill: false }).addTo(map),
-          s: L.circle([q.lat, q.lon], { radius: 1, pane: 'waves', renderer, interactive: false, color: '#f43f5e', weight: 3, opacity: 0.95, fillColor: '#f43f5e', fillOpacity: 0.08 }).addTo(map),
+          lat: q.lat, lon: q.lon, depth: q.depth || 0, t0, pOut: false,
+          p: L.circle([q.lat, q.lon], { radius: 1, renderer: waveRenderer, interactive: false, color: '#60a5fa', weight: 2, opacity: 0.9, fill: false }).addTo(map),
+          s: L.circle([q.lat, q.lon], { radius: 1, renderer: waveRenderer, interactive: false, color: '#f43f5e', weight: 3, opacity: 0.95, fillColor: '#f43f5e', fillOpacity: 0.08 }).addTo(map),
         });
       }
       for (const [id, w] of waves) {
         if (!keep.has(id)) { w.p.remove(); w.s.remove(); waves.delete(id); }
       }
       drawWaves();
+      // 10 images par seconde suffisent pour un front qui avance de quelques km par seconde.
       if (waves.size && !waveTimer) waveTimer = setInterval(drawWaves, 100);
     }
 

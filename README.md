@@ -28,6 +28,8 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 - La vigilance peut être **corrigée ou saisie à la main** depuis M-Alert-sender, que l'API Météo-France fonctionne ou soit en panne : badges « Vigilance corrigée » / « Vigilance manuelle » et mention « ✎ corrigé par M-Alert » sur les départements concernés.
 - **Catégories d'alertes** : 🌦️ Météo, 🏚️ Tremblement de terre, 🌊 Tsunami, 🌫️ Pollution, 🏭 Accident industriel, 📢 Grève, 🚧 Blocus / manifestation, chacune avec ses consignes. Chaque catégorie peut être désactivée dans les réglages.
 - **Tornade** : niveau sur l'échelle **EF0 à EF5** (EF0 jaune, EF1 orange, EF2 rouge, EF3 à EF5 majeure) et vent attendu.
+- **Incendie** 🔥 : trois niveaux (Avis, Avertissement, Avertissement majeur) et type de feu (feu de forêt, de végétation, agricole, d'habitation, urbain, industriel…), avec des consignes adaptées au type. **Inondation** 💧 : phénomène à part (son des crues et tsunamis).
+- **Consignes types** pour tous les phénomènes et catégories, affichées dès le niveau jaune (Avis) quand M-Alert n'en a pas écrit.
 - **Blocus / manifestation** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose).
 - **Filtre par phénomène** : liste « Alertes en cours » filtrable par catégorie ou par phénomène météo.
 - **Réglages** : département principal, autres départements suivis, catégories d'alertes et phénomènes météo reçus, alertes de toute la France, niveau minimum, son et volume (général et par type d'alerte, avec écoute), notifications, notifications de M-Alert, notifications push, fond de carte détaillé, lancement au démarrage, adresse du serveur.

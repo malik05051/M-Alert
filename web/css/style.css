@@ -308,7 +308,7 @@ input[type="range"] { accent-color: var(--accent); }
 }
 
 /* Côtes en alerte tsunami ou vagues-submersion : clignotement franc comme JQuake (2 s allumées, 0,75 s éteintes). */
-.leaflet-pane.coast-blink { animation: coast-blink 2.75s step-end infinite; }
+.leaflet-pane.coast-blink { animation: coast-blink 2.75s step-end infinite; will-change: opacity; }
 @keyframes coast-blink { 0% { opacity: 1; } 72.7% { opacity: 0; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .leaflet-pane.coast-blink { animation: none; } }
 

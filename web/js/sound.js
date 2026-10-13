@@ -96,7 +96,7 @@
   }
 
   // Phénomènes météo liés à l'eau : pluie-inondation (2), crues (4), vagues-submersion (9).
-  const WATER_PHENOMENA = [2, 4, 9];
+  const WATER_PHENOMENA = [2, 4, 9, 12]; // pluie-inondation, crues, vagues-submersion, inondation
 
   // Sons des tremblements de terre (EEW, Earthquake Early Warning), choisis par M-Alert pour chaque alerte.
   const QUAKE_SOUNDS = { eew: 'seisme-eew', eew2: 'seisme-eew2', leger: 'seisme-leger' };

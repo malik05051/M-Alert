@@ -323,7 +323,7 @@
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
-      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
+      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${a.source === 'auto' ? ' · 🤖 automatique' : a.source === 'stations-auto' ? ' · 📶 détection automatique' : a.source === 'stations' ? ' · 📶 détection' : ''}</div>
     </div>`;
   }
@@ -439,6 +439,7 @@
       if (onClick) onClick();
     });
     $('toasts').appendChild(el);
+    while ($('toasts').children.length > 4) $('toasts').firstElementChild.remove(); // pas d'accumulation
     setTimeout(() => el.remove(), duration);
   }
 
@@ -595,6 +596,7 @@
     stopWaveCountdown();
     waveMuted = Boolean(silent);
     let lastBeep = null;
+    let lastHtml = '';
     const home = settings.department && map.departmentCenter(settings.department);
     if (alert.category !== 'seisme' || !alert.epicenter || !home) return;
     const arrival = map.waveArrival(alert.epicenter, alert.depth, home.lat, home.lon);
@@ -614,7 +616,8 @@
           if (settings.sound && !waveMuted) window.MAlertSound.oneShot('countdown', settings.volume);
         }
       }
-      el.innerHTML = `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · ${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
+      const html = `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · ${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
+      if (html !== lastHtml) { el.innerHTML = html; lastHtml = html; } // le DOM ne change qu'une fois par seconde
       // Onde S arrivée : plus de bips, le bouton « Couper aussi le son du compte à rebours » disparaît.
       if (t >= arrival.s && $('ovMute').dataset.stage === 'countdown') $('ovMute').classList.add('hidden');
       if (t - arrival.s > 3600) stopWaveCountdown(); // plus d'une heure après : inutile de continuer
@@ -717,6 +720,8 @@
       quake.push(`<span class="shindo" style="background:${lv.color};color:${lv.text}" title="Échelle de Fujita améliorée">EF${alert.ef}</span>`);
       if (typeof alert.windKmh === 'number') quake.push(`<span>Vent attendu : <b>${alert.windKmh} km/h</b></span>`);
     }
+    // Incendie : type de feu.
+    if (M.fireSummary(alert)) quake.push(`<span>${escapeHtml(M.fireSummary(alert))}</span>`);
     $('ovEpi').classList.toggle('hidden', !quake.length);
     $('ovEpi').innerHTML = quake.join(' ');
     $('ovDesc').textContent = alert.description;

@@ -14,6 +14,25 @@
     8: { name: 'Avalanches', icon: '🏔️' },
     9: { name: 'Vagues-submersion', icon: '🌊' },
     10: { name: 'Tornade', icon: '🌪️' }, // M-Alert seulement (pas une vigilance Météo-France)
+    11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
+    12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
+  };
+
+  // Types d'incendie (phénomène 11) : consignes adaptées au type de feu.
+  const FIRE_PHENOMENON = 11;
+  const FIRE_TYPES = {
+    foret: { name: 'Feu de forêt', icon: '🌲', advice: 'outdoor' },
+    vegetation: { name: 'Feu de végétation / broussailles', icon: '🌾', advice: 'outdoor' },
+    agricole: { name: 'Feu agricole (cultures, chaumes)', icon: '🚜', advice: 'outdoor' },
+    habitation: { name: 'Incendie d\'habitation', icon: '🏠', advice: 'building' },
+    urbain: { name: 'Incendie urbain / immeuble', icon: '🏢', advice: 'building' },
+    industriel: { name: 'Incendie industriel / entrepôt', icon: '🏭', advice: 'smoke' },
+    autre: { name: 'Autre incendie', icon: '🔥', advice: 'outdoor' },
+  };
+  const FIRE_ADVICE = {
+    outdoor: 'Témoin d\'un départ de feu : appelez le 18 ou le 112 (114 par SMS) en localisant le feu, puis éloignez-vous sans tenter de l\'éteindre. Menacé par le feu : abritez-vous dans un bâtiment en dur (la voiture n\'est pas un abri), fermez volets, portes et fenêtres, bouchez les aérations avec des linges mouillés et laissez le portail ouvert pour les secours. Couvrez-vous le nez et la bouche d\'un linge humide. N\'évacuez que sur ordre des pompiers ou des forces de l\'ordre.',
+    building: 'Appelez le 18 ou le 112 (114 par SMS). Si le feu est chez vous, sortez immédiatement en fermant les portes derrière vous, sans prendre l\'ascenseur. Si les fumées bloquent l\'escalier, restez chez vous porte fermée, calfeutrée avec des linges mouillés, et signalez-vous à la fenêtre. Dans la fumée, baissez-vous : l\'air frais est près du sol. Éloignez-vous du secteur pour laisser passer les secours.',
+    smoke: 'Mettez-vous à l\'abri dans un bâtiment en dur, fermez portes et fenêtres, arrêtez ventilation et climatisation : les fumées peuvent être toxiques. Ne restez pas sous le panache de fumée. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Éloignez-vous du site seulement si les autorités le demandent.',
   };
 
   // Catégories d'alertes M-Alert. Le phénomène ne concerne que la catégorie « meteo ».
@@ -69,6 +88,9 @@
     7: 'Évitez les expositions prolongées au froid. Habillez-vous chaudement en plusieurs couches. Ne surchauffez pas, aérez votre logement. Signalez les personnes sans abri au 115.',
     8: 'Renoncez aux sorties hors des pistes balisées. Respectez les consignes des stations et des autorités.',
     9: 'Tenez-vous éloignés des côtes et des estuaires. Ne vous promenez pas en bord de mer. Mettez vos biens à l\'abri des submersions.',
+    10: 'Abritez-vous immédiatement dans un bâtiment solide : au sous-sol ou, à défaut, dans une petite pièce sans fenêtre au centre et au niveau le plus bas (salle de bain, couloir, placard). Protégez votre tête et votre cou, éloignez-vous des fenêtres et n\'ouvrez pas les fenêtres. Ne restez ni en voiture, ni sous un pont, ni dans un mobil-home ou un bâtiment à grand toit.',
+    11: FIRE_ADVICE.outdoor,
+    12: 'Ne vous engagez jamais à pied ou en voiture dans une zone inondée : 30 cm d\'eau suffisent à emporter une voiture. Réfugiez-vous en hauteur, à l\'étage, avec de l\'eau, une lampe, une radio et vos médicaments. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Coupez le gaz et l\'électricité si l\'eau monte et n\'évacuez que sur ordre des autorités.',
   };
 
   /** « Information », « Alerte rouge », « ALERTE MAJEURE »… */
@@ -85,6 +107,12 @@
       2: { label: 'Avis de blocus / manifestation', name: 'Avis' },
       4: { label: 'Avertissement blocus / manifestation', name: 'Avertissement' },
       5: { label: 'Avertissement majeur blocus / manifestation', name: 'Avertissement majeur' },
+    },
+    // Incendie (phénomène météo 11) : trois niveaux, comme le tsunami.
+    incendie: {
+      2: { label: 'Avis d\'incendie', name: 'Avis' },
+      4: { label: 'Avertissement d\'incendie', name: 'Avertissement' },
+      5: { label: 'Avertissement majeur d\'incendie', name: 'Avertissement majeur' },
     },
     // Tremblement de terre : quatre niveaux.
     seisme: {
@@ -164,9 +192,16 @@
     return short ? `jusqu'à ${formatTime(alert.expiresAt)}` : `jusqu'au ${formatDateTime(alert.expiresAt)}`;
   }
 
-  /** Niveaux propres à la catégorie de l'alerte (tsunami, séisme), ou null. */
+  /** Clé des niveaux propres d'une alerte : sa catégorie (tsunami, séisme…) ou « incendie ». */
+  function levelsKey(alert) {
+    if (!alert) return null;
+    if ((alert.category || 'meteo') === 'meteo') return Number(alert.phenomenon) === FIRE_PHENOMENON ? 'incendie' : null;
+    return alert.category;
+  }
+
+  /** Niveaux propres à l'alerte (tsunami, séisme, incendie…), ou null. */
   function specialLevel(alert) {
-    const levels = alert && CATEGORY_LEVELS[alert.category];
+    const levels = alert && CATEGORY_LEVELS[levelsKey(alert)];
     return (levels && levels[alert.level]) || null;
   }
 
@@ -187,6 +222,13 @@
   function tornadoSummary(alert) {
     if (!isTornado(alert)) return '';
     return `EF${alert.ef}${typeof alert.windKmh === 'number' ? ` · vent attendu ${alert.windKmh} km/h` : ''}`;
+  }
+
+  /** « Feu de forêt » pour un incendie dont le type est indiqué (vide sinon). */
+  function fireSummary(alert) {
+    if (!alert || (alert.category || 'meteo') !== 'meteo' || Number(alert.phenomenon) !== FIRE_PHENOMENON) return '';
+    const t = FIRE_TYPES[alert.fireType];
+    return t ? `${t.icon} ${t.name}` : '';
   }
 
   /** Intitulé complet du niveau d'une alerte : « Alerte rouge », « Avertissement de tsunami »… */
@@ -220,12 +262,14 @@
     return PHENOMENA[alert.phenomenon] || PHENOMENA[0];
   }
 
-  /** Consignes : celles saisies, sinon les consignes types pour l'orange et le rouge. */
+  /** Consignes : celles saisies, sinon les consignes types (dès le jaune / l'avis ; pas pour une information). */
   function adviceFor(alert) {
     if (alert.instructions) return alert.instructions;
-    if (alert.level < 3) return '';
+    if (alert.level < 2) return '';
     const cat = categoryOf(alert);
-    return cat === 'meteo' ? ADVICE[alert.phenomenon] || '' : CATEGORY_ADVICE[cat] || '';
+    if (cat !== 'meteo') return CATEGORY_ADVICE[cat] || '';
+    if (Number(alert.phenomenon) === FIRE_PHENOMENON && FIRE_TYPES[alert.fireType]) return FIRE_ADVICE[FIRE_TYPES[alert.fireType].advice];
+    return ADVICE[alert.phenomenon] || '';
   }
 
   function escapeHtml(s) {
@@ -337,7 +381,8 @@
 
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
-    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,
