@@ -166,14 +166,30 @@
     return heights.length ? `vagues jusqu'à ${Math.max(...heights).toLocaleString('fr-FR')} m` : '';
   }
 
-  /** Mention de l'origine d'une alerte : automatique (règles EMSC), EMSC validée, ou manuelle. */
+  // Origine d'une alerte : envoi (automatique ou validé par M-Alert) et source du séisme.
+  // label : mention complète (fenêtre d'alerte) ; short : mention courte (listes).
+  const SOURCES = {
+    auto: { label: '🤖 Alerte automatique · source : EMSC', short: '🤖 automatique (EMSC)' },
+    emsc: { label: '✅ Source : EMSC · alerte validée par M-Alert', short: '✅ EMSC' },
+    'stations-auto': { label: '🤖 Alerte automatique · source : stations sismiques (détection M-Alert)', short: '📶 automatique (stations)' },
+    stations: { label: '📶 Source : stations sismiques (détection M-Alert) · alerte validée par M-Alert', short: '📶 stations' },
+    'stations-auto-emsc': { label: '🤖 Alerte automatique · source : stations sismiques, confirmée par l\'EMSC', short: '📶 automatique (stations + EMSC)' },
+    'stations-emsc': { label: '📶 Source : stations sismiques, confirmée par l\'EMSC · alerte validée par M-Alert', short: '📶 stations + EMSC' },
+    'simulation-auto': { label: '🤖 Alerte automatique · source : séisme simulé (test des règles)', short: '🧪 automatique (simulation)' },
+    simulation: { label: '🧪 Source : séisme simulé (test des règles) · alerte validée par M-Alert', short: '🧪 simulation' },
+    calc: { label: '🧮 Tsunami calculé automatiquement (séisme signalé par M-Alert)', short: '🧮 calculé' },
+  };
+
+  /** Mention de l'origine d'une alerte (source du séisme, envoi automatique ou validé), sinon manuelle. */
   function sourceLabel(alert) {
-    if (alert && alert.source === 'auto') return '🤖 Alerte automatique (EMSC)';
-    if (alert && alert.source === 'emsc') return '✅ Alerte EMSC validée par M-Alert';
-    if (alert && alert.source === 'calc') return '🧮 Tsunami calculé automatiquement (séisme signalé par M-Alert)';
-    if (alert && alert.source === 'stations-auto') return '📶 Alerte automatique (détection par les stations sismiques)';
-    if (alert && alert.source === 'stations') return '📶 Détection par les stations, validée par M-Alert';
-    return '✍️ Alerte manuelle';
+    const s = alert && SOURCES[alert.source];
+    return s ? s.label : '✍️ Alerte manuelle';
+  }
+
+  /** Mention courte de l'origine, pour les listes (vide pour une alerte manuelle). */
+  function sourceShort(alert) {
+    const s = alert && SOURCES[alert.source];
+    return s ? s.short : '';
   }
 
   function quakeSummary(alert) {
@@ -381,7 +397,7 @@
 
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
-    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
     FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
