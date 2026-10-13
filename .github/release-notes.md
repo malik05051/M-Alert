@@ -5,6 +5,7 @@ Alertes météo en temps réel par département, avec la carte de vigilance Mét
 - **Consignes types pour tous les phénomènes** (tornade, incendie selon le type de feu, inondation…), affichées dès le niveau jaune (Avis) quand l'alerte n'a pas de consignes écrites.
 - **Plus de ralentissement pendant un séisme** : les ondes P et S sont dessinées sur un seul calque réutilisé à chaque révision du séisme (avant, chaque révision ajoutait un calque qui n'était jamais retiré et l'application, puis le PC, ralentissaient), elles s'arrêtent une fois sorties de la carte et ne sont plus dessinées quand la fenêtre est cachée. Les notifications à l'écran sont limitées à 4.
 - **Tsunami mieux calculé** : niveau de chaque côte dégressif avec la distance à l'épicentre (selon la magnitude) et heure d'arrivée plus réaliste (ralentissement près des côtes, « Arrivée imminente » pour les côtes les plus proches).
+- **Séismes (M-Alert-sender)** : les petits séismes en mer loin des côtes (détroit de Gibraltar…) ne s'affichent plus dans 📡 ; un séisme hors de France n'est gardé que s'il peut être ressenti en France ou provoquer un tsunami.
 - **Détection par stations** : fausses alarmes réduites (stations trop bruyantes ignorées, seuil relevé pour les accéléromètres) ; la détection tourne d'abord sur la VM de M-Alert, 24 h/24.
 
 ## Nouveautés de la 1.9.2
