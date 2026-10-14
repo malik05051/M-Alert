@@ -1,5 +1,10 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.0.3
+- **Petits séismes détectés par les stations** : la magnitude est maintenant la magnitude locale (comme les réseaux sismiques), calculée sur le déplacement du sol ; l'ancienne formule, faite pour les forts séismes, estimait M0 un séisme M2,3 et le faisait ignorer. Vérifié sur le séisme de M2,3 des Pyrénées du 14 octobre : il aurait été signalé 7 secondes après le début des secousses (M2,4), environ 4 minutes avant l'EMSC.
+- **Séismes en bordure du réseau** (Pyrénées, Alpes, côtes) : ils ne sont plus rejetés comme « hors du réseau ».
+- **Moins de fausses détections** : au moins deux stations doivent montrer un signal franc.
+
 ## Nouveautés de la 2.0.2
 - **Détection par stations bien plus fiable** : le détecteur ne se laisse plus noyer par le bruit de fond des stations (trafic, vent, activité humaine), qui lui faisait rejeter les vrais séismes avec les fausses alarmes. Sur un banc d'essai qui reproduit le bruit observé, les séismes de magnitude 3 sont détectés 38 fois sur 40 en une vingtaine de secondes (2 sur 40 auparavant), ceux de magnitude 2,5 plus d'une fois sur deux (jamais auparavant), avec 7 fois moins de calcul.
 - **M-Alert-sender** : les réglages de la VM (magnitude minimale signalée, seuil de déclenchement, nombre minimum de stations) se modifient dans le panneau 📶 ; la VM les applique en moins d'une minute et le sender confirme quand ils sont en vigueur.
