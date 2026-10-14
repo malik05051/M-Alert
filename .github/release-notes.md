@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.0.2
+- **Détection par stations bien plus fiable** : le détecteur ne se laisse plus noyer par le bruit de fond des stations (trafic, vent, activité humaine), qui lui faisait rejeter les vrais séismes avec les fausses alarmes. Sur un banc d'essai qui reproduit le bruit observé, les séismes de magnitude 3 sont détectés 38 fois sur 40 en une vingtaine de secondes (2 sur 40 auparavant), ceux de magnitude 2,5 plus d'une fois sur deux (jamais auparavant), avec 7 fois moins de calcul.
+- **M-Alert-sender** : les réglages de la VM (magnitude minimale signalée, seuil de déclenchement, nombre minimum de stations) se modifient dans le panneau 📶 ; la VM les applique en moins d'une minute et le sender confirme quand ils sont en vigueur.
+
 ## Nouveautés de la 2.0.1
 - **M-Alert-sender** : les stations sismiques s'affichent sur la carte même quand la détection tourne sur la VM (détecteur distant) : elles passent au rouge quand elles se déclenchent, avec quelques secondes de décalage (5 s au plus pendant un séisme).
 - **M-Alert-sender** : chaque séisme de l'onglet 📡 indique sa source : 📶 Stations, 📶 Stations + EMSC, 🌐 EMSC (avec l'agence), 🧪 Simulation ou ✍️ Saisi.
