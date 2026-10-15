@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.1.0
+- **Hauteur des vagues estimée** pour les tsunamis calculés automatiquement : chaque côte affiche une hauteur « ≈ » estimée d'après la magnitude et la distance (formule d'Abe), et son niveau en découle comme au Japon : Avis jusqu'à 1 m, Avertissement jusqu'à 3 m, Avertissement majeur au-delà. C'est une estimation : la vague peut être plus haute dans les ports et les baies. Une hauteur annoncée par M-Alert s'affiche sans « ≈ ».
+- **M-Alert-sender** : plusieurs alertes en cours peuvent être sélectionnées et levées d'un coup.
+
 ## Nouveautés de la 2.0.3
 - **Petits séismes détectés par les stations** : la magnitude est maintenant la magnitude locale (comme les réseaux sismiques), calculée sur le déplacement du sol ; l'ancienne formule, faite pour les forts séismes, estimait M0 un séisme M2,3 et le faisait ignorer. Vérifié sur le séisme de M2,3 des Pyrénées du 14 octobre : il aurait été signalé 7 secondes après le début des secousses (M2,4), environ 4 minutes avant l'EMSC.
 - **Séismes en bordure du réseau** (Pyrénées, Alpes, côtes) : ils ne sont plus rejetés comme « hors du réseau ».

@@ -50,7 +50,8 @@ self.addEventListener('push', (event) => {
       const heights = alert.category === 'tsunami'
         ? [alert.waveHeight, ...(alert.tsunamiTable || []).map((r) => r.height)].filter((h) => typeof h === 'number')
         : [];
-      const waves = heights.length ? `Vagues jusqu'à ${Math.max(...heights)} m\n` : '';
+      const estimated = (alert.tsunamiTable || []).some((r) => r.heightEstimated) && typeof alert.waveHeight !== 'number';
+      const waves = heights.length ? `Vagues jusqu'à ${estimated ? '≈ ' : ''}${Math.max(...heights)} m${estimated ? ' (estimation)' : ''}\n` : '';
       body = `Départements : ${deps}\n${waves}${alert.description}`;
     }
     await self.registration.showNotification(title, {

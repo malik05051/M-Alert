@@ -158,12 +158,17 @@
     return SHINDO_ORDER[k === -1 ? 9 : k];
   }
 
-  /** Tsunami : « vagues jusqu'à 1,5 m » si la hauteur a été indiquée, sinon rien. */
+  /** Tsunami : « vagues jusqu'à 1,5 m » (« ≈ 1,5 m (estimation) » si calculée), sinon rien. */
   function tsunamiSummary(alert) {
     if (!alert || alert.category !== 'tsunami') return '';
-    const heights = (alert.tsunamiTable || []).map((r) => r.height).filter((h) => typeof h === 'number');
+    const rows = (alert.tsunamiTable || []).filter((r) => typeof r.height === 'number');
+    const heights = rows.map((r) => r.height);
     if (typeof alert.waveHeight === 'number') heights.push(alert.waveHeight);
-    return heights.length ? `vagues jusqu'à ${Math.max(...heights).toLocaleString('fr-FR')} m` : '';
+    if (!heights.length) return '';
+    const max = Math.max(...heights);
+    // Hauteur estimée par M-Alert (pas annoncée) : « ≈ ».
+    const estimated = rows.some((r) => r.heightEstimated && r.height === max) && alert.waveHeight !== max;
+    return `vagues jusqu'à ${estimated ? '≈ ' : ''}${max.toLocaleString('fr-FR')} m${estimated ? ' (estimation)' : ''}`;
   }
 
   // Origine d'une alerte : envoi (automatique ou validé par M-Alert) et source du séisme.
