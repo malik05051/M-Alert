@@ -1,7 +1,7 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.1.0
-- **Hauteur des vagues estimée** pour les tsunamis calculés automatiquement : chaque côte affiche une hauteur « ≈ » estimée d'après la magnitude et la distance (formule d'Abe), et son niveau en découle comme au Japon : Avis jusqu'à 1 m, Avertissement jusqu'à 3 m, Avertissement majeur au-delà. C'est une estimation : la vague peut être plus haute dans les ports et les baies. Une hauteur annoncée par M-Alert s'affiche sans « ≈ ».
+- **Hauteur des vagues estimée** pour les tsunamis calculés automatiquement, affichée « ≈ » avec la hauteur possible dans les ports et les baies (« ≈1,5 m, ports 2,5 m »). Le calcul tient compte du type de faille (une faille qui coulisse horizontalement soulève peu la mer) : mécanisme publié par l'USGS dès qu'il est connu (l'alerte est alors recalculée), sinon mécanisme habituel de la zone ; de la taille de la rupture, de la profondeur de la mer et de l'arrivée sur les côtes, et seules les côtes de la même mer sont concernées. Le niveau de chaque côte en découle comme au Japon : Avis jusqu'à 1 m, Avertissement jusqu'à 3 m, Avertissement majeur au-delà. Une hauteur annoncée par M-Alert s'affiche sans « ≈ ».
 - **M-Alert-sender** : plusieurs alertes en cours peuvent être sélectionnées et levées d'un coup.
 
 ## Nouveautés de la 2.0.3
