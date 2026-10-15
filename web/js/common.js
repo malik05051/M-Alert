@@ -168,7 +168,8 @@
     const max = Math.max(...heights);
     // Hauteur estimée par M-Alert (pas annoncée) : « ≈ ».
     const estimated = rows.some((r) => r.heightEstimated && r.height === max) && alert.waveHeight !== max;
-    return `vagues jusqu'à ${estimated ? '≈ ' : ''}${max.toLocaleString('fr-FR')} m${estimated ? ' (estimation)' : ''}`;
+    const ports = Math.max(0, ...rows.map((r) => (typeof r.heightMax === 'number' ? r.heightMax : 0)));
+    return `vagues jusqu'à ${estimated ? '≈ ' : ''}${max.toLocaleString('fr-FR')} m${estimated ? ` (estimation${ports > max ? `, ${ports.toLocaleString('fr-FR')} m dans les ports` : ''})` : ''}`;
   }
 
   // Origine d'une alerte : envoi (automatique ou validé par M-Alert) et source du séisme.

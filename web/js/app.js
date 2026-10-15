@@ -659,13 +659,13 @@
         html.push(`<div class="tsu-row${mine.includes(r.department) ? ' mine' : ''}">
           <span class="tsu-name">${mine.includes(r.department) ? '📍 ' : ''}${escapeHtml(M.departmentName(r.department).replace(/ \(\w+\)$/, ''))}</span>
           <span class="tsu-arr${arrival ? '' : ' empty'}">${escapeHtml(arrival)}</span>
-          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>` : ''}</span>
+          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>${typeof r.heightMax === 'number' && r.heightMax > r.height ? `<span class="tsu-max">ports ${r.heightMax.toLocaleString('fr-FR')} m</span>` : ''}` : ''}</span>
         </div>`);
       }
     }
     const notes = [];
     if (rows.some((r) => r.estimated)) notes.push('heure d\'arrivée estimée');
-    if (rows.some((r) => r.heightEstimated)) notes.push('hauteur estimée d\'après la magnitude et la distance (la vague peut être plus haute dans les ports et les baies)');
+    if (rows.some((r) => r.heightEstimated)) notes.push('hauteur moyenne estimée (type de faille, magnitude, distance, profondeur de la mer) ; « ports » : maximum possible dans les ports, baies et estuaires');
     if (notes.length) html.push(`<div class="tsu-note">≈ : ${notes.join(' ; ')}</div>`);
     el.innerHTML = html.join('');
   }
