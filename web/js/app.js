@@ -514,7 +514,12 @@
     } else {
       showNoticeBanner(n);
     }
-    if (settings.sound) window.MAlertSound.play({ level: 1, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false });
+    // Séisme annulé : son EEW (eew.mp3, réglable dans les sons « Jaune et orange ») ; autre alerte
+    // annulée (tsunami lié) : son d'information.
+    if (settings.sound) {
+      const sound = a.category === 'seisme' ? { level: 2, category: 'meteo', phenomenon: 0 } : { level: 1, category: 'meteo', phenomenon: 0 };
+      window.MAlertSound.play(sound, { volume: settings.volume, loop: false });
+    }
     systemNotification(`${a.test ? '[TEST] ' : ''}❌ Alerte annulée — ${a.title}`, a.voided.reason, { tag: `void-${a.id}`, urgent: true });
     if (native) native.alert({ level: 1, front: settings.front });
   }
