@@ -1,5 +1,10 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.1.1
+- **Annulation d'une alerte séisme ou tsunami** (fausse alerte) : M-Alert affiche un bandeau « ❌ Alerte annulée » avec la raison, et une notification ; le tsunami calculé à partir d'un séisme annulé est annulé aussi.
+- **Source des alertes séisme manuelles** : une alerte séisme saisie par M-Alert peut indiquer sa source (EMSC, stations sismiques M-Alert, BCSF-RéNaSS, USGS…), affichée sous le titre.
+- **M-Alert-sender** : les séismes récents s'affichent par pages de 10, avec « Précédents » et « Plus anciens » ; un clic sur une croix de la carte ouvre la bonne page.
+
 ## Nouveautés de la 2.1.0
 - **Hauteur des vagues estimée** pour les tsunamis calculés automatiquement, affichée « ≈ » avec la hauteur possible dans les ports et les baies (« ≈1,5 m, ports 2,5 m »). Le calcul tient compte du type de faille (une faille qui coulisse horizontalement soulève peu la mer) : mécanisme publié par l'USGS dès qu'il est connu (l'alerte est alors recalculée), sinon mécanisme habituel de la zone ; de la taille de la rupture, de la profondeur de la mer et de l'arrivée sur les côtes, et seules les côtes de la même mer sont concernées. Le niveau de chaque côte en découle comme au Japon : Avis jusqu'à 1 m, Avertissement jusqu'à 3 m, Avertissement majeur au-delà. Une hauteur annoncée par M-Alert s'affiche sans « ≈ ».
 - **M-Alert-sender** : plusieurs alertes en cours peuvent être sélectionnées et levées d'un coup.

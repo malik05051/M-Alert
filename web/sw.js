@@ -38,7 +38,11 @@ self.addEventListener('push', (event) => {
     const deps = alert.departments.includes('ALL') ? 'Toute la France' : alert.departments.join(', ');
     let title;
     let body;
-    if (data.type === 'cancel') {
+    if (data.type === 'cancel' && alert.voided) {
+      // Fausse alerte annulée par M-Alert.
+      title = `${alert.test ? '[TEST] ' : ''}❌ Alerte annulée — ${alert.title}`;
+      body = `${alert.voided.reason}\nDépartements : ${deps}`;
+    } else if (data.type === 'cancel') {
       title = `Alerte levée — ${alert.title}`;
       body = `Départements : ${deps}`;
     } else {
@@ -57,7 +61,7 @@ self.addEventListener('push', (event) => {
     await self.registration.showNotification(title, {
       body,
       tag: alert.id,
-      renotify: data.type !== 'cancel',
+      renotify: data.type !== 'cancel' || Boolean(alert.voided),
       requireInteraction: data.type !== 'cancel' && alert.level >= 3,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',

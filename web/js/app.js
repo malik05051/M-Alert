@@ -446,6 +446,7 @@
   // ---------- Notifications de M-Alert (messages sans alerte) ----------
 
   const NOTICE_COLOR = '#60a5fa';
+  const VOID_COLOR = '#cbd5e1'; // annulation d'une alerte (fausse alerte)
   const NOTICE_TTL = 24 * 3600 * 1000;
 
   function noticeForMe(n) {
@@ -496,16 +497,38 @@
     if (native) native.alert({ level: 1, front: settings.front });
   }
 
-  /** Bandeau compact en haut de l'écran pour une notification de M-Alert. */
+  /**
+   * Alerte annulée par M-Alert (fausse alerte : séisme qui n'a pas eu lieu) : bandeau d'annulation,
+   * son d'information et notification, comme une notification de M-Alert.
+   */
+  function showVoided(a) {
+    const kind = M.alertKind(a);
+    const n = {
+      id: `void-${a.id}`, __void: true, test: a.test, departments: a.departments, createdAt: a.voided.at,
+      title: `Annulation : ${a.title}`, phen: `${kind.icon} ${kind.name}`,
+      body: `${a.voided.reason}\n\nL'alerte « ${M.alertLevelLabel(a)} » envoyée ${M.formatDateTime(a.createdAt)} est annulée : vous pouvez reprendre vos activités normalement.`,
+    };
+    if (current && !current.__notice) {
+      queue.push({ ...n, __notice: true });
+      $('ovQueue').textContent = `+${queue.length} autre(s) alerte(s)`;
+    } else {
+      showNoticeBanner(n);
+    }
+    if (settings.sound) window.MAlertSound.play({ level: 1, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false });
+    systemNotification(`${a.test ? '[TEST] ' : ''}❌ Alerte annulée — ${a.title}`, a.voided.reason, { tag: `void-${a.id}`, urgent: true });
+    if (native) native.alert({ level: 1, front: settings.front });
+  }
+
+  /** Bandeau compact en haut de l'écran pour une notification de M-Alert (ou une annulation). */
   function showNoticeBanner(n) {
     current = { ...n, __notice: true };
     stopWaveCountdown();
     const ov = $('alertOverlay');
     ov.className = 'alert-overlay compact notice';
-    ov.style.setProperty('--c', NOTICE_COLOR);
+    ov.style.setProperty('--c', n.__void ? VOID_COLOR : NOTICE_COLOR);
     ov.style.setProperty('--ct', '#0b1220');
-    $('ovLevel').textContent = '🔔 Notification';
-    $('ovPhen').textContent = 'M-Alert';
+    $('ovLevel').textContent = n.__void ? '❌ Alerte annulée' : '🔔 Notification';
+    $('ovPhen').textContent = n.__void ? n.phen : 'M-Alert';
     $('ovTest').classList.toggle('hidden', !n.test);
     $('ovTime').textContent = M.formatDateTime(n.createdAt);
     $('ovTitle').textContent = n.title;
@@ -513,7 +536,7 @@
     $('ovEpi').classList.add('hidden');
     $('ovDesc').textContent = n.body || '';
     $('ovAdviceWrap').classList.add('hidden');
-    $('ovValid').textContent = 'Consultable 24 h dans « Notifications »';
+    $('ovValid').textContent = n.__void ? 'Fausse alerte : l\'alerte est levée.' : 'Consultable 24 h dans « Notifications »';
     $('ovQueue').textContent = queue.length ? `+${queue.length} autre(s) alerte(s)` : '';
     $('ovMute').classList.add('hidden');
     ov.querySelector('.alert-banner').scrollTop = 0;
@@ -1056,7 +1079,8 @@
         if (current && current.id === a.id) acknowledge();
         renderAll();
         if (had && isMine(a) && !a.silent) {
-          toast(msg.type === 'cancel' ? `Alerte levée : ${a.title}` : `Fin de l'alerte : ${a.title}`, M.departmentsLabel(a.departments, 3), '#34d399');
+          if (msg.type === 'cancel' && a.voided) showVoided(a); // fausse alerte : annonce de l'annulation
+          else toast(msg.type === 'cancel' ? `Alerte levée : ${a.title}` : `Fin de l'alerte : ${a.title}`, M.departmentsLabel(a.departments, 3), '#34d399');
         }
         break;
       }

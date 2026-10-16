@@ -183,6 +183,8 @@
     'stations-emsc': { label: '📶 Source : stations sismiques, confirmée par l\'EMSC · alerte validée par M-Alert', short: '📶 stations + EMSC' },
     'simulation-auto': { label: '🤖 Alerte automatique · source : séisme simulé (test des règles)', short: '🧪 automatique (simulation)' },
     simulation: { label: '🧪 Source : séisme simulé (test des règles) · alerte validée par M-Alert', short: '🧪 simulation' },
+    renass: { label: '🇫🇷 Source : BCSF-RéNaSS (réseau national de surveillance sismique) · alerte validée par M-Alert', short: '🇫🇷 RéNaSS' },
+    usgs: { label: '🌎 Source : USGS · alerte validée par M-Alert', short: '🌎 USGS' },
     calc: { label: '🧮 Tsunami calculé automatiquement (séisme signalé par M-Alert)', short: '🧮 calculé' },
   };
 
