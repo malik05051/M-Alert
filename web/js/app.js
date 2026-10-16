@@ -249,6 +249,27 @@
     map.setVigilance(p ? p.departments : {});
     map.setAlerts(alerts);
     map.setHighlighted(myDepartments());
+    renderIntensities();
+  }
+
+  /**
+   * Intensités estimées par département pendant un séisme (option « intensités sur la carte ») :
+   * pour chaque alerte séisme en cours avec épicentre et magnitude, intensité attendue au centre de
+   * chaque département (même calcul que « chez vous »), la plus forte si plusieurs séismes ;
+   * intensité 1 et plus seulement.
+   */
+  function renderIntensities() {
+    const quakes = settings.intensityMap === false ? [] : alerts.filter((a) => a.category === 'seisme' && M.isActive(a) && !a.silent
+      && ((a.epicenter && typeof a.magnitude === 'number') || (a.intensities && Object.keys(a.intensities).length)));
+    const best = new Map();
+    for (const a of quakes) {
+      for (const { code } of M.departmentList()) {
+        const s = deptIntensity(a, code);
+        const rank = s ? M.SHINDO_ORDER.indexOf(s) : -1;
+        if (rank >= 1 && rank > (best.get(code) ?? -1)) best.set(code, rank);
+      }
+    }
+    map.setIntensities([...best].map(([code, rank]) => ({ code, shindo: M.SHINDO_ORDER[rank] })));
   }
 
   // ---------- Panneau latéral ----------
@@ -700,10 +721,17 @@
 
   /** Intensité (shindo) attendue dans mon département pour un séisme, ou null. */
   function localIntensity(alert) {
-    if (alert.category !== 'seisme' || !alert.epicenter || typeof alert.magnitude !== 'number' || !settings.department) return null;
-    const home = map.departmentCenter(settings.department);
-    if (!home) return null;
-    const { km } = map.waveArrival(alert.epicenter, alert.depth, home.lat, home.lon);
+    if (alert.category !== 'seisme' || !settings.department) return null;
+    return deptIntensity(alert, settings.department);
+  }
+
+  /** Intensité dans un département : corrigée par M-Alert si elle l'a été, sinon calculée (ou null). */
+  function deptIntensity(alert, code) {
+    if (alert.intensities && alert.intensities[code]) return alert.intensities[code];
+    if (!alert.epicenter || typeof alert.magnitude !== 'number') return null;
+    const c = map.departmentCenter(code);
+    if (!c) return null;
+    const { km } = map.waveArrival(alert.epicenter, alert.depth, c.lat, c.lon);
     return M.toShindo(M.estimateIntensity(alert.magnitude, Number(alert.depth) || 10, km));
   }
 
@@ -1255,6 +1283,7 @@
     $('setPush').checked = settings.push;
     $('setNotices').checked = settings.notices !== false;
     $('setTiles').checked = settings.tiles;
+    $('setIntensity').checked = settings.intensityMap !== false;
     $('setServer').value = settings.serverUrl;
     document.querySelectorAll('.native-only').forEach((el) => el.classList.toggle('hidden', !native));
     document.querySelectorAll('.push-only').forEach((el) => el.classList.toggle('hidden', !pushSupported));
@@ -1304,6 +1333,7 @@
       push: $('setPush').checked,
       notices: $('setNotices').checked,
       tiles: $('setTiles').checked,
+      intensityMap: $('setIntensity').checked,
       serverUrl: M.normalizeServerUrl($('setServer').value) || DEFAULTS.serverUrl,
     };
     if (native) {

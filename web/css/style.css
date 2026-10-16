@@ -207,6 +207,9 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .tsu-arr { border: 2px solid #e5e5e5; border-radius: 4px; padding: 2px 12px; font-size: 15px; min-width: 130px; text-align: center; white-space: nowrap; }
 .tsu-arr.empty { border-color: transparent; }
 .tsu-h { text-align: center; font-size: 26px; font-weight: 900; line-height: 1.2; padding: 0 4px; white-space: nowrap; }
+.shindo-pin { background: none; border: 0; }
+.shindo-badge { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; font-weight: 900; font-size: 14px; line-height: 1; border: 1px solid rgba(0, 0, 0, .55); box-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.shindo-badge small { font-size: 9px; margin-left: 1px; align-self: flex-start; margin-top: 3px; }
 .tsu-h .tsu-max { display: block; font-size: 11px; font-weight: 700; line-height: 1.1; margin-bottom: 2px; }
 .tsu-h .tsu-est { font-size: 16px; font-weight: 700; margin-right: 1px; }
 .tsu-h small { font-size: 14px; margin-left: 1px; }

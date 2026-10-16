@@ -1,6 +1,7 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.1.1
+- **Intensités sur la carte pendant un séisme**, comme les cartes japonaises : chaque département affiche l'intensité estimée (échelle shindo, 1 à 7) tant que l'alerte séisme est en cours. M-Alert peut corriger l'intensité d'un département si le calcul se trompe. Option « intensité estimée sur la carte » dans les réglages pour les masquer.
 - **Annulation d'une alerte séisme ou tsunami** (fausse alerte) : M-Alert affiche un bandeau « ❌ Alerte annulée » avec la raison, joue le son EEW (eew.mp3) pour un séisme annulé, et envoie une notification ; le tsunami calculé à partir d'un séisme annulé est annulé aussi.
 - **Source des alertes séisme manuelles** : une alerte séisme saisie par M-Alert peut indiquer sa source (EMSC, stations sismiques M-Alert, BCSF-RéNaSS, USGS…), affichée sous le titre.
 - **M-Alert-sender** : les séismes récents s'affichent par pages de 10, avec « Précédents » et « Plus anciens » ; un clic sur une croix de la carte ouvre la bonne page.

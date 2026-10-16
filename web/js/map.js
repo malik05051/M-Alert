@@ -227,6 +227,23 @@
       return L.divIcon({ className: 'epicenter-icon', html: svg, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
     }
 
+    // Intensités estimées par département pendant un séisme (pastilles carrées comme les cartes
+    // d'intensité japonaises), sous la croix de l'épicentre.
+    const intensityPane = map.createPane('intensity');
+    intensityPane.style.zIndex = 630;
+    intensityPane.style.pointerEvents = 'none';
+    const intensityGroup = L.layerGroup().addTo(map);
+    let intensityKey = '';
+
+    function shindoIcon(shindo) {
+      const sh = M.SHINDO[shindo] || M.SHINDO[0];
+      const label = String(shindo).replace(/([0-9])([+-])$/, '$1<small>$2</small>');
+      return L.divIcon({
+        className: 'shindo-pin', iconSize: [22, 22], iconAnchor: [11, 11],
+        html: `<span class="shindo-badge" style="background:${sh.color};color:${sh.text}">${label}</span>`,
+      });
+    }
+
     // Aperçu des épicentres (séismes EMSC dans M-Alert-sender), indépendant des alertes en cours.
     const previewGroup = L.layerGroup().addTo(map);
     let simMarker = null; // séisme à simuler (onglet 📡 du sender)
@@ -428,6 +445,24 @@
         const km = map.distance([epicenter.lat, epicenter.lon], [lat, lon]) / 1000;
         const hypo = Math.hypot(km, Number(depth) || 10);
         return { km, p: hypo / VP, s: hypo / VS };
+      },
+
+      /**
+       * Intensités estimées par département [{ code, shindo }] (vide pour les retirer) ; redessinées
+       * seulement si elles changent.
+       */
+      setIntensities(list) {
+        const key = (list || []).map((x) => `${x.code}:${x.shindo}`).join(',');
+        if (key === intensityKey) return;
+        intensityKey = key;
+        intensityGroup.clearLayers();
+        for (const { code, shindo } of list || []) {
+          const layer = layers[code];
+          if (!layer) continue;
+          intensityGroup.addLayer(L.marker(layer.getBounds().getCenter(), {
+            icon: shindoIcon(shindo), pane: 'intensity', keyboard: false, interactive: false,
+          }));
+        }
       },
 
       /** Centre (approximatif) d'un département. */
