@@ -1111,9 +1111,14 @@
         if (idx >= 0) queue.splice(idx, 1);
         if (current && current.id === a.id) acknowledge();
         renderAll();
+        // Annulation (fausse alerte) : annoncée à tous ceux qui ont reçu l'alerte (mêmes règles que
+        // l'alerte : départements suivis, « toute la France », niveau, catégories).
+        if (msg.type === 'cancel' && a.voided && !a.silent && (matchesMe(a) || seen.has(a.id))) {
+          showVoided(a);
+          break;
+        }
         if (had && isMine(a) && !a.silent) {
-          if (msg.type === 'cancel' && a.voided) showVoided(a); // fausse alerte : annonce de l'annulation
-          else toast(msg.type === 'cancel' ? `Alerte levée : ${a.title}` : `Fin de l'alerte : ${a.title}`, M.departmentsLabel(a.departments, 3), '#34d399');
+          toast(msg.type === 'cancel' ? `Alerte levée : ${a.title}` : `Fin de l'alerte : ${a.title}`, M.departmentsLabel(a.departments, 3), '#34d399');
         }
         break;
       }
