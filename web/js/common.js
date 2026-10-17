@@ -16,6 +16,7 @@
     10: { name: 'Tornade', icon: '🌪️' }, // M-Alert seulement (pas une vigilance Météo-France)
     11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
     12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
+    14: { name: 'Tempête', icon: '🌀' }, // M-Alert seulement (13 : ancien « Attentat », devenu une catégorie)
   };
 
   // Types de pollution (catégorie « Pollution ») et polluants de l'air.
@@ -111,6 +112,7 @@
     10: 'Abritez-vous immédiatement dans un bâtiment solide : au sous-sol ou, à défaut, dans une petite pièce sans fenêtre au centre et au niveau le plus bas (salle de bain, couloir, placard). Protégez votre tête et votre cou, éloignez-vous des fenêtres et n\'ouvrez pas les fenêtres. Ne restez ni en voiture, ni sous un pont, ni dans un mobil-home ou un bâtiment à grand toit.',
     11: FIRE_ADVICE.outdoor,
     12: 'Ne vous engagez jamais à pied ou en voiture dans une zone inondée : 30 cm d\'eau suffisent à emporter une voiture. Réfugiez-vous en hauteur, à l\'étage, avec de l\'eau, une lampe, une radio et vos médicaments. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Coupez le gaz et l\'électricité si l\'eau monte et n\'évacuez que sur ordre des autorités.',
+    14: 'Restez à l\'abri dans un bâtiment en dur et limitez vos déplacements ; n\'allez ni en bord de mer, ni en forêt. Avant la tempête, rentrez ou fixez les objets qui peuvent s\'envoler et fermez portes, fenêtres et volets. Ne touchez pas aux fils électriques tombés. En cas de coupure d\'électricité, n\'utilisez ni groupe électrogène ni chauffage d\'appoint à combustion à l\'intérieur (monoxyde de carbone). Après la tempête, attendez les consignes avant de déblayer et ne montez pas sur les toits.',
   };
 
   /** « Information », « Alerte rouge », « ALERTE MAJEURE »… */
@@ -134,11 +136,11 @@
       4: { label: 'Avertissement d\'incendie', name: 'Avertissement' },
       5: { label: 'Avertissement majeur d\'incendie', name: 'Avertissement majeur' },
     },
-    // Attentat : niveaux du plan Vigipirate.
+    // Attentat : stades du plan Vigipirate (depuis le 22 juin 2026).
     attentat: {
-      2: { label: 'Vigilance attentat', name: 'Vigilance' },
-      4: { label: 'Sécurité renforcée – risque attentat', name: 'Risque attentat' },
-      5: { label: 'Urgence attentat', name: 'Urgence attentat' },
+      2: { label: 'Vigipirate – vigilance', name: 'Vigilance' },
+      4: { label: 'Vigipirate – vigilance renforcée', name: 'Vigilance renforcée' },
+      5: { label: 'Alerte attentat', name: 'Alerte attentat' },
     },
     // Tremblement de terre : quatre niveaux.
     seisme: {
