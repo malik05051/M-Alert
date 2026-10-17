@@ -16,9 +16,7 @@
     10: { name: 'Tornade', icon: '🌪️' }, // M-Alert seulement (pas une vigilance Météo-France)
     11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
     12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
-    13: { name: 'Attentat', icon: '🚨' }, // M-Alert seulement : niveaux du plan Vigipirate
   };
-  const ATTACK_PHENOMENON = 13;
 
   // Types de pollution (catégorie « Pollution ») et polluants de l'air.
   const POLLUTION_TYPES = {
@@ -62,6 +60,7 @@
     tsunami: { name: 'Tsunami', icon: '🌊' },
     pollution: { name: 'Pollution', icon: '🌫️' },
     accident: { name: 'Accident industriel', icon: '🏭' },
+    attentat: { name: 'Attentat', icon: '🚨' },
     greve: { name: 'Grève', icon: '📢' },
     blocus: { name: 'Blocus / manifestation', icon: '🚧' },
   };
@@ -72,6 +71,7 @@
     tsunami: 'Réagissez immédiatement sans attendre la vague : rejoignez à pied un point haut ou l\'intérieur des terres. Ne restez ni sur la plage, ni dans les ports, ni sur les digues. N\'utilisez pas votre voiture et ne revenez pas avant la fin de l\'alerte : plusieurs vagues peuvent se succéder.',
     pollution: 'Réduisez ou reportez les activités physiques et sportives intenses. Les personnes sensibles (enfants, personnes âgées, malades) doivent les limiter, y compris en intérieur, et éviter les axes à forte circulation. Respectez les mesures de restriction de circulation.',
     accident: 'Mettez-vous à l\'abri dans un bâtiment en dur, fermez portes et fenêtres, arrêtez ventilation et climatisation. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Pas de flamme ni de cigarette. Éloignez-vous du site seulement si les autorités le demandent.',
+    attentat: 'Si vous êtes témoin d\'une attaque : échappez-vous si vous le pouvez, en aidant les autres et sans vous exposer ; sinon cachez-vous, verrouillez ou barricadez-vous, éteignez la lumière et mettez votre téléphone en silencieux. Alertez le 17 ou le 112 (114 par SMS) dès que vous êtes en sécurité. Évitez la zone, n\'allez pas sur place et ne diffusez pas d\'images ni de rumeurs. Suivez les consignes des forces de l\'ordre.',
     greve: 'Renseignez-vous auprès des transporteurs et des services concernés. Anticipez vos déplacements et prévoyez des solutions de remplacement.',
     blocus: 'Évitez le secteur concerné et prévoyez un itinéraire de délestage. Attendez-vous à des perturbations de circulation et des transports. Suivez les consignes des forces de l\'ordre et des autorités.',
   };
@@ -110,7 +110,6 @@
     9: 'Tenez-vous éloignés des côtes et des estuaires. Ne vous promenez pas en bord de mer. Mettez vos biens à l\'abri des submersions.',
     10: 'Abritez-vous immédiatement dans un bâtiment solide : au sous-sol ou, à défaut, dans une petite pièce sans fenêtre au centre et au niveau le plus bas (salle de bain, couloir, placard). Protégez votre tête et votre cou, éloignez-vous des fenêtres et n\'ouvrez pas les fenêtres. Ne restez ni en voiture, ni sous un pont, ni dans un mobil-home ou un bâtiment à grand toit.',
     11: FIRE_ADVICE.outdoor,
-    13: 'Si vous êtes témoin d\'une attaque : échappez-vous si vous le pouvez, en aidant les autres et sans vous exposer ; sinon cachez-vous, verrouillez ou barricadez-vous, éteignez la lumière et mettez votre téléphone en silencieux. Alertez le 17 ou le 112 (114 par SMS) dès que vous êtes en sécurité. Évitez la zone, n\'allez pas sur place et ne diffusez pas d\'images ni de rumeurs. Suivez les consignes des forces de l\'ordre.',
     12: 'Ne vous engagez jamais à pied ou en voiture dans une zone inondée : 30 cm d\'eau suffisent à emporter une voiture. Réfugiez-vous en hauteur, à l\'étage, avec de l\'eau, une lampe, une radio et vos médicaments. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Coupez le gaz et l\'électricité si l\'eau monte et n\'évacuez que sur ordre des autorités.',
   };
 
@@ -135,7 +134,7 @@
       4: { label: 'Avertissement d\'incendie', name: 'Avertissement' },
       5: { label: 'Avertissement majeur d\'incendie', name: 'Avertissement majeur' },
     },
-    // Attentat (phénomène 13) : niveaux du plan Vigipirate.
+    // Attentat : niveaux du plan Vigipirate.
     attentat: {
       2: { label: 'Vigilance attentat', name: 'Vigilance' },
       4: { label: 'Sécurité renforcée – risque attentat', name: 'Risque attentat' },
@@ -248,7 +247,6 @@
     if (!alert) return null;
     if ((alert.category || 'meteo') === 'meteo') {
       if (Number(alert.phenomenon) === FIRE_PHENOMENON) return 'incendie';
-      if (Number(alert.phenomenon) === ATTACK_PHENOMENON) return 'attentat';
       return null;
     }
     return alert.category;
@@ -446,7 +444,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, ATTACK_PHENOMENON, POLLUTION_TYPES, POLLUTANTS, pollutionSummary,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,

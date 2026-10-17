@@ -47,7 +47,7 @@ self.addEventListener('push', (event) => {
       body = `Départements : ${deps}`;
     } else {
       const prefix = (alert.test ? '[TEST] ' : '') + (data.type === 'ring' ? 'Rappel · ' : data.type === 'update' ? 'Mise à jour · ' : '');
-      const levelText = (alert.category === 'tsunami' || alert.category === 'seisme' || alert.category === 'blocus' || ((alert.category || 'meteo') === 'meteo' && [10, 11, 13].includes(Number(alert.phenomenon)))) && alert.levelName
+      const levelText = (alert.category === 'tsunami' || alert.category === 'seisme' || alert.category === 'blocus' || alert.category === 'attentat' || ((alert.category || 'meteo') === 'meteo' && [10, 11].includes(Number(alert.phenomenon)))) && alert.levelName
         ? alert.levelName // « Avis de tsunami », « Alerte séisme élevé »…
         : alert.level === 1 ? 'Information' : alert.level === 5 ? 'ALERTE MAJEURE' : 'Alerte ' + LEVELS[alert.level];
       title = `${prefix}${levelText} — ${alert.title}`;

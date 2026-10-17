@@ -1,7 +1,7 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.2.0
-- **Nouveau phénomène 🚨 Attentat**, avec les niveaux du plan Vigipirate : Vigilance (jaune), Sécurité renforcée – risque attentat (rouge) et Urgence attentat (rose), et les consignes officielles « s'échapper, se cacher, alerter » (17 ou 112).
+- **Nouvelle catégorie 🚨 Attentat** (à part de la météo), avec les niveaux du plan Vigipirate : Vigilance (jaune), Sécurité renforcée – risque attentat (rouge) et Urgence attentat (rose), et les consignes officielles « s'échapper, se cacher, alerter » (17 ou 112).
 - **Plusieurs types de pollution** dans la catégorie 🌫️ Pollution : pollution de l'air (avec le polluant : particules PM10 ou PM2,5, ozone, dioxyde d'azote, dioxyde de soufre, plusieurs polluants), de l'eau (eau du robinet), marine / du littoral, des sols et pollution chimique, chacune avec ses consignes ; le type et le polluant s'affichent dans l'alerte.
 - **M-Alert-sender : relances planifiées** : « 🕒 Planifier une relance » sur une alerte en cours la relance à l'heure choisie, une seule fois ou à intervalles réguliers (toutes les 15 min, 30 min, heures, 2 h, 6 h, tous les jours, ou toutes les N minutes) jusqu'à la fin de l'alerte ; chaque relance rejoue le son, la fenêtre d'alerte et la notification (push compris). La prochaine relance s'affiche sur l'alerte, avec « ✕ Annuler ».
 
