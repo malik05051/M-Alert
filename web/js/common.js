@@ -16,6 +16,26 @@
     10: { name: 'Tornade', icon: '🌪️' }, // M-Alert seulement (pas une vigilance Météo-France)
     11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
     12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
+    13: { name: 'Attentat', icon: '🚨' }, // M-Alert seulement : niveaux du plan Vigipirate
+  };
+  const ATTACK_PHENOMENON = 13;
+
+  // Types de pollution (catégorie « Pollution ») et polluants de l'air.
+  const POLLUTION_TYPES = {
+    air: { name: 'Pollution de l\'air', icon: '🌫️' },
+    eau: { name: 'Pollution de l\'eau (eau du robinet)', icon: '🚱' },
+    marine: { name: 'Pollution marine (marée noire, littoral)', icon: '🛢️' },
+    sols: { name: 'Pollution des sols', icon: '🟤' },
+    chimique: { name: 'Pollution chimique (nuage, fumées toxiques)', icon: '☣️' },
+  };
+  const POLLUTANTS = {
+    pm10: 'particules fines PM10', pm25: 'particules fines PM2,5', o3: 'ozone', no2: 'dioxyde d\'azote', so2: 'dioxyde de soufre', multi: 'plusieurs polluants',
+  };
+  const POLLUTION_ADVICE = {
+    eau: 'Ne buvez pas l\'eau du robinet et ne l\'utilisez pas pour préparer les repas ou les biberons : utilisez de l\'eau en bouteille. Suivez les consignes de la mairie et de l\'ARS jusqu\'à la levée de l\'alerte.',
+    marine: 'Évitez la baignade, la pêche et le ramassage de coquillages dans la zone concernée. Ne touchez pas aux déchets ou galettes d\'hydrocarbures sur les plages et signalez-les à la mairie. Respectez les interdictions d\'accès.',
+    sols: 'Ne consommez pas les fruits et légumes du potager ni les œufs des élevages familiaux de la zone. Lavez-vous les mains après avoir touché la terre et empêchez les jeunes enfants de jouer sur les sols concernés. Suivez les consignes des autorités.',
+    chimique: 'Mettez-vous à l\'abri dans un bâtiment en dur, fermez portes et fenêtres, arrêtez ventilation et climatisation. Ne restez pas sous le panache de fumée. N\'allez pas chercher vos enfants à l\'école. Éloignez-vous seulement si les autorités le demandent.',
   };
 
   // Types d'incendie (phénomène 11) : consignes adaptées au type de feu.
@@ -90,6 +110,7 @@
     9: 'Tenez-vous éloignés des côtes et des estuaires. Ne vous promenez pas en bord de mer. Mettez vos biens à l\'abri des submersions.',
     10: 'Abritez-vous immédiatement dans un bâtiment solide : au sous-sol ou, à défaut, dans une petite pièce sans fenêtre au centre et au niveau le plus bas (salle de bain, couloir, placard). Protégez votre tête et votre cou, éloignez-vous des fenêtres et n\'ouvrez pas les fenêtres. Ne restez ni en voiture, ni sous un pont, ni dans un mobil-home ou un bâtiment à grand toit.',
     11: FIRE_ADVICE.outdoor,
+    13: 'Si vous êtes témoin d\'une attaque : échappez-vous si vous le pouvez, en aidant les autres et sans vous exposer ; sinon cachez-vous, verrouillez ou barricadez-vous, éteignez la lumière et mettez votre téléphone en silencieux. Alertez le 17 ou le 112 (114 par SMS) dès que vous êtes en sécurité. Évitez la zone, n\'allez pas sur place et ne diffusez pas d\'images ni de rumeurs. Suivez les consignes des forces de l\'ordre.',
     12: 'Ne vous engagez jamais à pied ou en voiture dans une zone inondée : 30 cm d\'eau suffisent à emporter une voiture. Réfugiez-vous en hauteur, à l\'étage, avec de l\'eau, une lampe, une radio et vos médicaments. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Coupez le gaz et l\'électricité si l\'eau monte et n\'évacuez que sur ordre des autorités.',
   };
 
@@ -113,6 +134,12 @@
       2: { label: 'Avis d\'incendie', name: 'Avis' },
       4: { label: 'Avertissement d\'incendie', name: 'Avertissement' },
       5: { label: 'Avertissement majeur d\'incendie', name: 'Avertissement majeur' },
+    },
+    // Attentat (phénomène 13) : niveaux du plan Vigipirate.
+    attentat: {
+      2: { label: 'Vigilance attentat', name: 'Vigilance' },
+      4: { label: 'Sécurité renforcée – risque attentat', name: 'Risque attentat' },
+      5: { label: 'Urgence attentat', name: 'Urgence attentat' },
     },
     // Tremblement de terre : quatre niveaux.
     seisme: {
@@ -219,7 +246,11 @@
   /** Clé des niveaux propres d'une alerte : sa catégorie (tsunami, séisme…) ou « incendie ». */
   function levelsKey(alert) {
     if (!alert) return null;
-    if ((alert.category || 'meteo') === 'meteo') return Number(alert.phenomenon) === FIRE_PHENOMENON ? 'incendie' : null;
+    if ((alert.category || 'meteo') === 'meteo') {
+      if (Number(alert.phenomenon) === FIRE_PHENOMENON) return 'incendie';
+      if (Number(alert.phenomenon) === ATTACK_PHENOMENON) return 'attentat';
+      return null;
+    }
     return alert.category;
   }
 
@@ -246,6 +277,13 @@
   function tornadoSummary(alert) {
     if (!isTornado(alert)) return '';
     return `EF${alert.ef}${typeof alert.windKmh === 'number' ? ` · vent attendu ${alert.windKmh} km/h` : ''}`;
+  }
+
+  /** « Ozone » pour une pollution de l'air dont le polluant est indiqué (vide sinon). */
+  function pollutionSummary(alert) {
+    if (!alert || alert.category !== 'pollution' || alert.pollutionType !== 'air' || !POLLUTANTS[alert.pollutant]) return '';
+    const p = POLLUTANTS[alert.pollutant];
+    return p.charAt(0).toUpperCase() + p.slice(1);
   }
 
   /** « Feu de forêt » pour un incendie dont le type est indiqué (vide sinon). */
@@ -282,6 +320,7 @@
   /** Icône et libellé d'une alerte : le phénomène pour la météo, sinon la catégorie. */
   function alertKind(alert) {
     const cat = categoryOf(alert);
+    if (cat === 'pollution' && POLLUTION_TYPES[alert.pollutionType]) return POLLUTION_TYPES[alert.pollutionType];
     if (cat !== 'meteo') return CATEGORIES[cat];
     return PHENOMENA[alert.phenomenon] || PHENOMENA[0];
   }
@@ -291,6 +330,7 @@
     if (alert.instructions) return alert.instructions;
     if (alert.level < 2) return '';
     const cat = categoryOf(alert);
+    if (cat === 'pollution' && POLLUTION_ADVICE[alert.pollutionType]) return POLLUTION_ADVICE[alert.pollutionType];
     if (cat !== 'meteo') return CATEGORY_ADVICE[cat] || '';
     if (Number(alert.phenomenon) === FIRE_PHENOMENON && FIRE_TYPES[alert.fireType]) return FIRE_ADVICE[FIRE_TYPES[alert.fireType].advice];
     return ADVICE[alert.phenomenon] || '';
@@ -406,7 +446,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, ATTACK_PHENOMENON, POLLUTION_TYPES, POLLUTANTS, pollutionSummary,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,

@@ -1,5 +1,10 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.2.0
+- **Nouveau phénomène 🚨 Attentat**, avec les niveaux du plan Vigipirate : Vigilance (jaune), Sécurité renforcée – risque attentat (rouge) et Urgence attentat (rose), et les consignes officielles « s'échapper, se cacher, alerter » (17 ou 112).
+- **Plusieurs types de pollution** dans la catégorie 🌫️ Pollution : pollution de l'air (avec le polluant : particules PM10 ou PM2,5, ozone, dioxyde d'azote, dioxyde de soufre, plusieurs polluants), de l'eau (eau du robinet), marine / du littoral, des sols et pollution chimique, chacune avec ses consignes ; le type et le polluant s'affichent dans l'alerte.
+- **M-Alert-sender : relances planifiées** : « 🕒 Planifier une relance » sur une alerte en cours la relance à l'heure choisie, une seule fois ou à intervalles réguliers (toutes les 15 min, 30 min, heures, 2 h, 6 h, tous les jours, ou toutes les N minutes) jusqu'à la fin de l'alerte ; chaque relance rejoue le son, la fenêtre d'alerte et la notification (push compris). La prochaine relance s'affiche sur l'alerte, avec « ✕ Annuler ».
+
 ## Nouveautés de la 2.1.1
 - **Intensités sur la carte pendant un séisme**, comme les cartes japonaises : chaque département affiche l'intensité estimée (échelle shindo, 1 à 7) tant que l'alerte séisme est en cours. M-Alert peut corriger l'intensité d'un département si le calcul se trompe. Option « intensité estimée sur la carte » dans les réglages pour les masquer.
 - **Annulation d'une alerte séisme ou tsunami** (fausse alerte) : M-Alert affiche un bandeau « ❌ Alerte annulée » avec la raison, joue le son EEW (eew.mp3) pour un séisme annulé, et envoie une notification ; le tsunami calculé à partir d'un séisme annulé est annulé aussi.

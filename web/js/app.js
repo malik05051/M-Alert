@@ -344,7 +344,7 @@
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
-      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
+      <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.pollutionSummary(a) ? ` · ${escapeHtml(M.pollutionSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${M.sourceShort(a) ? ` · ${escapeHtml(M.sourceShort(a))}` : ''}</div>
     </div>`;
   }
@@ -781,6 +781,8 @@
     }
     // Incendie : type de feu.
     if (M.fireSummary(alert)) quake.push(`<span>${escapeHtml(M.fireSummary(alert))}</span>`);
+    // Pollution de l'air : polluant.
+    if (M.pollutionSummary(alert)) quake.push(`<span>🧪 ${escapeHtml(M.pollutionSummary(alert))}</span>`);
     $('ovEpi').classList.toggle('hidden', !quake.length);
     $('ovEpi').innerHTML = quake.join(' ');
     $('ovDesc').textContent = alert.description;
