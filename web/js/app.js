@@ -116,8 +116,8 @@
   let day = 0;              // 0 = aujourd'hui, 1 = demain
   let selectedCode = null;  // département cliqué sur la carte
   const seen = new Set(M.storage.get('malert.seen', []));
-  const queue = [];         // alertes en attente d'affichage plein écran
-  let current = null;       // alerte affichée en plein écran
+  const queue = [];         // alertes en attente d'affichage (bannière)
+  let current = null;       // alerte affichée en bannière
   let notices = [];         // notifications des dernières 24 h
   // Notifications déjà affichées. Premier lancement (null) : celles déjà envoyées ne s'affichent pas.
   const noticeSeenStored = M.storage.get('malert.noticeSeen', null);
@@ -560,6 +560,7 @@
     $('ovTitle').textContent = n.title;
     $('ovDeps').textContent = M.departmentsLabel(n.departments, 8);
     $('ovEpi').classList.add('hidden');
+    $('ovTsunami').classList.add('hidden'); // pas de tableau d'une alerte tsunami affichée avant
     $('ovDesc').textContent = n.body || '';
     $('ovAdviceWrap').classList.add('hidden');
     $('ovValid').textContent = n.__void ? 'Fausse alerte : l\'alerte est levée.' : 'Consultable 24 h dans « Notifications »';
@@ -584,7 +585,7 @@
     notices.filter((n) => !noticeSeen.has(n.id)).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach(showNotice);
   }
 
-  // ---------- Alerte plein écran, son et notification ----------
+  // ---------- Alerte en bannière, son et notification ----------
 
   function wantsCategory(alert) {
     const cat = M.categoryOf(alert);
@@ -743,8 +744,9 @@
     const lv = LEVELS[alert.level];
     const ph = M.alertKind(alert);
     const ov = $('alertOverlay');
-    // Tremblement de terre : bandeau compact en haut, la carte (épicentre, départements) reste visible.
-    ov.className = `alert-overlay lvl-${alert.level}${alert.category === 'seisme' ? ' compact' : ''}`;
+    // Toutes les alertes : bannière en haut de l'écran (cadre clignotant de la couleur du niveau),
+    // la carte (départements, épicentre) reste visible et utilisable dessous.
+    ov.className = `alert-overlay lvl-${alert.level} compact`;
     ov.style.setProperty('--c', lv.color);
     ov.style.setProperty('--ct', lv.text);
     $('ovLevel').textContent = M.alertLevelLabel(alert);
@@ -824,7 +826,7 @@
   }
 
   $('ovAck').addEventListener('click', acknowledge);
-  // Bandeau compact (séisme) : un clic sur le texte l'affiche en entier.
+  // Bannière : un clic sur le texte l'affiche en entier (description et consignes).
   document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => e.currentTarget.classList.toggle('expanded'));
   // « Couper le son » coupe le son d'alerte ; si le compte à rebours de l'onde S doit encore sonner,
   // le bouton devient « Couper aussi le son du compte à rebours ».

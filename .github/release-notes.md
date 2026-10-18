@@ -1,6 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.3.1
+- **Toutes les alertes s'affichent en bannière** en haut de l'écran, comme les séismes, les notifications et les annulations : cadre clignotant à la couleur du niveau, titre, départements et début du texte (un clic affiche tout, avec les consignes), la carte restant visible et utilisable dessous. Le tableau d'arrivée d'un tsunami défile dans la bannière.
+- Correction : une notification affichée juste après une alerte tsunami ne reprend plus le tableau des côtes du tsunami.
 - **M-Alert-sender : alertes vent violent et vagues-submersion planifiées** pour un jour à venir (ou plus tard dans la journée) : planification **automatique** (diffusion 12 h avant le début du phénomène, délai réglable, envois automatiques compris), **à la main** (heure choisie à chaque alerte) ou désactivée (diffusion immédiate). Une alerte planifiée suit la prévision jusqu'à sa diffusion, et elle est annulée si le phénomène n'est plus prévu. La diffusion automatique pour les jours proches reste au choix dans les règles.
 - **Prévisions plus fiables** : quand le serveur est refusé par Open-Meteo (adresse IP partagée chez l'hébergeur), les requêtes passent par la VM du détecteur ; après un refus, le serveur attend la fin de la limite au lieu d'insister.
 

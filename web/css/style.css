@@ -168,7 +168,7 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .alert-overlay .btn.primary { background: var(--c); color: var(--ct); }
 .alert-epi { font-weight: 650; margin: -6px 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .shindo { display: inline-grid; place-items: center; min-width: 38px; height: 38px; padding: 0 6px; border-radius: 8px; font-size: 22px; font-weight: 800; box-sizing: border-box; }
-/* Tremblement de terre : bandeau compact en haut, sans voile, pour voir l'épicentre et les départements. */
+/* Bannière (toutes les alertes et notifications) : en haut, sans voile, pour voir les départements et l'épicentre. */
 .alert-overlay.compact { inset: 0 0 auto 0; padding: 8px 12px 0; background: none; pointer-events: none; }
 .alert-overlay.compact .alert-frame { position: fixed; }
 .alert-overlay.compact .alert-banner { pointer-events: auto; width: min(560px, 100%); max-height: 40vh; padding: 10px 14px; border-radius: 12px; }
@@ -185,6 +185,8 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 /* Bandeau compact : texte déjà raccourci, pas de barre de défilement (sauf texte déplié). */
 .alert-overlay.compact .alert-banner { overflow: hidden; max-height: none; }
 .alert-overlay.compact .alert-banner:has(.alert-body.expanded) { max-height: 70vh; overflow: auto; }
+/* Tsunami : tableau des côtes limité en hauteur dans la bannière (défilement). */
+.alert-overlay.compact .tsu-board { max-height: 32vh; overflow: auto; }
 /* Ondes P et S : compte à rebours (séisme). */
 .alert-waves { margin: 0 0 6px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
 .alert-waves .wave-p { color: #60a5fa; }
