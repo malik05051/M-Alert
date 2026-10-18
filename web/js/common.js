@@ -216,6 +216,8 @@
     calc: { label: '🧮 Tsunami calculé automatiquement (séisme signalé par M-Alert)', short: '🧮 calculé' },
     'wind-auto': { label: '🤖 Alerte automatique · prévision de rafales (Météo-France, ECMWF)', short: '💨 automatique (prévision)' },
     wind: { label: '💨 Prévision de rafales (Météo-France, ECMWF) · alerte validée par M-Alert', short: '💨 prévision' },
+    'surge-auto': { label: '🤖 Alerte automatique · prévision de vagues et de niveau de la mer (Météo-France, ECMWF)', short: '🌊 automatique (prévision)' },
+    surge: { label: '🌊 Prévision de vagues et de niveau de la mer (Météo-France, ECMWF) · alerte validée par M-Alert', short: '🌊 prévision' },
   };
 
   /** Mention de l'origine d'une alerte (source du séisme, envoi automatique ou validé), sinon manuelle. */
