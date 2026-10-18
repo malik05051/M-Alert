@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.3.1
+- **M-Alert-sender : alertes vent violent et vagues-submersion planifiées** pour un jour à venir (ou plus tard dans la journée) : planification **automatique** (diffusion 12 h avant le début du phénomène, délai réglable, envois automatiques compris), **à la main** (heure choisie à chaque alerte) ou désactivée (diffusion immédiate). Une alerte planifiée suit la prévision jusqu'à sa diffusion, et elle est annulée si le phénomène n'est plus prévu. La diffusion automatique pour les jours proches reste au choix dans les règles.
+- **Prévisions plus fiables** : quand le serveur est refusé par Open-Meteo (adresse IP partagée chez l'hébergeur), les requêtes passent par la VM du détecteur ; après un refus, le serveur attend la fin de la limite au lieu d'insister.
+
 ## Nouveautés de la 2.3.0
 - **Alertes vent violent automatiques**, d'après les prévisions de rafales sur 10 jours : modèles de Météo-France (AROME, ARPEGE) jusqu'à J+4, puis modèle européen du CEPMMT (ECMWF) jusqu'à J+9, en un point à l'intérieur de chaque département et un point sur la côte des départements littoraux, actualisées toutes les heures. Les alertes portent la mention « 💨 Prévision de rafales », se mettent à jour avec la prévision (départements, rafales, fin) et se lèvent quand le vent n'est plus prévu.
 - **Alertes vagues-submersion automatiques** sur les 26 départements littoraux : hauteur des vagues et niveau de la mer prévus au large (marée et effet de la pression), plus la surcote due au vent qui souffle de la mer, comparés aux plus hautes mers du mois. Comme pour la vigilance de Météo-France, le niveau croise les vagues et la mer haute, avec un cran de plus quand les deux se cumulent. Mention « 🌊 Prévision de vagues et de niveau de la mer ».
