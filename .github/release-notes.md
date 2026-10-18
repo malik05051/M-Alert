@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.3.0
+- **Alertes vent violent automatiques**, d'après les prévisions de rafales sur 10 jours : modèles de Météo-France (AROME, ARPEGE) jusqu'à J+4, puis modèle européen du CEPMMT (ECMWF) jusqu'à J+9, en un point à l'intérieur de chaque département et un point sur la côte des départements littoraux, actualisées toutes les heures. Les alertes portent la mention « 💨 Prévision de rafales », se mettent à jour avec la prévision (départements, rafales, fin) et se lèvent quand le vent n'est plus prévu.
+- **M-Alert-sender** : nouvel onglet **💨 Vent violent** avec le tableau des rafales maximales prévues par département et par jour, les alertes proposées (Diffuser, Modifier avant d'envoyer, Ignorer) et les règles : seuils de rafales par niveau (dans les terres et sur la côte), envoi à valider ou automatique pour les jours proches, nombre de jours.
+
 ## Nouveautés de la 2.2.0
 - **Nouvelle catégorie 🚨 Attentat** (à part de la météo), avec les trois stades du nouveau plan Vigipirate (en vigueur depuis le 22 juin 2026) : Vigilance (jaune), Vigilance renforcée (rouge) et Alerte attentat (rose), et les consignes officielles « s'échapper, se cacher, alerter » (17 ou 112).
 - **Nouveau phénomène météo 🌀 Tempête**, avec ses consignes (rester à l'abri, fixer les objets, ne pas toucher aux fils électriques tombés, pas de groupe électrogène à l'intérieur).
