@@ -3,6 +3,7 @@ Alertes météo en temps réel par département, avec la carte de vigilance Mét
 ## Nouveautés de la 2.4.0
 - **Prévision d'origine** des alertes vent violent et vagues-submersion automatiques : M-Alert et M-Alert-sender affichent l'heure d'émission, le titre et l'heure du pic prévus au départ (« 🕓 Prévision d'origine, émise … »), même quand la prévision a mis l'alerte à jour depuis.
 - **M-Alert-sender : durée des alertes séisme automatiques** : « ⏱ Durée » sur une alerte séisme ou tsunami en cours (10 min à 48 h, autre durée ou sans fin) sans arrêter ses mises à jour automatiques (EMSC, stations), et durée par niveau (Faible, Moyen, Élevé, Majeur) dans les règles de déclenchement.
+- **Annulation (fausse alerte) de toutes les alertes** : le bouton « ❌ Annuler (fausse alerte) » n'est plus réservé aux séismes et tsunamis ; M-Alert affiche le bandeau « ❌ Alerte annulée » avec la raison, quel que soit le phénomène. Une alerte vent ou vagues-submersion automatique annulée n'est plus reproposée ce jour-là.
 - **M-Alert-sender : version affichée** à côté du nom de l'application, et dans les réglages avec celle du serveur et du détecteur de la VM.
 
 ## Nouveautés de la 2.3.1
