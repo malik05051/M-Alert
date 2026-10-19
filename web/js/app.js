@@ -369,12 +369,52 @@
     return M.categoryOf(a) === 'meteo' && String(Number(a.phenomenon) || 0) === value;
   }
 
+  /**
+   * Vigilances Météo-France en cours (jaune, orange, rouge), affichées dans « Alertes en cours »
+   * avec les alertes M-Alert : une ligne par phénomène et par couleur, avec ses départements et,
+   * si Météo-France la donne, la plage horaire.
+   */
+  function vigilanceItems() {
+    if (settings.vigInList === false) return [];
+    const p = periodData(0);
+    if (!p || !p.departments) return [];
+    const groups = {};
+    for (const [code, v] of Object.entries(p.departments)) {
+      for (const ph of v.phenomena || []) {
+        if (ph.level < 2) continue;
+        const key = `${ph.id}-${ph.level}`;
+        const g = (groups[key] = groups[key] || { id: `vig-${key}`, __vig: true, category: 'meteo', phenomenon: ph.id, level: ph.level, departments: [], begin: null, end: null, manual: false });
+        g.departments.push(code);
+        if (v.manual) g.manual = true;
+        for (const s of ph.slots || []) {
+          if (s.level < ph.level) continue;
+          if (!g.begin || s.begin < g.begin) g.begin = s.begin;
+          if (!g.end || s.end > g.end) g.end = s.end;
+        }
+      }
+    }
+    return Object.values(groups).map((g) => ({ ...g, departments: g.departments.sort(), end: g.end || p.end, createdAt: '' }));
+  }
+
+  function vigItemHtml(g) {
+    const v = VIGILANCE[g.level];
+    const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
+    const when = g.begin && new Date(g.begin) > Date.now() ? `de ${M.formatTime(g.begin)} à ${M.formatTime(g.end)}` : `jusqu'à ${M.formatTime(g.end)}`;
+    return `<div class="alert-item vig-item ${isMine(g) ? 'mine' : ''}" data-vig="${g.id}" style="border-left-color:${v.color}">
+      <div class="t"><span class="tag" style="background:${v.color};color:${LEVELS[g.level].text}">Vigilance ${escapeHtml(v.name.toLowerCase())}</span>${ph.icon} ${escapeHtml(ph.name)}</div>
+      <div class="m">🇫🇷 Météo-France${g.manual ? ' (corrigée par M-Alert)' : ''} · ${escapeHtml(M.departmentsLabel(g.departments, 3))}</div>
+      <div class="m">${escapeHtml(when)}</div>
+    </div>`;
+  }
+
   function renderAlerts() {
-    const sorted = [...alerts].filter(passesFilter).sort((a, b) => (isMine(b) - isMine(a)) || (b.level - a.level) || b.createdAt.localeCompare(a.createdAt));
-    $('alertCount').textContent = alertFilter ? `${sorted.length}/${alerts.length}` : alerts.length;
+    const vig = vigilanceItems();
+    const all = [...alerts, ...vig];
+    const sorted = all.filter(passesFilter).sort((a, b) => (isMine(b) - isMine(a)) || (b.level - a.level) || (Boolean(a.__vig) - Boolean(b.__vig)) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+    $('alertCount').textContent = alertFilter ? `${sorted.length}/${all.length}` : all.length;
     $('alertList').innerHTML = sorted.length
-      ? sorted.map(alertItemHtml).join('')
-      : `<div class="empty">${alertFilter && alerts.length ? 'Aucune alerte de ce type en cours.' : 'Aucune alerte en cours ✅'}</div>`;
+      ? sorted.map((a) => (a.__vig ? vigItemHtml(a) : alertItemHtml(a))).join('')
+      : `<div class="empty">${alertFilter && all.length ? 'Aucune alerte de ce type en cours.' : 'Aucune alerte en cours ✅'}</div>`;
   }
 
   function renderVigInfo() {
@@ -411,6 +451,13 @@
     if (noticeItem) {
       const n = notices.find((x) => x.id === noticeItem.dataset.notice);
       if (n && (!current || current.__notice)) showNoticeBanner(n);
+      return;
+    }
+    // Vigilance Météo-France : la carte montre ses départements (vigilance d'aujourd'hui).
+    const vigItem = e.target.closest('[data-vig]');
+    if (vigItem) {
+      const g = vigilanceItems().find((x) => x.id === vigItem.dataset.vig);
+      if (g) focusAlert(g);
       return;
     }
     const item = e.target.closest('[data-alert]');
@@ -1295,6 +1342,7 @@
     $('setNotices').checked = settings.notices !== false;
     $('setTiles').checked = settings.tiles;
     $('setIntensity').checked = settings.intensityMap !== false;
+    $('setVigList').checked = settings.vigInList !== false;
     $('setServer').value = settings.serverUrl;
     document.querySelectorAll('.native-only').forEach((el) => el.classList.toggle('hidden', !native));
     document.querySelectorAll('.push-only').forEach((el) => el.classList.toggle('hidden', !pushSupported));
@@ -1345,6 +1393,7 @@
       notices: $('setNotices').checked,
       tiles: $('setTiles').checked,
       intensityMap: $('setIntensity').checked,
+      vigInList: $('setVigList').checked,
       serverUrl: M.normalizeServerUrl($('setServer').value) || DEFAULTS.serverUrl,
     };
     if (native) {

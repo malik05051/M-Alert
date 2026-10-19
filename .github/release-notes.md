@@ -1,6 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.4.0
+- **Vigilances Météo-France dans « Alertes en cours »** : les vigilances jaune, orange et rouge du jour s'affichent dans la liste avec les alertes M-Alert (phénomène, départements, plage horaire), filtrables par phénomène ; un clic les montre sur la carte. Option dans les réglages pour les masquer.
+- **Vent moyen** à côté des rafales dans les alertes vent violent automatiques (« rafales jusqu'à 119 km/h (vent moyen 55 km/h) ») et dans le tableau des prévisions du sender.
 - **Prévisions de vent plus justes** : le point de prévision de chaque département est sa préfecture (là où vivent les gens) au lieu d'un point au milieu du département, souvent en relief ; le point côtier est pris au niveau de la mer (et non sur une falaise ou une crête, comme au Cap Corse). Une tempête de nuit ne donne plus deux alertes coupées à minuit : les heures consécutives forment un seul épisode, avec son vrai début et sa vraie fin, et M-Alert-sender indique l'heure du pic dans chaque département.
 - **Prévision d'origine** des alertes vent violent et vagues-submersion automatiques : M-Alert et M-Alert-sender affichent l'heure d'émission, le titre et l'heure du pic prévus au départ (« 🕓 Prévision d'origine, émise … »), même quand la prévision a mis l'alerte à jour depuis.
 - **M-Alert-sender : durée des alertes séisme automatiques par niveau** (Faible, Moyen, Élevé, Majeur) dans les règles de déclenchement, en plus de la durée générale.
