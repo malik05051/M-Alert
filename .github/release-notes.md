@@ -1,6 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.4.0
+- **Vigilances Météo-France cliquables** dans « Alertes en cours » : bannière avec la couleur, le phénomène, les départements, les horaires et les consignes. Le texte « Pas de phénomène particulier » est retiré.
+- **M-Alert-sender : vigilances Météo-France en cours** dans l'onglet Vigilance, avec « ✎ Corriger » qui prépare la correction (départements, couleur, phénomène) à modifier puis appliquer.
 - **M-Alert-sender : alertes planifiées repliables** dans « En cours » : un clic sur « 🕒 Planifiées » plie ou déplie la liste (état mémorisé ; pliée, elle indique la prochaine diffusion) pour voir les alertes en cours sans faire défiler.
 - **Vigilances Météo-France dans « Alertes en cours »** : les vigilances jaune, orange et rouge du jour s'affichent dans la liste avec les alertes M-Alert (phénomène, départements, plage horaire), filtrables par phénomène ; un clic les montre sur la carte. Option dans les réglages pour les masquer.
 - **Vent moyen** à côté des rafales dans les alertes vent violent automatiques (« rafales jusqu'à 119 km/h (vent moyen 55 km/h) ») et dans le tableau des prévisions du sender.

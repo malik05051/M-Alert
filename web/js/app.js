@@ -293,7 +293,7 @@
         const ph = PHENOMENA[p.id] || PHENOMENA[0];
         return `<li><span class="sw" style="background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)} — ${VIGILANCE[p.level].name.toLowerCase()}</li>`;
       }).join('')}</ul>`
-      : `<p class="muted small" style="margin:0">Pas de phénomène particulier ${day ? 'demain' : 'aujourd\'hui'}.</p>`;
+      : '';
     const corrected = shown && shown.manual && vigilance && vigilance.source !== 'manual'
       ? '<p class="small" style="margin:8px 0 0;color:#c4b5fd">✎ Vigilance corrigée manuellement par M-Alert.</p>'
       : '';
@@ -457,7 +457,11 @@
     const vigItem = e.target.closest('[data-vig]');
     if (vigItem) {
       const g = vigilanceItems().find((x) => x.id === vigItem.dataset.vig);
-      if (g) focusAlert(g);
+      if (g) {
+        // Bannière de la vigilance (comme une notification), sauf si une alerte est affichée.
+        if (!current || current.__notice) showVigBanner(g);
+        else focusAlert(g);
+      }
       return;
     }
     const item = e.target.closest('[data-alert]');
@@ -592,16 +596,35 @@
     if (native) native.alert({ level: 1, front: settings.front });
   }
 
+  /** Vigilance Météo-France en bannière : couleur, phénomène, départements, horaires et consignes. */
+  function showVigBanner(g) {
+    const v = VIGILANCE[g.level];
+    const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
+    const p = periodData(0);
+    const when = g.begin && new Date(g.begin) > Date.now()
+      ? `De ${M.formatDateTime(g.begin)} à ${M.formatTime(g.end)}`
+      : `Jusqu'au ${M.formatDateTime(g.end)}`;
+    showNoticeBanner({
+      id: g.id, __vig: true, color: v.color, textColor: LEVELS[g.level].text,
+      levelText: `Vigilance ${v.name.toLowerCase()}`, phen: `${ph.icon} ${ph.name}`,
+      title: `Vigilance ${v.name.toLowerCase()} ${ph.name.toLowerCase()} — Météo-France`,
+      departments: g.departments, createdAt: (vigilance && vigilance.updatedAt) || new Date().toISOString(),
+      body: `${when}.${g.manual ? ' Vigilance corrigée par M-Alert.' : ''}${p && p.text ? `\n\n${p.text}` : ''}`,
+      advice: M.ADVICE[g.phenomenon] || '',
+      valid: '🇫🇷 Vigilance Météo-France (mise à jour au moins deux fois par jour)',
+    });
+  }
+
   /** Bandeau compact en haut de l'écran pour une notification de M-Alert (ou une annulation). */
   function showNoticeBanner(n) {
     current = { ...n, __notice: true };
     stopWaveCountdown();
     const ov = $('alertOverlay');
     ov.className = 'alert-overlay compact notice';
-    ov.style.setProperty('--c', n.__void ? VOID_COLOR : NOTICE_COLOR);
-    ov.style.setProperty('--ct', '#0b1220');
-    $('ovLevel').textContent = n.__void ? '❌ Alerte annulée' : '🔔 Notification';
-    $('ovPhen').textContent = n.__void ? n.phen : 'M-Alert';
+    ov.style.setProperty('--c', n.__void ? VOID_COLOR : n.__vig ? n.color : NOTICE_COLOR);
+    ov.style.setProperty('--ct', n.__vig ? n.textColor : '#0b1220');
+    $('ovLevel').textContent = n.__void ? '❌ Alerte annulée' : n.__vig ? n.levelText : '🔔 Notification';
+    $('ovPhen').textContent = n.__void || n.__vig ? n.phen : 'M-Alert';
     $('ovTest').classList.toggle('hidden', !n.test);
     $('ovTime').textContent = M.formatDateTime(n.createdAt);
     $('ovTitle').textContent = n.title;
@@ -609,8 +632,9 @@
     $('ovEpi').classList.add('hidden');
     $('ovTsunami').classList.add('hidden'); // pas de tableau d'une alerte tsunami affichée avant
     $('ovDesc').textContent = n.body || '';
-    $('ovAdviceWrap').classList.add('hidden');
-    $('ovValid').textContent = n.__void ? 'Fausse alerte : l\'alerte est levée.' : 'Consultable 24 h dans « Notifications »';
+    $('ovAdviceWrap').classList.toggle('hidden', !n.advice);
+    $('ovAdvice').textContent = n.advice || '';
+    $('ovValid').textContent = n.__vig ? n.valid : n.__void ? 'Fausse alerte : l\'alerte est levée.' : 'Consultable 24 h dans « Notifications »';
     $('ovQueue').textContent = queue.length ? `+${queue.length} autre(s) alerte(s)` : '';
     $('ovMute').classList.add('hidden');
     ov.querySelector('.alert-banner').scrollTop = 0;

@@ -35,7 +35,7 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 - **Tempête** 🌀 : phénomène météo à part (en plus du vent violent de Météo-France), avec ses consignes.
 - **Consignes types** pour tous les phénomènes et catégories, affichées dès le niveau jaune (Avis) quand M-Alert n'en a pas écrit.
 - **Blocus / manifestation** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose).
-- **Vigilances Météo-France dans « Alertes en cours »** : à côté des alertes M-Alert, une ligne par phénomène et par couleur de vigilance du jour (jaune, orange, rouge) avec ses départements et sa plage horaire ; un clic les montre sur la carte. Option « Afficher les vigilances Météo-France dans « Alertes en cours » » dans les réglages.
+- **Vigilances Météo-France dans « Alertes en cours »** : à côté des alertes M-Alert, une ligne par phénomène et par couleur de vigilance du jour (jaune, orange, rouge) avec ses départements et sa plage horaire ; un clic l'affiche en bannière (départements, horaires, consignes) et la montre sur la carte. Option « Afficher les vigilances Météo-France dans « Alertes en cours » » dans les réglages.
 - **Filtre par phénomène** : liste « Alertes en cours » filtrable par catégorie ou par phénomène météo (alertes M-Alert et vigilances Météo-France).
 - **Réglages** : département principal, autres départements suivis, catégories d'alertes et phénomènes météo reçus, alertes de toute la France, niveau minimum, son et volume (général et par type d'alerte, avec écoute), notifications, notifications de M-Alert, notifications push, fond de carte détaillé, lancement au démarrage, adresse du serveur.
 
