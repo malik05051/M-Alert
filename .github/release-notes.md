@@ -1,5 +1,10 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.4.0
+- **Prévision d'origine** des alertes vent violent et vagues-submersion automatiques : M-Alert et M-Alert-sender affichent l'heure d'émission, le titre et l'heure du pic prévus au départ (« 🕓 Prévision d'origine, émise … »), même quand la prévision a mis l'alerte à jour depuis.
+- **M-Alert-sender : durée des alertes séisme automatiques** : « ⏱ Durée » sur une alerte séisme ou tsunami en cours (10 min à 48 h, autre durée ou sans fin) sans arrêter ses mises à jour automatiques (EMSC, stations), et durée par niveau (Faible, Moyen, Élevé, Majeur) dans les règles de déclenchement.
+- **M-Alert-sender : version affichée** à côté du nom de l'application, et dans les réglages avec celle du serveur et du détecteur de la VM.
+
 ## Nouveautés de la 2.3.1
 - **Toutes les alertes s'affichent en bannière** en haut de l'écran, comme les séismes, les notifications et les annulations : cadre clignotant à la couleur du niveau, titre, départements et début du texte (un clic affiche tout, avec les consignes), la carte restant visible et utilisable dessous. Le tableau d'arrivée d'un tsunami défile dans la bannière.
 - Correction : une notification affichée juste après une alerte tsunami ne reprend plus le tableau des côtes du tsunami.

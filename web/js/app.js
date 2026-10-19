@@ -785,6 +785,8 @@
     if (M.fireSummary(alert)) quake.push(`<span>${escapeHtml(M.fireSummary(alert))}</span>`);
     // Pollution de l'air : polluant.
     if (M.pollutionSummary(alert)) quake.push(`<span>🧪 ${escapeHtml(M.pollutionSummary(alert))}</span>`);
+    // Vent ou vagues-submersion automatique : version d'origine (la prévision a pu la modifier).
+    if (M.forecastOriginText(alert)) quake.push(`<span class="origin">🕓 ${escapeHtml(M.forecastOriginText(alert))}</span>`);
     $('ovEpi').classList.toggle('hidden', !quake.length);
     $('ovEpi').innerHTML = quake.join(' ');
     $('ovDesc').textContent = alert.description;

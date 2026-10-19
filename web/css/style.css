@@ -196,6 +196,7 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .alert-epi .int-pair { display: inline-flex; align-items: center; gap: 4px; }
 .alert-epi .int-pair small { color: var(--muted); font-size: 12px; }
 .alert-epi .aftershock { font-weight: 700; color: #fbbf24; }
+.alert-epi .origin { font-weight: 500; font-size: 13px; color: var(--muted); }
 /* Tableau d'arrivée du tsunami (style des bulletins japonais) */
 .tsu-board { background: #050505; border: 1px solid #333; border-radius: 8px; padding: 0 8px 8px; margin: 4px 0 10px; color: #fff; }
 .tsu-title { text-align: center; font-weight: 800; letter-spacing: .12em; padding: 5px; margin: 0 -8px 4px; background: linear-gradient(#3a3a3a, #111); border-radius: 8px 8px 0 0; }

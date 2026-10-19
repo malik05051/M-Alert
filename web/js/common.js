@@ -283,6 +283,19 @@
     return `EF${alert.ef}${typeof alert.windKmh === 'number' ? ` · vent attendu ${alert.windKmh} km/h` : ''}`;
   }
 
+  /**
+   * Alerte vent ou vagues-submersion automatique : sa version d'origine, gardée quand la prévision
+   * la met à jour (« Prévision d'origine, émise dim. 18/10 22:00 : … · pic prévu lun. 19/10 vers 15 h »).
+   */
+  function forecastOriginText(alert) {
+    const o = alert && alert.forecastOrigin;
+    if (!o || !o.at) return '';
+    const peak = o.peakAt
+      ? ` · pic prévu ${new Date(`${o.peakAt.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' })} vers ${Number(o.peakAt.slice(11, 13))} h`
+      : '';
+    return `Prévision d'origine, émise ${formatDateTime(o.at)} : ${o.title}${peak}`;
+  }
+
   /** « Ozone » pour une pollution de l'air dont le polluant est indiqué (vide sinon). */
   function pollutionSummary(alert) {
     if (!alert || alert.category !== 'pollution' || alert.pollutionType !== 'air' || !POLLUTANTS[alert.pollutant]) return '';
@@ -450,7 +463,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,
