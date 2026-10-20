@@ -1,5 +1,11 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.4.1
+- **Vigilances Météo-France relancées** : M-Alert peut rejouer une vigilance (bannière à sa couleur, son, notification et push, mention « rappel de M-Alert »), aussi à heure fixe ou à intervalles.
+- Les vigilances de « Alertes en cours » indiquent simplement Jaune, Orange ou Rouge.
+- **M-Alert-sender** : les vigilances Météo-France sont dans « En cours », dans une section repliable, avec les mêmes commandes que les alertes : Modifier (correction), Relancer, Planifier une relance, Lever la vigilance, Voir sur la carte.
+- **Correction** : en mode automatique, l'onglet Vigilance du sender montrait l'ancienne vigilance manuelle au lieu de celle de Météo-France que voient les utilisateurs.
+
 ## Nouveautés de la 2.4.0
 - **Vigilances Météo-France cliquables** dans « Alertes en cours » : bannière avec la couleur, le phénomène, les départements, les horaires et les consignes. Le texte « Pas de phénomène particulier » est retiré.
 - **M-Alert-sender : vigilances Météo-France en cours** dans l'onglet Vigilance, avec « ✎ Corriger » qui prépare la correction (départements, couleur, phénomène) à modifier puis appliquer.

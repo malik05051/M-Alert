@@ -401,7 +401,7 @@
     const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
     const when = g.begin && new Date(g.begin) > Date.now() ? `de ${M.formatTime(g.begin)} à ${M.formatTime(g.end)}` : `jusqu'à ${M.formatTime(g.end)}`;
     return `<div class="alert-item vig-item ${isMine(g) ? 'mine' : ''}" data-vig="${g.id}" style="border-left-color:${v.color}">
-      <div class="t"><span class="tag" style="background:${v.color};color:${LEVELS[g.level].text}">Vigilance ${escapeHtml(v.name.toLowerCase())}</span>${ph.icon} ${escapeHtml(ph.name)}</div>
+      <div class="t"><span class="tag" style="background:${v.color};color:${LEVELS[g.level].text}" title="Vigilance Météo-France">${escapeHtml(v.name)}</span>${ph.icon} ${escapeHtml(ph.name)}</div>
       <div class="m">🇫🇷 Météo-France${g.manual ? ' (corrigée par M-Alert)' : ''} · ${escapeHtml(M.departmentsLabel(g.departments, 3))}</div>
       <div class="m">${escapeHtml(when)}</div>
     </div>`;
@@ -597,22 +597,40 @@
   }
 
   /** Vigilance Météo-France en bannière : couleur, phénomène, départements, horaires et consignes. */
-  function showVigBanner(g) {
+  function showVigBanner(g, { ring = false } = {}) {
     const v = VIGILANCE[g.level];
     const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
     const p = periodData(0);
     const when = g.begin && new Date(g.begin) > Date.now()
       ? `De ${M.formatDateTime(g.begin)} à ${M.formatTime(g.end)}`
       : `Jusqu'au ${M.formatDateTime(g.end)}`;
-    showNoticeBanner({
-      id: g.id, __vig: true, color: v.color, textColor: LEVELS[g.level].text,
+    const n = {
+      id: g.id || `vig-${g.key}`, __vig: true, color: v.color, textColor: LEVELS[g.level].text,
       levelText: `Vigilance ${v.name.toLowerCase()}`, phen: `${ph.icon} ${ph.name}`,
       title: `Vigilance ${v.name.toLowerCase()} ${ph.name.toLowerCase()} — Météo-France`,
       departments: g.departments, createdAt: (vigilance && vigilance.updatedAt) || new Date().toISOString(),
       body: `${when}.${g.manual ? ' Vigilance corrigée par M-Alert.' : ''}${p && p.text ? `\n\n${p.text}` : ''}`,
       advice: M.ADVICE[g.phenomenon] || '',
-      valid: '🇫🇷 Vigilance Météo-France (mise à jour au moins deux fois par jour)',
-    });
+      valid: `🇫🇷 Vigilance Météo-France${ring ? ' · rappel de M-Alert' : ' (mise à jour au moins deux fois par jour)'}`,
+    };
+    // Derrière une alerte affichée, la vigilance attend son tour.
+    if (current && !current.__notice) {
+      queue.push({ ...n, __notice: true });
+      $('ovQueue').textContent = `+${queue.length} autre(s) alerte(s)`;
+    } else {
+      showNoticeBanner(n);
+    }
+  }
+
+  /** Relance d'une vigilance par M-Alert : bannière, son et notification, si elle me concerne. */
+  function onVigRing(g) {
+    if (!g || !(settings.all || isMine(g))) return;
+    if (g.phenomenon && (settings.phenomenaOff || []).includes(Number(g.phenomenon))) return;
+    showVigBanner(g, { ring: true });
+    const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
+    if (settings.sound) window.MAlertSound.play({ level: g.level, category: 'meteo', phenomenon: g.phenomenon }, { volume: settings.volume, loop: false });
+    systemNotification(`Rappel · Vigilance ${VIGILANCE[g.level].name.toLowerCase()} — ${ph.name}`, M.departmentsLabel(g.departments, 3), { tag: `vig-${g.key}`, urgent: true });
+    if (native) native.alert({ level: g.level, front: settings.front });
   }
 
   /** Bandeau compact en haut de l'écran pour une notification de M-Alert (ou une annulation). */
@@ -1212,6 +1230,9 @@
         renderNotices();
         break;
       }
+      case 'vig-ring':
+        onVigRing(msg.group);
+        break;
       case 'vigilance': {
         const old = vigilance;
         vigilance = msg.vigilance;
