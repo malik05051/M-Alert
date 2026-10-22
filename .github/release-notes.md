@@ -1,5 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
+## Nouveautés de la 2.4.2
+- **Plus de fausses alertes séisme dues aux séismes lointains** : les ondes d'un fort séisme à l'autre bout du monde (comme celui du Tibet le 22 octobre) traversent toutes les stations françaises en quelques secondes et étaient prises pour des séismes en France. Le détecteur reconnaît maintenant ces ondes (elles balaient le pays comme un front droit, 2 à 3 fois plus vite que celles d'un séisme proche) : la détection est suspendue 20 minutes et les séismes signalés juste avant sont annulés, avec leurs alertes (« Fausse alerte : les stations ont détecté les ondes d'un séisme lointain »).
+- **M-Alert-sender** : le panneau 📶 indique « 🌍 Ondes d'un séisme lointain venant du nord-est… : détection suspendue jusqu'à … » (pour la VM et pour cet ordinateur) ; un séisme annulé par le détecteur affiche la raison. Le détecteur de l'ordinateur (relais de la VM) annule aussi ses fausses détections.
+
 ## Nouveautés de la 2.4.1
 - **Vigilances Météo-France relancées** : M-Alert peut rejouer une vigilance (bannière à sa couleur, son, notification et push, mention « rappel de M-Alert »), aussi à heure fixe ou à intervalles.
 - Les vigilances de « Alertes en cours » indiquent simplement Jaune, Orange ou Rouge.
