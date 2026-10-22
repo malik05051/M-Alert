@@ -127,6 +127,7 @@ ipcMain.on('set-native-settings', (_e, values) => {
 
 app.whenReady().then(() => {
   settings = bg.loadSettings();
+  bg.refreshAutostart(APP_ID, 'M-Alert', ICON);
   createWindow();
   updater = new Updater({
     enabled: settings.autoUpdate,

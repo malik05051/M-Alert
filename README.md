@@ -10,7 +10,7 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 
 ## Fonctionnalités
 
-- **Carte interactive** des départements, colorés selon la **vigilance Météo-France** (vert, jaune, orange, rouge, et rose pour le niveau **majeur** fixé par M-Alert), pour aujourd'hui et demain. Survolez un département pour voir les phénomènes (orages, vent, crues…).
+- **Carte interactive** des départements, colorés selon la **vigilance Météo-France** (vert, jaune, orange, rouge, et rose pour le niveau **majeur** fixé par M-Alert), pour aujourd'hui et demain, et **après-demain** d'après les prévisions de vent violent et de vagues-submersion de M-Alert (Météo-France ne publie pas de vigilance au-delà de demain). Survolez un département pour voir les phénomènes (orages, vent, crues…).
 - **Alertes en bannière** en haut de l'écran, dans le style de JQuake / GlobalQuake : cadre clignotant à la couleur du niveau, titre, départements concernés, description (un clic l'affiche en entier, avec les consignes) ; la carte reste visible et utilisable dessous. Les notifications de M-Alert et les annulations s'affichent de la même façon.
 - **Son d'alerte** selon le niveau (information ; jaune et orange ; rouge ; majeure), avec un son dédié aux crues, inondations, tsunamis et vagues-submersion. Pour l'orange et le rouge, le son peut être répété jusqu'à « J'ai compris » ; le son majeur se répète toujours jusqu'à « J'ai compris ». Dans les réglages, chaque type d'alerte peut avoir **son propre son et son propre volume**, avec un bouton ▶ pour l'écouter.
 - **Notification système** avec la description de l'alerte.

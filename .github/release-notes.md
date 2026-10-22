@@ -1,5 +1,8 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
-## Nouveautés de la 2.4.2
-- **Plus de fausses alertes séisme dues aux séismes lointains** : les ondes d'un fort séisme à l'autre bout du monde (comme celui du Tibet le 22 octobre) traversent toutes les stations françaises en quelques secondes et étaient prises pour des séismes en France. Le détecteur reconnaît maintenant ces ondes (elles balaient le pays comme un front droit, 2 à 3 fois plus vite que celles d'un séisme proche) : la détection est suspendue 20 minutes et les séismes signalés juste avant sont annulés, avec leurs alertes (« Fausse alerte : les stations ont détecté les ondes d'un séisme lointain »).
-- **M-Alert-sender** : le panneau 📶 indique « 🌍 Ondes d'un séisme lointain venant du nord-est… : détection suspendue jusqu'à … » (pour la VM et pour cet ordinateur) ; un séisme annulé par le détecteur affiche la raison. Le détecteur de l'ordinateur (relais de la VM) annule aussi ses fausses détections.
+## Nouveautés de la 2.5.0
+- **Tableau des alertes vent violent et vagues-submersion**, comme celui d'un tsunami : les départements sont regroupés par niveau, chacun avec le début, la fin et le pic prévus, les rafales et le vent moyen (ou la hauteur des vagues, le niveau de la mer et la surcote). Votre département est signalé par 📍.
+- **Après-demain** sur la carte : Météo-France ne publie la vigilance que pour aujourd'hui et demain ; M-Alert affiche pour après-demain sa propre prévision du vent violent et des vagues-submersion (mention « prévision M-Alert »).
+- **M-Alert-sender : plusieurs alertes à la fois** : cochez des alertes en cours pour les relancer, planifier leur relance, les lever ou les annuler (fausse alerte) en une fois ; cochez des alertes planifiées pour les envoyer maintenant ou annuler leur envoi.
+- **M-Alert-sender : démarrage automatique corrigé** (paquet Arch) : au démarrage de la session, Electron s'ouvrait seul, sans le sender. Ouvrez une fois le sender après la mise à jour pour corriger le lancement automatique.
+- Une alerte vent ou vagues-submersion automatique levée ou annulée (fausse alerte) n'est plus renvoyée aussitôt à un niveau plus bas pour les mêmes départements.

@@ -113,7 +113,7 @@
 
   let alerts = [];          // alertes actives
   let vigilance = null;     // dernières données de vigilance
-  let day = 0;              // 0 = aujourd'hui, 1 = demain
+  let day = 0;              // 0 = aujourd'hui, 1 = demain, 2 = après-demain (prévision M-Alert)
   let selectedCode = null;  // département cliqué sur la carte
   const seen = new Set(M.storage.get('malert.seen', []));
   const queue = [];         // alertes en attente d'affichage (bannière)
@@ -195,8 +195,19 @@
     },
   });
 
+  const DAY_NAMES = ['aujourd\'hui', 'demain', 'après-demain'];
+
   function periodData(d = day) {
+    // Après-demain : prévision M-Alert d'après le vent et les vagues (pas de vigilance Météo-France).
+    if (d === 2) return vigilance && vigilance.outlook ? vigilance.outlook : null;
     return vigilance && vigilance.periods && vigilance.periods[d] ? vigilance.periods[d] : null;
+  }
+
+  /** Valeurs prévues par M-Alert pour après-demain (rafales, vagues) d'un phénomène. */
+  function outlookValue(p) {
+    if (p.id === 1 && p.gust) return ` : rafales ${p.gust} km/h${p.mean ? ` (moyen ${p.mean})` : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    if (p.id === 9 && typeof p.hs === 'number') return ` : vagues ${p.hs.toLocaleString('fr-FR')} m${typeof p.water === 'number' && p.water >= 0 ? ', mer haute' : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    return '';
   }
 
   function vigFor(code, d = day) {
@@ -211,10 +222,10 @@
   /** Alerte M-Alert de plus haut niveau pour un département, aujourd'hui (0) ou demain (1). */
   function topAlertFor(code, d) {
     let from = Date.now();
-    if (d === 1) {
-      const p = periodData(1);
+    if (d >= 1) {
+      const p = periodData(d);
       const t = new Date();
-      t.setHours(24, 0, 0, 0);
+      t.setHours(24 * d, 0, 0, 0);
       from = p ? new Date(p.begin).getTime() : t.getTime();
     }
     return alertsFor(code)
@@ -226,7 +237,7 @@
     if (!vig || !vig.phenomena || !vig.phenomena.length) return '';
     return vig.phenomena.map((p) => {
       const ph = PHENOMENA[p.id] || PHENOMENA[0];
-      return `<div class="tt-row"><span class="sw" style="width:9px;height:9px;border-radius:2px;background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)}</div>`;
+      return `<div class="tt-row"><span class="sw" style="width:9px;height:9px;border-radius:2px;background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)}${escapeHtml(outlookValue(p))}</div>`;
     }).join('');
   }
 
@@ -235,7 +246,7 @@
     const level = vig ? vig.level : 0;
     const al = alertsFor(code);
     let html = `<div class="tt-title">${escapeHtml(nom)} (${code})</div>`;
-    html += `<div class="tt-row">Vigilance ${day ? 'demain' : 'aujourd\'hui'} : <b style="color:${VIGILANCE[level].color}">${VIGILANCE[level].name}</b></div>`;
+    html += `<div class="tt-row">${day === 2 ? 'Prévision M-Alert' : 'Vigilance'} ${DAY_NAMES[day]} : <b style="color:${VIGILANCE[level].color}">${VIGILANCE[level].name}</b></div>`;
     html += phenRows(vig);
     if (vig && vig.manual) html += '<div class="tt-row">✎ Corrigé par M-Alert</div>';
     for (const a of al) {
@@ -277,6 +288,7 @@
   function depCardHtml(code, { mine }) {
     const today = vigFor(code, 0);
     const tomorrow = vigFor(code, 1);
+    const after = vigFor(code, 2);
     // Niveau affiché : le plus élevé entre la vigilance Météo-France et les alertes M-Alert du jour.
     const pill = (vig, label, d) => {
       const l = vig ? vig.level : 0;
@@ -287,12 +299,15 @@
       }
       return `<div class="vig-pill lvl-${l}"><small>${label}</small>${VIGILANCE[l].name}</div>`;
     };
-    const shown = day === 0 ? today : tomorrow;
+    const shown = [today, tomorrow, after][day];
     const phen = shown && shown.phenomena.length
       ? `<ul class="phen-list">${shown.phenomena.map((p) => {
         const ph = PHENOMENA[p.id] || PHENOMENA[0];
-        return `<li><span class="sw" style="background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)} — ${VIGILANCE[p.level].name.toLowerCase()}</li>`;
+        return `<li><span class="sw" style="background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)} — ${VIGILANCE[p.level].name.toLowerCase()}${escapeHtml(outlookValue(p))}</li>`;
       }).join('')}</ul>`
+      : '';
+    const outlookNote = day === 2
+      ? '<p class="small" style="margin:8px 0 0;opacity:.8">Après-demain : prévision M-Alert (vent violent, vagues-submersion), pas une vigilance Météo-France.</p>'
       : '';
     const corrected = shown && shown.manual && vigilance && vigilance.source !== 'manual'
       ? '<p class="small" style="margin:8px 0 0;color:#c4b5fd">✎ Vigilance corrigée manuellement par M-Alert.</p>'
@@ -304,8 +319,8 @@
     return `
       <h2>${mine ? 'Mon département' : 'Département sélectionné'}</h2>
       <p class="dep-title">${escapeHtml(M.departmentName(code))}</p>
-      <div class="vig-pills">${pill(today, 'Aujourd\'hui', 0)}${pill(tomorrow, 'Demain', 1)}</div>
-      ${phen}${corrected}${alertHtml}`;
+      <div class="vig-pills">${pill(today, 'Aujourd\'hui', 0)}${pill(tomorrow, 'Demain', 1)}${vigilance && vigilance.outlook ? pill(after, 'Après-demain', 2) : ''}</div>
+      ${phen}${outlookNote}${corrected}${alertHtml}`;
   }
 
   function renderMyDep() {
@@ -427,6 +442,10 @@
       $('vigBadge').textContent = badge.text;
       $('vigBadge').title = badge.title;
     }
+    if (day === 2 && vigilance && !p) {
+      $('mapCaption').textContent = 'Après-demain : prévision M-Alert pas encore disponible (vent et vagues).';
+      return;
+    }
     if (!vigilance || !p) {
       info.textContent = vigilance && vigilance.error ? `Vigilance indisponible : ${vigilance.error}` : 'Vigilance en attente du serveur…';
       $('mapCaption').textContent = 'Vigilance : en attente…';
@@ -435,7 +454,9 @@
     info.textContent = vigilance.source === 'manual'
       ? `Vigilance saisie manuellement par M-Alert${vigilance.reason === 'api-down' ? ' (API Météo-France indisponible)' : ''} · ${M.formatDateTime(vigilance.updatedAt)}`
       : `Mise à jour : ${M.formatDateTime(vigilance.updatedAt)}${vigilance.corrections ? ` · ${vigilance.corrections} département(s) corrigé(s) par M-Alert` : ''}${vigilance.error ? ' · ⚠ ' + vigilance.error : ''}`;
-    $('mapCaption').textContent = `Vigilance ${day ? 'de demain' : 'd\'aujourd\'hui'} · ${M.formatDateTime(p.begin)} → ${M.formatDateTime(p.end)}`;
+    $('mapCaption').textContent = day === 2
+      ? `Après-demain (${new Date(`${p.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}) · prévision M-Alert du vent violent et des vagues-submersion, Météo-France ne publiant pas de vigilance au-delà de demain · ${M.formatTime(p.updatedAt)}`
+      : `Vigilance ${day ? 'de demain' : 'd\'aujourd\'hui'} · ${M.formatDateTime(p.begin)} → ${M.formatDateTime(p.end)}`;
   }
 
   function renderAll() {
@@ -779,8 +800,66 @@
     const hm = t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     return `${r.estimated ? '≈ ' : ''}${sameDay ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} ${hm}`}`;
   }
+  // Vent violent et vagues-submersion automatiques : même tableau, par niveau, chaque département
+  // avec ses heures prévues (début, fin, pic) et ses valeurs (rafales et vent moyen, ou vagues et mer).
+  const FORECAST_GROUPS = [[5, 'Niveau majeur'], [4, 'Niveau rouge'], [3, 'Niveau orange'], [2, 'Niveau jaune']];
+  /** Heure de Paris « AAAA-MM-JJTHH:MM » : « 14 h », précédée du jour si ce n'est pas aujourd'hui. */
+  function forecastHour(t, withDay) {
+    if (!t) return '';
+    const h = `${Number(t.slice(11, 13))} h`;
+    const today = new Date().toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+    if (!withDay || t.slice(0, 10) === today) return h;
+    const d = new Date(`${t.slice(0, 10)}T12:00:00`);
+    return `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${h}`;
+  }
+  const num = (x, d = 1) => x.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  function renderForecastBoard(alert, el) {
+    const t = alert.forecastTable;
+    const deps = new Set(alert.departments || []);
+    const rows = t.rows.filter((r) => deps.has('ALL') || deps.has(r.department));
+    if (!rows.length) return false;
+    const mine = myDepartments();
+    const wind = t.kind !== 'submersion';
+    const html = [`<div class="tsu-title">${wind ? 'Rafales prévues par département' : 'Vagues et niveau de la mer prévus'}</div>`];
+    for (const [level, name] of FORECAST_GROUPS) {
+      const group = rows.filter((r) => r.level === level)
+        .sort((a, b) => (wind ? Math.max(b.gust || 0, b.gustCoast || 0) - Math.max(a.gust || 0, a.gustCoast || 0) : (b.hs || 0) - (a.hs || 0)));
+      if (!group.length) continue;
+      html.push(`<div class="tsu-head fc-l${level}">${name}</div>`);
+      for (const r of group) {
+        const span = r.from ? `${forecastHour(r.from, true)} → ${forecastHour(r.to, r.to && r.to.slice(0, 10) !== r.from.slice(0, 10))}` : '';
+        const peak = r.at ? `pic ${forecastHour(r.at, r.from && r.at.slice(0, 10) !== r.from.slice(0, 10))}` : '';
+        let value;
+        let sub;
+        if (wind) {
+          const g = Math.max(r.gust || 0, r.gustCoast || 0);
+          value = `${g}<small>km/h</small>`;
+          sub = [r.gustCoast ? `terres ${r.gust} km/h` : '', r.mean ? `moyen ${r.mean} km/h` : ''].filter(Boolean).join(' · ');
+        } else {
+          value = `${num(r.hs || 0)}<small>m</small>`;
+          sub = [typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${num(Math.abs(r.water), 2)} m` : '', typeof r.setup === 'number' ? `surcote ${num(r.setup, 2)} m` : ''].filter(Boolean).join(' · ');
+        }
+        html.push(`<div class="tsu-row fc-row${mine.includes(r.department) ? ' mine' : ''}">
+          <span class="tsu-name">${mine.includes(r.department) ? '📍 ' : ''}${escapeHtml(M.departmentName(r.department).replace(/ \(\w+\)$/, ''))}</span>
+          <span class="tsu-arr fc-time${span ? '' : ' empty'}">${escapeHtml(span)}${peak ? `<small>${escapeHtml(peak)}</small>` : ''}</span>
+          <span class="tsu-h fc-l${level}">${value}${sub ? `<span class="tsu-max">${escapeHtml(sub)}</span>` : ''}</span>
+        </div>`);
+      }
+    }
+    html.push(`<div class="tsu-note">${wind
+      ? 'Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes. Heures de Paris.'
+      : 'Hauteur des vagues au large ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.'}</div>`);
+    el.innerHTML = html.join('');
+    return true;
+  }
+
   function renderTsunamiBoard(alert) {
     const el = $('ovTsunami');
+    if (alert.forecastTable && Array.isArray(alert.forecastTable.rows)) {
+      const shown = renderForecastBoard(alert, el);
+      el.classList.toggle('hidden', !shown);
+      if (shown) return;
+    }
     const rows = alert.category === 'tsunami' && Array.isArray(alert.tsunamiTable) ? alert.tsunamiTable : [];
     el.classList.toggle('hidden', !rows.length);
     if (!rows.length) {

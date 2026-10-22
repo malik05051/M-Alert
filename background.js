@@ -80,6 +80,15 @@ function setAutostart(id, name, iconPath, enabled) {
   app.setLoginItemSettings({ openAtLogin: Boolean(enabled), path: process.execPath, args });
 }
 
+/** Lancement au démarrage déjà activé : commande réécrite (ancienne version, Electron déplacé). */
+function refreshAutostart(id, name, iconPath) {
+  if (process.platform !== 'linux' || !getAutostart(id)) return;
+  try {
+    const want = `Exec=${launchCommand()}`;
+    if (!fs.readFileSync(linuxAutostartFile(id), 'utf8').split('\n').includes(want)) setAutostart(id, name, iconPath, true);
+  } catch (_) { /* fichier illisible : laissé tel quel */ }
+}
+
 function startHidden() {
   return process.argv.includes(HIDDEN_ARG);
 }
@@ -111,5 +120,5 @@ function notifyHiddenOnce(settings, title, iconPath) {
 }
 
 module.exports = {
-  loadSettings, saveSettings, getAutostart, setAutostart, startHidden, createTray, notifyHiddenOnce,
+  loadSettings, saveSettings, getAutostart, setAutostart, refreshAutostart, startHidden, createTray, notifyHiddenOnce,
 };
