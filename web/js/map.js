@@ -137,10 +137,11 @@
     const tsunamiRenderer = L.svg({ pane: 'tsunami', padding: 0.5 });
     const tsunamiGroup = L.layerGroup().addTo(map);
     // Vigilance vagues-submersion du jour affiché (Météo-France, ou prévision M-Alert après-demain) :
-    // même trait le long des côtes, fixe (sous les alertes, qui clignotent).
+    // même trait le long des côtes, qui clignote aussi (sous les alertes).
     const vigCoastPane = map.createPane('vigcoast');
     vigCoastPane.style.zIndex = 465;
     vigCoastPane.style.pointerEvents = 'none';
+    vigCoastPane.classList.add('coast-blink'); // clignote comme les alertes (2 s allumé, 0,75 s éteint)
     const vigCoastRenderer = L.svg({ pane: 'vigcoast', padding: 0.5 });
     const vigCoastGroup = L.layerGroup().addTo(map);
     const coastKeys = new Map();

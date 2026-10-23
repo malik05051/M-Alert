@@ -838,7 +838,8 @@
         } else {
           value = typeof r.hs === 'number' && r.hs > 0 ? `${num(r.hs)}<small>m</small>` : '—';
           sub = [typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${num(Math.abs(r.water), 2)} m` : '', typeof r.setup === 'number' ? `surcote ${num(r.setup, 2)} m` : '',
-            typeof r.wind === 'number' && (r.byWind || !(r.hs > 0)) ? `vent de mer ${r.wind} km/h` : ''].filter(Boolean).join(' · ');
+            typeof r.wind === 'number' && (r.byWind || !(r.hs > 0)) ? `vent de mer ${r.wind} km/h` : '',
+            r.aboveMf ? `Météo-France : ${r.mfLevel >= 2 ? VIGILANCE[r.mfLevel].name.toLowerCase() : 'vert'}` : ''].filter(Boolean).join(' · ');
           if (!(r.hs > 0) && typeof r.wind === 'number') value = `${r.wind}<small>km/h</small>`;
         }
         html.push(`<div class="tsu-row fc-row${mine.includes(r.department) ? ' mine' : ''}">
@@ -850,7 +851,7 @@
     }
     html.push(`<div class="tsu-note">${wind
       ? 'Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes. Heures de Paris.'
-      : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}${rows.some((r) => r.byWind) ? 'Vent de mer : vent moyen soufflant vers la côte (vent violent, tempête), qui fait monter la mer et grossir les vagues. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.`}</div>`);
+      : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}${rows.some((r) => r.aboveMf) ? 'M-Alert prévoit plus grave que Météo-France pour certains départements : son niveau l\'emporte. ' : ''}${rows.some((r) => r.byWind) ? 'Vent de mer : vent moyen soufflant vers la côte (vent violent, tempête), qui fait monter la mer et grossir les vagues. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.`}</div>`);
     el.innerHTML = html.join('');
     return true;
   }
