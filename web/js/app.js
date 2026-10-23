@@ -257,7 +257,7 @@
 
   function refreshMap() {
     const p = periodData();
-    map.setVigilance(p ? p.departments : {});
+    map.setVigilance(p ? p.departments : {}, M.periodDate(p, day));
     map.setAlerts(alerts);
     map.setHighlighted(myDepartments());
     renderIntensities();
@@ -836,7 +836,7 @@
           value = `${g}<small>km/h</small>`;
           sub = [r.gustCoast ? `terres ${r.gust} km/h` : '', r.mean ? `moyen ${r.mean} km/h` : ''].filter(Boolean).join(' · ');
         } else {
-          value = `${num(r.hs || 0)}<small>m</small>`;
+          value = typeof r.hs === 'number' && r.hs > 0 ? `${num(r.hs)}<small>m</small>` : '—';
           sub = [typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${num(Math.abs(r.water), 2)} m` : '', typeof r.setup === 'number' ? `surcote ${num(r.setup, 2)} m` : ''].filter(Boolean).join(' · ');
         }
         html.push(`<div class="tsu-row fc-row${mine.includes(r.department) ? ' mine' : ''}">
@@ -848,7 +848,7 @@
     }
     html.push(`<div class="tsu-note">${wind
       ? 'Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes. Heures de Paris.'
-      : 'Hauteur des vagues au large ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.'}</div>`);
+      : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.`}</div>`);
     el.innerHTML = html.join('');
     return true;
   }

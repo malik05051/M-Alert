@@ -433,6 +433,14 @@
   }
 
   /** Badge d'état de la vigilance : { text, cls, title } ou null si tout va bien. */
+  /** Jour (AAAA-MM-JJ, heure de Paris) d'une période de vigilance, ou aujourd'hui + day sans période. */
+  function periodDate(p, day = 0) {
+    const paris = (ms) => new Date(ms).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+    if (p && p.date) return p.date;
+    if (p && p.begin) return paris(new Date(p.begin).getTime() + 3 * 3600000);
+    return paris(Date.now() + day * 86400000);
+  }
+
   function vigilanceBadge(v) {
     if (!v) return null;
     if (v.source === 'manual') {
@@ -461,7 +469,7 @@
   }
 
   window.MAlert = {
-    PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge,
+    PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
     FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime,

@@ -136,24 +136,74 @@
     tsunamiPane.classList.add('coast-blink');
     const tsunamiRenderer = L.svg({ pane: 'tsunami', padding: 0.5 });
     const tsunamiGroup = L.layerGroup().addTo(map);
-    let tsunamiKey = '';
+    // Vigilance vagues-submersion du jour affiché (Météo-France, ou prévision M-Alert après-demain) :
+    // même trait le long des côtes, fixe (sous les alertes, qui clignotent).
+    const vigCoastPane = map.createPane('vigcoast');
+    vigCoastPane.style.zIndex = 465;
+    vigCoastPane.style.pointerEvents = 'none';
+    const vigCoastRenderer = L.svg({ pane: 'vigcoast', padding: 0.5 });
+    const vigCoastGroup = L.layerGroup().addTo(map);
+    const coastKeys = new Map();
+
+    /** Niveaux des alertes en cours (départements, côtes) et vigilance vagues-submersion sur les côtes. */
+    function applyAlerts() {
+      const levels = {};
+      const tsunami = {};
+      for (const a of state.alerts || []) {
+        const codes = a.departments.includes('ALL') ? Object.keys(layers) : a.departments;
+        // Tsunami et vagues-submersion : la côte est colorée, pas le département.
+        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
+        const target = coastal ? tsunami : levels;
+        // Tsunami avec tableau par côte : chaque côte prend son propre niveau.
+        if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
+          for (const r of a.tsunamiTable) target[r.department] = Math.max(target[r.department] || 0, r.level);
+          continue;
+        }
+        // Vent violent et vagues-submersion automatiques : les départements prévus le jour affiché.
+        if (state.dayDate && a.forecastTable && Array.isArray(a.forecastTable.rows)) {
+          const deps = a.departments.includes('ALL') ? null : new Set(a.departments);
+          for (const r of a.forecastTable.rows) {
+            if (deps && !deps.has(r.department)) continue;
+            const from = (r.from || '').slice(0, 10);
+            const to = (r.to || r.from || '').slice(0, 10);
+            if (from && (state.dayDate < from || state.dayDate > to)) continue;
+            target[r.department] = Math.max(target[r.department] || 0, r.level);
+          }
+          continue;
+        }
+        for (const c of codes) target[c] = Math.max(target[c] || 0, a.level);
+      }
+      const vigCoast = {};
+      for (const [c, v] of Object.entries(state.vigilance || {})) {
+        const ph = (v.phenomena || []).find((p) => p.id === 9);
+        if (ph && ph.level >= 2) vigCoast[c] = ph.level;
+      }
+      state.alertLevels = levels;
+      refreshAll();
+      renderTsunami(tsunami);
+      drawCoasts(vigCoast, vigCoastGroup, vigCoastRenderer);
+    }
 
     function renderTsunami(levels) {
+      drawCoasts(levels, tsunamiGroup, tsunamiRenderer);
+    }
+
+    function drawCoasts(levels, group, renderer) {
       const coasts = window.MALERT_COASTS || {};
       const codes = Object.keys(levels).filter((c) => coasts[c]).sort((a, b) => levels[a] - levels[b]);
       const key = codes.map((c) => `${c}:${levels[c]}`).join(',');
-      if (key === tsunamiKey) return;
-      tsunamiKey = key;
-      tsunamiGroup.clearLayers();
+      if (key === coastKeys.get(group)) return;
+      coastKeys.set(group, key);
+      group.clearLayers();
       // Liseré sombre sous les traits (comme JQuake), pour qu'ils ressortent sur la carte.
       for (const c of codes) {
-        tsunamiGroup.addLayer(L.polyline(coasts[c], {
-          renderer: tsunamiRenderer, interactive: false, color: '#05070d', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
+        group.addLayer(L.polyline(coasts[c], {
+          renderer, interactive: false, color: '#05070d', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
         }));
       }
       for (const c of codes) { // niveaux croissants : le plus grave est tracé par-dessus
-        tsunamiGroup.addLayer(L.polyline(coasts[c], {
-          renderer: tsunamiRenderer, interactive: false, color: LEVELS[levels[c]].color, weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
+        group.addLayer(L.polyline(coasts[c], {
+          renderer, interactive: false, color: LEVELS[levels[c]].color, weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
         }));
       }
     }
@@ -386,9 +436,14 @@
     return {
       leaflet: map,
 
-      setVigilance(departments) {
+      /**
+       * Vigilance du jour affiché ; date (AAAA-MM-JJ, heure de Paris) : jour affiché, pour ne montrer
+       * des alertes vent et vagues-submersion automatiques que les départements prévus ce jour-là.
+       */
+      setVigilance(departments, date) {
         state.vigilance = departments || {};
-        refreshAll();
+        state.dayDate = date || null;
+        applyAlerts();
       },
 
       /** Stations sismiques [{ key, lat, lon, ratio, triggered, live }] ; null ou [] pour les retirer. */
@@ -413,24 +468,9 @@
       },
 
       setAlerts(alerts) {
-        const levels = {};
-        const tsunami = {};
-        for (const a of alerts || []) {
-          const codes = a.departments.includes('ALL') ? Object.keys(layers) : a.departments;
-          // Tsunami et vagues-submersion : la côte est colorée, pas le département.
-          const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
-          const target = coastal ? tsunami : levels;
-          // Tsunami avec tableau par côte : chaque côte prend son propre niveau.
-          if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
-            for (const r of a.tsunamiTable) target[r.department] = Math.max(target[r.department] || 0, r.level);
-            continue;
-          }
-          for (const c of codes) target[c] = Math.max(target[c] || 0, a.level);
-        }
-        state.alertLevels = levels;
-        blinkAdded(alerts || []);
-        refreshAll();
-        renderTsunami(tsunami);
+        state.alerts = alerts || [];
+        blinkAdded(state.alerts);
+        applyAlerts();
         renderEpicenters((alerts || []).filter((a) => a.epicenter));
         setWaves((alerts || []).filter((a) => a.category === 'seisme' && a.epicenter).map((a) => ({
           id: a.id, lat: a.epicenter.lat, lon: a.epicenter.lon, depth: Number(a.depth) || 10, originTime: a.originTime || a.createdAt,
