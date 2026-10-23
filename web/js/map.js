@@ -63,7 +63,9 @@
       }
       // Alerte M-Alert en cours : tout le département prend la couleur du niveau d'alerte, avec la
       // même luminosité et la même frontière noire que les autres départements.
-      const alertLevel = state.alertLevels[code];
+      // Une vigilance plus forte (orange Météo-France sous une alerte M-Alert jaune) garde sa couleur.
+      const vigLevel = (state.vigilance[code] || {}).level || 0;
+      const alertLevel = state.alertLevels[code] >= vigLevel ? state.alertLevels[code] : 0;
       // Département ajouté à l'alerte : phase « éteinte » du clignotement, couleur habituelle.
       const blinkOff = blinking.has(code) && blinkPhaseOff();
       if (alertLevel && !blinkOff) {
