@@ -1,9 +1,11 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
 ## Nouveautés de la 2.6.0
-- **Nouvelle-Calédonie** : choisissez « Nouvelle-Calédonie (988) » pour recevoir les alertes séisme et tsunami de l'archipel (îles Loyauté, fosse du Vanuatu…), à l'heure de Nouméa. La Nouvelle-Calédonie est dessinée en encart sur la carte, avec l'épicentre, les ondes sismiques et les intensités. Les séismes viennent de l'EMSC et des stations sismiques de l'IRD Nouméa, que M-Alert surveille en temps réel.
+- **Nouvelle-Calédonie** : choisissez « Nouvelle-Calédonie (988) » pour recevoir les alertes séisme et tsunami de l'archipel (îles Loyauté, fosse du Vanuatu…), à l'heure de Nouméa. La Nouvelle-Calédonie est dessinée en encart sur la carte, avec l'épicentre, les ondes sismiques et les intensités. Les séismes viennent de l'EMSC et des 8 stations sismiques de Nouvelle-Calédonie (IRD Nouméa et GEOSCOPE), que M-Alert surveille en temps réel.
 - **Alertes précoces d'inondation** 🌧️ : jusqu'à 10 jours à l'avance, d'après la pluie prévue (cumuls sur 24 et 72 heures) et les débits des rivières (système européen GloFAS), avec un tableau par département. Aujourd'hui et demain, elles suivent la vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave.
 - **Alertes précoces de tempête** 🌀 : jusqu'à 10 jours à l'avance, quand des rafales très fortes accompagnent une dépression, avec un tableau par département (rafales, vent moyen, pression, heures). Elles remplacent l'alerte vent violent dans les départements concernés.
 - **Après-demain** : la carte montre aussi les tempêtes et les pluies-inondations prévues.
 - La carte et « Mon département » ne montrent une alerte vent, tempête, vagues-submersion ou pluie-inondation que le jour où elle est prévue.
 - **M-Alert-sender** : tableau « Pluie-inondation prévue », 🌀 dans le tableau des rafales, réglages des seuils tempête et pluie-inondation ; état des stations de Nouvelle-Calédonie dans le panneau 📶.
+- **M-Alert-sender** : règles de déclenchement séparées pour la Nouvelle-Calédonie (« Règles pour »), et durées des alertes séisme et tsunami en minutes ou en heures. Le panneau 📶 affiche une information par ligne, avec **▶ Reprendre la détection** quand elle est suspendue par les ondes d'un séisme lointain.
+- La case « Après-demain » de « Mon département » est toujours affichée (« En attente » le temps que la prévision soit prête).
