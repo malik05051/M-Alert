@@ -299,6 +299,8 @@
     const after = vigFor(code, 2);
     // Niveau affiché : le plus élevé entre la vigilance Météo-France et les alertes M-Alert du jour.
     const pill = (vig, label, d) => {
+      // Après-demain pas encore calculé (serveur qui redémarre) : en attente.
+      if (d === 2 && !(vigilance && vigilance.outlook)) return `<div class="vig-pill lvl-0"><small>${label}</small>En attente</div>`;
       const l = vig ? vig.level : 0;
       const a = topAlertFor(code, d);
       if (a && a.level >= 2 && a.level > l) {
@@ -327,7 +329,7 @@
     return `
       <h2>${mine ? 'Mon département' : 'Département sélectionné'}</h2>
       <p class="dep-title">${escapeHtml(M.departmentName(code))}</p>
-      <div class="vig-pills">${pill(today, 'Aujourd\'hui', 0)}${pill(tomorrow, 'Demain', 1)}${vigilance && vigilance.outlook ? pill(after, 'Après-demain', 2) : ''}</div>
+      <div class="vig-pills">${pill(today, 'Aujourd\'hui', 0)}${pill(tomorrow, 'Demain', 1)}${pill(after, 'Après-demain', 2)}</div>
       ${phen}${outlookNote}${corrected}${alertHtml}`;
   }
 
