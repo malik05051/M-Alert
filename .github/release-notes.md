@@ -1,7 +1,9 @@
 Alertes météo en temps réel par département, avec la carte de vigilance Météo-France.
 
-## Nouveautés de la 2.5.1
-- **Plus de faux séismes dus aux ondes d'un fort séisme lointain** : le 23 octobre, les ondes d'un séisme de magnitude 5,6 au nord de la Sicile ont été prises par un système automatique pour un séisme de magnitude 3,5 en Corse, qui n'a jamais eu lieu. Un séisme situé là où passaient au même moment les ondes d'un séisme bien plus fort est maintenant « douteux » : il n'est plus envoyé automatiquement, et ses alertes automatiques déjà envoyées sont annulées (« Fausse alerte : ce séisme n'a pas eu lieu »).
-- **M-Alert-sender** : un séisme douteux affiche « Douteux, non diffusé : sans doute les ondes du séisme de magnitude … », avec « Diffuser quand même ».
-- **Vagues-submersion** : la vigilance du littoral de Météo-France est bien reprise (côtes sur la carte, info-bulles, « Alertes en cours ») ; lever une autre vigilance dans le sender ne colore plus le département avec celle des vagues-submersion.
-- **Carte** : une vigilance Météo-France plus forte garde sa couleur sous une alerte M-Alert plus faible (un département orange restait affiché en jaune à cause d'une alerte vent violent jaune).
+## Nouveautés de la 2.6.0
+- **Nouvelle-Calédonie** : choisissez « Nouvelle-Calédonie (988) » pour recevoir les alertes séisme et tsunami de l'archipel (îles Loyauté, fosse du Vanuatu…), à l'heure de Nouméa. La Nouvelle-Calédonie est dessinée en encart sur la carte, avec l'épicentre, les ondes sismiques et les intensités. Les séismes viennent de l'EMSC et des stations sismiques de l'IRD Nouméa, que M-Alert surveille en temps réel.
+- **Alertes précoces d'inondation** 🌧️ : jusqu'à 10 jours à l'avance, d'après la pluie prévue (cumuls sur 24 et 72 heures) et les débits des rivières (système européen GloFAS), avec un tableau par département. Aujourd'hui et demain, elles suivent la vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave.
+- **Alertes précoces de tempête** 🌀 : jusqu'à 10 jours à l'avance, quand des rafales très fortes accompagnent une dépression, avec un tableau par département (rafales, vent moyen, pression, heures). Elles remplacent l'alerte vent violent dans les départements concernés.
+- **Après-demain** : la carte montre aussi les tempêtes et les pluies-inondations prévues.
+- La carte et « Mon département » ne montrent une alerte vent, tempête, vagues-submersion ou pluie-inondation que le jour où elle est prévue.
+- **M-Alert-sender** : tableau « Pluie-inondation prévue », 🌀 dans le tableau des rafales, réglages des seuils tempête et pluie-inondation ; état des stations de Nouvelle-Calédonie dans le panneau 📶.

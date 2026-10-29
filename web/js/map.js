@@ -4,7 +4,43 @@
 
   const M = window.MAlert;
   const { VIGILANCE, LEVELS } = M;
-  const FRANCE_BOUNDS = [[41.3, -5.2], [51.1, 9.6]];
+  // Métropole et, dans l'Atlantique à l'ouest, l'encart de la Nouvelle-Calédonie.
+  const FRANCE_BOUNDS = [[41.3, -6.7], [51.1, 9.6]];
+
+  // Nouvelle-Calédonie (988) : dessinée en encart dans le golfe de Gascogne, comme sur les cartes
+  // de France avec l'outre-mer. Points du Pacifique (île, épicentres, stations) déplacés et réduits
+  // (échelle K, même forme qu'en réalité) ; les distances et les calculs restent en vraies coordonnées.
+  const NC = { lat0: -22.75, lon0: 163.55, lat1: -19.5, lon1: 168.3 };
+  const INSET = { lat0: 43.95, lon0: -6.35 };
+  const K = 0.6; // échelle de l'encart
+  const LON_K = K * Math.cos(21.2 * Math.PI / 180) / Math.cos(44.9 * Math.PI / 180); // ≈ 0,79 : même forme qu'à 21° S
+  const pacific = (lon) => lon > 150 || lon < -150;
+  const lon360 = (lon) => (lon < 0 ? lon + 360 : lon);
+  /** Coordonnées réelles -> coordonnées affichées (encart pour le Pacifique). */
+  function toMap(lat, lon) {
+    if (!pacific(lon)) return [lat, lon];
+    return [INSET.lat0 + (lat - NC.lat0) * K, INSET.lon0 + (lon360(lon) - NC.lon0) * LON_K];
+  }
+  const INSET_BOX = [toMap(NC.lat0 - 0.3, NC.lon0 - 0.3), toMap(NC.lat1 + 0.3, NC.lon1 + 0.3)];
+  const inInset = (lat, lon) => lat >= INSET_BOX[0][0] && lat <= INSET_BOX[1][0] && lon >= INSET_BOX[0][1] && lon <= INSET_BOX[1][1];
+  /** Coordonnées affichées -> réelles (clic dans l'encart). */
+  function toReal(lat, lon) {
+    if (!inInset(lat, lon)) return { lat, lon };
+    return { lat: NC.lat0 + (lat - INSET.lat0) / K, lon: NC.lon0 + (lon - INSET.lon0) / LON_K };
+  }
+  /** Point affiché, gardé dans l'encart (séisme au Vanuatu : au bord du cadre). */
+  function shown(lat, lon) {
+    const p = toMap(lat, lon);
+    if (!pacific(lon)) return p;
+    return [Math.min(INSET_BOX[1][0], Math.max(INSET_BOX[0][0], p[0])), Math.min(INSET_BOX[1][1], Math.max(INSET_BOX[0][1], p[1]))];
+  }
+  const insetData = (geojson) => ({
+    ...geojson,
+    features: (geojson.features || []).map((f) => (f.properties.code !== '988' ? f : {
+      ...f,
+      geometry: { ...f.geometry, coordinates: f.geometry.coordinates.map((poly) => poly.map((ring) => ring.map(([lon, lat]) => toMap(lat, lon).reverse()))) },
+    })),
+  });
 
   function create(elementId, options = {}) {
     const map = L.map(elementId, {
@@ -100,7 +136,7 @@
       Object.keys(layers).forEach(refreshLayer);
     }
 
-    const geo = L.geoJSON(window.MALERT_DEPARTMENTS, {
+    const geo = L.geoJSON(insetData(window.MALERT_DEPARTMENTS || { features: [] }), {
       style: (f) => styleFor(f.properties.code),
       onEachFeature: (feature, layer) => {
         const code = feature.properties.code;
@@ -120,6 +156,13 @@
           if (options.onDepartmentClick) options.onDepartmentClick(code, feature.properties.nom, e);
         });
       },
+    }).addTo(map);
+
+    // Cadre et nom de l'encart.
+    L.rectangle(INSET_BOX, { interactive: false, color: '#64748b', weight: 1, dashArray: '4 4', fill: false }).addTo(map);
+    L.marker([INSET_BOX[1][0], (INSET_BOX[0][1] + INSET_BOX[1][1]) / 2], {
+      interactive: false, keyboard: false,
+      icon: L.divIcon({ className: 'inset-label', html: 'Nouvelle-Calédonie', iconSize: [140, 16], iconAnchor: [70, -2] }),
     }).addTo(map);
 
     // Leaflet recalcule mal la taille si le conteneur change (panneaux, mobile).
@@ -191,6 +234,12 @@
       drawCoasts(levels, tsunamiGroup, tsunamiRenderer);
     }
 
+    /** Trait de côte affiché d'un département (encart pour la Nouvelle-Calédonie). */
+    function coastLine(c) {
+      const lines = (window.MALERT_COASTS || {})[c] || [];
+      return c === '988' ? lines.map((line) => line.map(([la, lo]) => toMap(la, lo))) : lines;
+    }
+
     function drawCoasts(levels, group, renderer) {
       const coasts = window.MALERT_COASTS || {};
       const codes = Object.keys(levels).filter((c) => coasts[c]).sort((a, b) => levels[a] - levels[b]);
@@ -200,12 +249,12 @@
       group.clearLayers();
       // Liseré sombre sous les traits (comme JQuake), pour qu'ils ressortent sur la carte.
       for (const c of codes) {
-        group.addLayer(L.polyline(coasts[c], {
+        group.addLayer(L.polyline(coastLine(c), {
           renderer, interactive: false, color: '#05070d', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
         }));
       }
       for (const c of codes) { // niveaux croissants : le plus grave est tracé par-dessus
-        group.addLayer(L.polyline(coasts[c], {
+        group.addLayer(L.polyline(coastLine(c), {
           renderer, interactive: false, color: LEVELS[levels[c]].color, weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
         }));
       }
@@ -304,7 +353,7 @@
     function renderEpicenters(alerts) {
       epicenterGroup.clearLayers();
       for (const a of [...alerts].sort((x, y) => x.level - y.level)) {
-        epicenterGroup.addLayer(L.marker([a.epicenter.lat, a.epicenter.lon], {
+        epicenterGroup.addLayer(L.marker(shown(a.epicenter.lat, a.epicenter.lon), {
           icon: crossIcon(a.level), pane: 'epicenter', keyboard: false, title: `Épicentre — ${a.title}${M.quakeSummary(a) ? ` (${M.quakeSummary(a)})` : ''}`,
         }));
       }
@@ -335,7 +384,7 @@
     /** Distance (km) de l'épicentre au coin le plus éloigné de la carte affichée. */
     function farthestVisibleKm(lat, lon) {
       const b = map.getBounds();
-      const c = L.latLng(lat, lon);
+      const c = L.latLng(shown(lat, lon));
       return Math.max(...[b.getNorthWest(), b.getNorthEast(), b.getSouthWest(), b.getSouthEast()].map((p) => c.distanceTo(p) / 1000));
     }
 
@@ -347,7 +396,7 @@
         if (t < 0) continue;
         const sKm = frontKm(VS, t, w.depth);
         // Onde S au-delà de WAVE_MAX_KM ou de toute la carte affichée : plus rien à montrer.
-        if (sKm > WAVE_MAX_KM || sKm > farthestVisibleKm(w.lat, w.lon)) {
+        if (sKm > WAVE_MAX_KM || sKm * w.k > farthestVisibleKm(w.lat, w.lon)) {
           w.p.remove();
           w.s.remove();
           waves.delete(id);
@@ -356,9 +405,9 @@
         const pKm = frontKm(VP, t, w.depth);
         // Onde P sortie de la carte : on ne la redessine plus.
         if (!w.pOut) {
-          if (pKm > farthestVisibleKm(w.lat, w.lon)) { w.p.remove(); w.pOut = true; } else w.p.setRadius(Math.max(1, pKm * 1000));
+          if (pKm * w.k > farthestVisibleKm(w.lat, w.lon)) { w.p.remove(); w.pOut = true; } else w.p.setRadius(Math.max(1, pKm * 1000 * w.k));
         }
-        w.s.setRadius(Math.max(1, sKm * 1000));
+        w.s.setRadius(Math.max(1, sKm * 1000 * w.k)); // encart : rayons réduits comme l'île
       }
       if (!waves.size) {
         clearInterval(waveTimer);
@@ -376,14 +425,14 @@
         const old = waves.get(q.id);
         if (old) {
           // Révision du séisme : mêmes cercles, déplacés (pas de nouveau calque).
-          if (old.lat !== q.lat || old.lon !== q.lon) { old.p.setLatLng([q.lat, q.lon]); old.s.setLatLng([q.lat, q.lon]); }
+          if (old.lat !== q.lat || old.lon !== q.lon) { old.p.setLatLng(shown(q.lat, q.lon)); old.s.setLatLng(shown(q.lat, q.lon)); }
           Object.assign(old, { lat: q.lat, lon: q.lon, depth: q.depth || 0, t0 });
           continue;
         }
         waves.set(q.id, {
-          lat: q.lat, lon: q.lon, depth: q.depth || 0, t0, pOut: false,
-          p: L.circle([q.lat, q.lon], { radius: 1, renderer: waveRenderer, interactive: false, color: '#60a5fa', weight: 2, opacity: 0.9, fill: false }).addTo(map),
-          s: L.circle([q.lat, q.lon], { radius: 1, renderer: waveRenderer, interactive: false, color: '#f43f5e', weight: 3, opacity: 0.95, fillColor: '#f43f5e', fillOpacity: 0.08 }).addTo(map),
+          lat: q.lat, lon: q.lon, depth: q.depth || 0, t0, pOut: false, k: pacific(q.lon) ? K : 1,
+          p: L.circle(shown(q.lat, q.lon), { radius: 1, renderer: waveRenderer, interactive: false, color: '#60a5fa', weight: 2, opacity: 0.9, fill: false }).addTo(map),
+          s: L.circle(shown(q.lat, q.lon), { radius: 1, renderer: waveRenderer, interactive: false, color: '#f43f5e', weight: 3, opacity: 0.95, fillColor: '#f43f5e', fillOpacity: 0.08 }).addTo(map),
         });
       }
       for (const [id, w] of waves) {
@@ -456,7 +505,7 @@
           seen.add(s.key);
           let m = stationMarkers.get(s.key);
           if (!m) {
-            m = L.circleMarker([s.lat, s.lon], { renderer: stationRenderer, interactive: false, radius: 3.5 });
+            m = L.circleMarker(toMap(s.lat, s.lon), { renderer: stationRenderer, interactive: false, radius: 3.5 });
             stationGroup.addLayer(m);
             stationMarkers.set(s.key, m);
           }
@@ -513,13 +562,13 @@
         const layer = layers[code];
         if (!layer) return null;
         const c = layer.getBounds().getCenter();
-        return { lat: c.lat, lon: c.lng };
+        return toReal(c.lat, c.lng); // vraies coordonnées (calculs de distance)
       },
 
       /** Croix d'épicentre en cours de saisie (sender), ou null pour la retirer. */
       setDraftEpicenter(epicenter, level) {
         if (draftMarker) draftMarker.remove();
-        draftMarker = epicenter ? L.marker([epicenter.lat, epicenter.lon], { icon: crossIcon(level, true), pane: 'epicenter', interactive: false, keyboard: false }).addTo(map) : null;
+        draftMarker = epicenter ? L.marker(shown(epicenter.lat, epicenter.lon), { icon: crossIcon(level, true), pane: 'epicenter', interactive: false, keyboard: false }).addTo(map) : null;
       },
 
       /**
@@ -531,7 +580,7 @@
         const sorted = [...(list || [])].sort((a, b) => (a.id === selected) - (b.id === selected) || (a.level || 0) - (b.level || 0));
         for (const q of sorted) {
           const big = q.id === selected;
-          const marker = L.marker([q.lat, q.lon], {
+          const marker = L.marker(shown(q.lat, q.lon), {
             icon: crossIcon(q.level, true, big ? 34 : 22), pane: 'epicenter', keyboard: false, zIndexOffset: big ? 1000 : 0,
           });
           if (q.label) marker.bindTooltip(q.label, { direction: 'top', offset: [0, big ? -16 : -10], permanent: big, className: 'epi-tip' });
@@ -545,13 +594,19 @@
         if (simMarker) simMarker.remove();
         simMarker = null;
         if (!point) return;
-        simMarker = L.marker([point.lat, point.lon], { icon: crossIcon(4, false, 34), pane: 'epicenter', interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
+        simMarker = L.marker(shown(point.lat, point.lon), { icon: crossIcon(4, false, 34), pane: 'epicenter', interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
         if (label) simMarker.bindTooltip(label, { direction: 'top', offset: [0, -16], permanent: true, className: 'epi-tip' });
       },
 
       /** Code du département contenant ce point, ou null (en mer, hors de France). */
       departmentAt(lat, lon) {
-        return Object.keys(layers).find((c) => containsPoint(layers[c].getLatLngs(), lat, lon)) || null;
+        const [y, x] = toMap(lat, lon);
+        return Object.keys(layers).find((c) => containsPoint(layers[c].getLatLngs(), y, x)) || null;
+      },
+
+      /** Point cliqué sur la carte -> vraies coordonnées (encart de la Nouvelle-Calédonie). */
+      toReal(latlng) {
+        return toReal(latlng.lat, latlng.lng);
       },
 
       setHighlighted(codes) {
@@ -601,7 +656,10 @@
           if (!layers[c]) continue;
           bounds = bounds ? bounds.extend(layers[c].getBounds()) : L.latLngBounds(layers[c].getBounds().getSouthWest(), layers[c].getBounds().getNorthEast());
         }
-        if (epicenter) bounds = bounds ? bounds.extend([epicenter.lat, epicenter.lon]) : L.latLngBounds([[epicenter.lat, epicenter.lon], [epicenter.lat, epicenter.lon]]);
+        if (epicenter) {
+          const e = shown(epicenter.lat, epicenter.lon);
+          bounds = bounds ? bounds.extend(e) : L.latLngBounds([e, e]);
+        }
         if (bounds) map.flyToBounds(bounds.pad(0.25), fly);
       },
 

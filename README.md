@@ -4,9 +4,9 @@ Cette application diffuse des informations que j'envoie via mon module M-Alert, 
 
 Pour recevoir les alertes que j'envoie (dont la source vient des centres météorologiques français comme Météo-France), il faut configurer votre département dans les réglages ou à la première ouverture de l'application.
 
-![Alerte rouge reçue dans M-Alert](docs/alerte.png)
+![Alerte tempête rouge reçue dans M-Alert, avec son tableau par département](docs/alerte.png)
 
-<img src="docs/mobile.png" alt="M-Alert sur téléphone" width="260">
+<img src="docs/mobile.png" alt="Alerte pluie-inondation sur téléphone" width="260">
 
 ## Fonctionnalités
 
@@ -32,7 +32,9 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 - **Vent violent automatique** : M-Alert peut diffuser des alertes vent violent calculées d'après les prévisions de rafales de Météo-France et du CEPMMT (jusqu'à 10 jours), avec la mention « 💨 Prévision de rafales », avec leur prévision d'origine (heure d'émission, titre et pic prévus au départ, « 🕓 Prévision d'origine ») même après les mises à jour, et des alertes **vagues-submersion** estimées d'après les prévisions de vagues, de marée et de vent (mention « 🌊 Prévision de vagues et de niveau de la mer ») ; elles se mettent à jour avec la prévision et se lèvent quand le phénomène n'est plus prévu.
 - **Tornade** : niveau sur l'échelle **EF0 à EF5** (EF0 jaune, EF1 orange, EF2 rouge, EF3 à EF5 majeure) et vent attendu.
 - **Incendie** 🔥 : trois niveaux (Avis, Avertissement, Avertissement majeur) et type de feu (feu de forêt, de végétation, agricole, d'habitation, urbain, industriel…), avec des consignes adaptées au type. **Inondation** 💧 : phénomène à part (son des crues et tsunamis).
-- **Tempête** 🌀 : phénomène météo à part (en plus du vent violent de Météo-France), avec ses consignes.
+- **Tempête** 🌀 : phénomène météo à part (en plus du vent violent de Météo-France), avec ses consignes. **Alertes précoces de tempête** : M-Alert prévoit les tempêtes jusqu'à 10 jours à l'avance (rafales très fortes dans une dépression), avec un tableau par département : rafales, vent moyen, pression et heures prévues.
+- **Alertes précoces d'inondation** 🌧️ : M-Alert prévoit les pluies-inondations jusqu'à 10 jours à l'avance, d'après la pluie prévue (cumuls sur 24 et 72 heures) et les débits des rivières (système européen GloFAS, Copernicus), avec un tableau par département. Aujourd'hui et demain, elles suivent la vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave.
+- **Nouvelle-Calédonie** : choisissez « Nouvelle-Calédonie (988) » comme département pour recevoir les alertes **séisme** et **tsunami** (îles Loyauté, fosse du Vanuatu…), à l'heure de Nouméa ; l'archipel est dessiné en encart sur la carte, avec l'épicentre, les ondes et les intensités. Les séismes viennent de l'EMSC et des stations sismiques de l'IRD Nouméa (réseau ND), détectés par M-Alert en quelques dizaines de secondes.
 - **Consignes types** pour tous les phénomènes et catégories, affichées dès le niveau jaune (Avis) quand M-Alert n'en a pas écrit.
 - **Blocus / manifestation** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose).
 - **Vigilances Météo-France dans « Alertes en cours »** : à côté des alertes M-Alert, une ligne par phénomène et par couleur de vigilance du jour (jaune, orange, rouge) avec ses départements et sa plage horaire ; un clic l'affiche en bannière (départements, horaires, consignes) et la montre sur la carte. Option « Afficher les vigilances Météo-France dans « Alertes en cours » » dans les réglages.

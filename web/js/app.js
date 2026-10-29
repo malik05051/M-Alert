@@ -205,7 +205,8 @@
 
   /** Valeurs prévues par M-Alert pour après-demain (rafales, vagues) d'un phénomène. */
   function outlookValue(p) {
-    if (p.id === 1 && p.gust) return ` : rafales ${p.gust} km/h${p.mean ? ` (moyen ${p.mean})` : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    if ((p.id === 1 || p.id === 14) && p.gust) return ` : rafales ${p.gust} km/h${p.mean ? ` (moyen ${p.mean})` : ''}${p.pressure ? `, ${p.pressure} hPa` : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    if (p.id === 2 && (p.rain24 || p.river)) return ` : ${p.rain24 ? `${p.rain24} mm en 24 h` : ''}${p.river ? `${p.rain24 ? ', ' : ''}crue de rivière` : ''}`;
     if (p.id === 9 && typeof p.hs === 'number') return ` : vagues ${p.hs.toLocaleString('fr-FR')} m${typeof p.water === 'number' && p.water >= 0 ? ', mer haute' : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
     return '';
   }
@@ -228,8 +229,15 @@
       t.setHours(24 * d, 0, 0, 0);
       from = p ? new Date(p.begin).getTime() : t.getTime();
     }
+    // Vent, tempête, vagues-submersion, pluie-inondation automatiques : seulement le jour prévu.
+    const date = M.periodDate(periodData(d), d);
+    const sameDay = (a) => {
+      const rows = a.forecastTable && Array.isArray(a.forecastTable.rows) ? a.forecastTable.rows.filter((r) => r.department === code) : [];
+      if (!rows.length) return true;
+      return rows.some((r) => !r.from || (date >= r.from.slice(0, 10) && date <= (r.to || r.from).slice(0, 10)));
+    };
     return alertsFor(code)
-      .filter((a) => wantsCategory(a) && new Date(a.expiresAt).getTime() > from)
+      .filter((a) => wantsCategory(a) && new Date(a.expiresAt).getTime() > from && sameDay(a))
       .reduce((m, a) => (!m || a.level > m.level ? a : m), null);
   }
 
@@ -307,7 +315,7 @@
       }).join('')}</ul>`
       : '';
     const outlookNote = day === 2
-      ? '<p class="small" style="margin:8px 0 0;opacity:.8">Après-demain : prévision M-Alert (vent violent, vagues-submersion), pas une vigilance Météo-France.</p>'
+      ? '<p class="small" style="margin:8px 0 0;opacity:.8">Après-demain : prévision M-Alert (vent violent, tempête, vagues-submersion, pluie-inondation), pas une vigilance Météo-France.</p>'
       : '';
     const corrected = shown && shown.manual && vigilance && vigilance.source !== 'manual'
       ? '<p class="small" style="margin:8px 0 0;color:#c4b5fd">✎ Vigilance corrigée manuellement par M-Alert.</p>'
@@ -443,7 +451,7 @@
       $('vigBadge').title = badge.title;
     }
     if (day === 2 && vigilance && !p) {
-      $('mapCaption').textContent = 'Après-demain : prévision M-Alert pas encore disponible (vent et vagues).';
+      $('mapCaption').textContent = 'Après-demain : prévision M-Alert pas encore disponible.';
       return;
     }
     if (!vigilance || !p) {
@@ -455,7 +463,7 @@
       ? `Vigilance saisie manuellement par M-Alert${vigilance.reason === 'api-down' ? ' (API Météo-France indisponible)' : ''} · ${M.formatDateTime(vigilance.updatedAt)}`
       : `Mise à jour : ${M.formatDateTime(vigilance.updatedAt)}${vigilance.corrections ? ` · ${vigilance.corrections} département(s) corrigé(s) par M-Alert` : ''}${vigilance.error ? ' · ⚠ ' + vigilance.error : ''}`;
     $('mapCaption').textContent = day === 2
-      ? `Après-demain (${new Date(`${p.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}) · prévision M-Alert du vent violent et des vagues-submersion, Météo-France ne publiant pas de vigilance au-delà de demain · ${M.formatTime(p.updatedAt)}`
+      ? `Après-demain (${new Date(`${p.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}) · prévision M-Alert du vent violent, des tempêtes, des vagues-submersion et des pluies-inondations, Météo-France ne publiant pas de vigilance au-delà de demain · ${M.formatTime(p.updatedAt)}`
       : `Vigilance ${day ? 'de demain' : 'd\'aujourd\'hui'} · ${M.formatDateTime(p.begin)} → ${M.formatDateTime(p.end)}`;
   }
 
@@ -819,11 +827,13 @@
     const rows = t.rows.filter((r) => deps.has('ALL') || deps.has(r.department));
     if (!rows.length) return false;
     const mine = myDepartments();
-    const wind = t.kind !== 'submersion';
-    const html = [`<div class="tsu-title">${wind ? 'Rafales prévues par département' : 'Vagues et niveau de la mer prévus'}</div>`];
+    const flood = t.kind === 'inondation';
+    const wind = t.kind === 'vent' || t.kind === 'tempete';
+    const titles = { vent: 'Rafales prévues par département', tempete: 'Tempête : rafales prévues par département', submersion: 'Vagues et niveau de la mer prévus', inondation: 'Pluie et crues prévues par département' };
+    const html = [`<div class="tsu-title">${titles[t.kind] || titles.vent}</div>`];
+    const strength = (r) => (wind ? Math.max(r.gust || 0, r.gustCoast || 0) : flood ? Math.max(r.rain24 || 0, (r.river || 0) * 50) : r.hs || 0);
     for (const [level, name] of FORECAST_GROUPS) {
-      const group = rows.filter((r) => r.level === level)
-        .sort((a, b) => (wind ? Math.max(b.gust || 0, b.gustCoast || 0) - Math.max(a.gust || 0, a.gustCoast || 0) : (b.hs || 0) - (a.hs || 0)));
+      const group = rows.filter((r) => r.level === level).sort((a, b) => strength(b) - strength(a));
       if (!group.length) continue;
       html.push(`<div class="tsu-head fc-l${level}">${name}</div>`);
       for (const r of group) {
@@ -834,7 +844,11 @@
         if (wind) {
           const g = Math.max(r.gust || 0, r.gustCoast || 0);
           value = `${g}<small>km/h</small>`;
-          sub = [r.gustCoast ? `terres ${r.gust} km/h` : '', r.mean ? `moyen ${r.mean} km/h` : ''].filter(Boolean).join(' · ');
+          sub = [r.gustCoast ? `terres ${r.gust} km/h` : '', r.mean ? `moyen ${r.mean} km/h` : '', r.pressure ? `${r.pressure} hPa` : ''].filter(Boolean).join(' · ');
+        } else if (flood) {
+          value = r.rain24 >= 1 ? `${Math.round(r.rain24)}<small>mm</small>` : r.river ? `×${num(r.river)}` : '—';
+          sub = [r.rain72 > (r.rain24 || 0) + 5 ? `${Math.round(r.rain72)} mm en 72 h` : '', r.river ? `rivière ${r.q} m³/s (×${num(r.river)})` : '',
+            r.aboveMf ? `Météo-France : ${r.mfLevel >= 2 ? VIGILANCE[r.mfLevel].name.toLowerCase() : 'vert'}` : ''].filter(Boolean).join(' · ');
         } else {
           value = typeof r.hs === 'number' && r.hs > 0 ? `${num(r.hs)}<small>m</small>` : '—';
           sub = [typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${num(Math.abs(r.water), 2)} m` : '', typeof r.setup === 'number' ? `surcote ${num(r.setup, 2)} m` : '',
@@ -849,8 +863,10 @@
         </div>`);
       }
     }
-    html.push(`<div class="tsu-note">${wind
-      ? 'Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes. Heures de Paris.'
+    html.push(`<div class="tsu-note">${flood
+      ? `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave. ' : ''}Cumul de pluie maximal sur 24 heures (et sur 72 heures) ; rivière : débit prévu par GloFAS, rapporté au plus fort débit des 12 derniers mois. Heures de Paris.`
+      : wind
+      ? `Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes${t.kind === 'tempete' ? ' ; pression la plus basse au niveau de la mer' : ''}. Heures de Paris.`
       : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}${rows.some((r) => r.aboveMf) ? 'M-Alert prévoit plus grave que Météo-France pour certains départements : son niveau l\'emporte. ' : ''}${rows.some((r) => r.byWind) ? 'Vent de mer : vent moyen soufflant vers la côte (vent violent, tempête), qui fait monter la mer et grossir les vagues. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.`}</div>`);
     el.innerHTML = html.join('');
     return true;

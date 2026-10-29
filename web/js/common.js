@@ -218,6 +218,10 @@
     wind: { label: '💨 Prévision de rafales (Météo-France, ECMWF) · alerte validée par M-Alert', short: '💨 prévision' },
     'surge-auto': { label: '🤖 Alerte automatique · prévision de vagues et de niveau de la mer (Météo-France, ECMWF)', short: '🌊 automatique (prévision)' },
     surge: { label: '🌊 Prévision de vagues et de niveau de la mer (Météo-France, ECMWF) · alerte validée par M-Alert', short: '🌊 prévision' },
+    'storm-auto': { label: '🤖 Alerte automatique · prévision de tempête : rafales et dépression (Météo-France, ECMWF)', short: '🌀 automatique (prévision)' },
+    storm: { label: '🌀 Prévision de tempête : rafales et dépression (Météo-France, ECMWF) · alerte validée par M-Alert', short: '🌀 prévision' },
+    'flood-auto': { label: '🤖 Alerte automatique · prévision de pluie et de crues (Météo-France, ECMWF, GloFAS)', short: '🌧️ automatique (prévision)' },
+    flood: { label: '🌧️ Prévision de pluie et de crues (Météo-France, ECMWF, GloFAS) · alerte validée par M-Alert', short: '🌧️ prévision' },
   };
 
   /** Mention de l'origine d'une alerte (source du séisme, envoi automatique ou validé), sinon manuelle. */

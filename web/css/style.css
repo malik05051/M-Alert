@@ -334,3 +334,6 @@ input[type="range"] { accent-color: var(--accent); }
 @keyframes coast-blink { 0% { opacity: 1; } 72.7% { opacity: 0; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .leaflet-pane.coast-blink { animation: none; } }
 
+
+/* Encart de la Nouvelle-Calédonie sur la carte. */
+.inset-label { color: #94a3b8; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; text-shadow: 0 0 3px #000; pointer-events: none; }
