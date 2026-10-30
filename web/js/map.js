@@ -4,6 +4,8 @@
 
   const M = window.MAlert;
   const { VIGILANCE, LEVELS } = M;
+  // Phénomènes tracés le long des côtes : vagues-submersion, forte houle (Nouvelle-Calédonie).
+  const COASTAL_PHENOMENA = new Set([9, 16]);
   // Métropole et, dans l'Atlantique à l'ouest, l'encart de la Nouvelle-Calédonie.
   const FRANCE_BOUNDS = [[41.3, -6.7], [51.1, 9.6]];
 
@@ -198,7 +200,7 @@
       for (const a of state.alerts || []) {
         const codes = a.departments.includes('ALL') ? Object.keys(layers) : a.departments;
         // Tsunami et vagues-submersion : la côte est colorée, pas le département.
-        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
+        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && COASTAL_PHENOMENA.has(Number(a.phenomenon)));
         const target = coastal ? tsunami : levels;
         // Tsunami avec tableau par côte : chaque côte prend son propre niveau.
         if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
@@ -221,7 +223,7 @@
       }
       const vigCoast = {};
       for (const [c, v] of Object.entries(state.vigilance || {})) {
-        const ph = (v.phenomena || []).find((p) => p.id === 9);
+        const ph = (v.phenomena || []).find((p) => COASTAL_PHENOMENA.has(p.id));
         if (ph && ph.level >= 2) vigCoast[c] = ph.level;
       }
       state.alertLevels = levels;
@@ -271,7 +273,7 @@
       let added = false;
       for (const a of alerts) {
         live.add(a.id);
-        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === 9);
+        const coastal = a.category === 'tsunami' || ((a.category || 'meteo') === 'meteo' && COASTAL_PHENOMENA.has(Number(a.phenomenon)));
         const codes = a.departments.includes('ALL') ? Object.keys(layers) : a.departments;
         const before = knownDeps.get(a.id);
         knownDeps.set(a.id, new Set(codes));

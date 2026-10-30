@@ -17,6 +17,8 @@
     11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
     12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
     14: { name: 'Tempête', icon: '🌀' }, // M-Alert seulement (13 : ancien « Attentat », devenu une catégorie)
+    15: { name: 'Fortes pluies-orages', icon: '⛈️' }, // vigilance de Nouvelle-Calédonie
+    16: { name: 'Forte houle', icon: '🌊' }, // vigilance de Nouvelle-Calédonie (le long des côtes)
   };
 
   // Types de pollution (catégorie « Pollution ») et polluants de l'air.
@@ -113,6 +115,8 @@
     11: FIRE_ADVICE.outdoor,
     12: 'Ne vous engagez jamais à pied ou en voiture dans une zone inondée : 30 cm d\'eau suffisent à emporter une voiture. Réfugiez-vous en hauteur, à l\'étage, avec de l\'eau, une lampe, une radio et vos médicaments. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Coupez le gaz et l\'électricité si l\'eau monte et n\'évacuez que sur ordre des autorités.',
     14: 'Restez à l\'abri dans un bâtiment en dur et limitez vos déplacements ; n\'allez ni en bord de mer, ni en forêt. Avant la tempête, rentrez ou fixez les objets qui peuvent s\'envoler et fermez portes, fenêtres et volets. Ne touchez pas aux fils électriques tombés. En cas de coupure d\'électricité, n\'utilisez ni groupe électrogène ni chauffage d\'appoint à combustion à l\'intérieur (monoxyde de carbone). Après la tempête, attendez les consignes avant de déblayer et ne montez pas sur les toits.',
+    15: 'Évitez les déplacements, surtout en zone inondable et sur les radiers. Ne traversez jamais un creek ou un radier submergé, à pied ou en voiture. Abritez-vous hors des zones boisées pendant les orages et éloignez-vous des cours d\'eau.',
+    16: 'Tenez-vous éloignés du bord de mer et des platiers. Ne sortez pas en mer, en bateau comme en kitesurf ou en planche. Surveillez vos bateaux au mouillage et évitez la pêche à pied.',
   };
 
   /** « Information », « Alerte rouge », « ALERTE MAJEURE »… */
@@ -295,7 +299,7 @@
     const o = alert && alert.forecastOrigin;
     if (!o || !o.at) return '';
     const peak = o.peakAt
-      ? ` · pic prévu ${new Date(`${o.peakAt.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' })} vers ${Number(o.peakAt.slice(11, 13))} h`
+      ? ` · pic prévu ${new Date(`${o.peakAt.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' })} vers ${Number(o.peakAt.slice(11, 13))} h${alert.forecastTable && alert.forecastTable.tz === 'Pacific/Noumea' ? ' (heure de Nouméa)' : ''}`
       : '';
     return `Prévision d'origine, émise ${formatDateTime(o.at)} : ${o.title}${peak}`;
   }

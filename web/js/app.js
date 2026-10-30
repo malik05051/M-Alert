@@ -814,10 +814,11 @@
   // avec ses heures prévues (début, fin, pic) et ses valeurs (rafales et vent moyen, ou vagues et mer).
   const FORECAST_GROUPS = [[5, 'Niveau majeur'], [4, 'Niveau rouge'], [3, 'Niveau orange'], [2, 'Niveau jaune']];
   /** Heure de Paris « AAAA-MM-JJTHH:MM » : « 14 h », précédée du jour si ce n'est pas aujourd'hui. */
-  function forecastHour(t, withDay) {
+  // Heures du tableau : heure de Paris, ou du fuseau du tableau (Nouvelle-Calédonie : Nouméa).
+  function forecastHour(t, withDay, tz) {
     if (!t) return '';
     const h = `${Number(t.slice(11, 13))} h`;
-    const today = new Date().toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+    const today = new Date().toLocaleDateString('fr-CA', { timeZone: tz || 'Europe/Paris' });
     if (!withDay || t.slice(0, 10) === today) return h;
     const d = new Date(`${t.slice(0, 10)}T12:00:00`);
     return `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${h}`;
@@ -832,15 +833,16 @@
     const flood = t.kind === 'inondation';
     const wind = t.kind === 'vent' || t.kind === 'tempete';
     const titles = { vent: 'Rafales prévues par département', tempete: 'Tempête : rafales prévues par département', submersion: 'Vagues et niveau de la mer prévus', inondation: 'Pluie et crues prévues par département' };
-    const html = [`<div class="tsu-title">${titles[t.kind] || titles.vent}</div>`];
+    const hoursNote = t.tz === 'Pacific/Noumea' ? 'Heures de Nouméa.' : 'Heures de Paris.';
+    const html = [`<div class="tsu-title">${titles[t.kind] || titles.vent}${t.tz === 'Pacific/Noumea' ? ' (heure de Nouméa)' : ''}</div>`];
     const strength = (r) => (wind ? Math.max(r.gust || 0, r.gustCoast || 0) : flood ? Math.max(r.rain24 || 0, (r.river || 0) * 50) : r.hs || 0);
     for (const [level, name] of FORECAST_GROUPS) {
       const group = rows.filter((r) => r.level === level).sort((a, b) => strength(b) - strength(a));
       if (!group.length) continue;
       html.push(`<div class="tsu-head fc-l${level}">${name}</div>`);
       for (const r of group) {
-        const span = r.from ? `${forecastHour(r.from, true)} → ${forecastHour(r.to, r.to && r.to.slice(0, 10) !== r.from.slice(0, 10))}` : '';
-        const peak = r.at ? `pic ${forecastHour(r.at, r.from && r.at.slice(0, 10) !== r.from.slice(0, 10))}` : '';
+        const span = r.from ? `${forecastHour(r.from, true, t.tz)} → ${forecastHour(r.to, r.to && r.to.slice(0, 10) !== r.from.slice(0, 10), t.tz)}` : '';
+        const peak = r.at ? `pic ${forecastHour(r.at, r.from && r.at.slice(0, 10) !== r.from.slice(0, 10), t.tz)}` : '';
         let value;
         let sub;
         if (wind) {
@@ -866,10 +868,10 @@
       }
     }
     html.push(`<div class="tsu-note">${flood
-      ? `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave. ' : ''}Cumul de pluie maximal sur 24 heures (et sur 72 heures) ; rivière : débit prévu par GloFAS, rapporté au plus fort débit des 12 derniers mois. Heures de Paris.`
+      ? `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance pluie-inondation et crues de Météo-France, sauf si M-Alert prévoit plus grave. ' : ''}Cumul de pluie maximal sur 24 heures (et sur 72 heures) ; rivière : débit prévu par GloFAS, rapporté au plus fort débit des 12 derniers mois. ${hoursNote}`
       : wind
-      ? `Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes${t.kind === 'tempete' ? ' ; pression la plus basse au niveau de la mer' : ''}. Heures de Paris.`
-      : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}${rows.some((r) => r.aboveMf) ? 'M-Alert prévoit plus grave que Météo-France pour certains départements : son niveau l\'emporte. ' : ''}${rows.some((r) => r.byWind) ? 'Vent de mer : vent moyen soufflant vers la côte (vent violent, tempête), qui fait monter la mer et grossir les vagues. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. Heures de Paris.`}</div>`);
+      ? `Rafales maximales prévues (sur la côte si elles y sont plus fortes) ; vent moyen sur 10 minutes${t.kind === 'tempete' ? ' ; pression la plus basse au niveau de la mer' : ''}. ${hoursNote}`
+      : `${rows.some((r) => r.mf) ? 'Niveaux et heures : vigilance vagues-submersion de Météo-France. ' : ''}${rows.some((r) => r.aboveMf) ? 'M-Alert prévoit plus grave que Météo-France pour certains départements : son niveau l\'emporte. ' : ''}${rows.some((r) => r.byWind) ? 'Vent de mer : vent moyen soufflant vers la côte (vent violent, tempête), qui fait monter la mer et grossir les vagues. ' : ''}Hauteur des vagues au large estimée par M-Alert ; mer : niveau par rapport aux plus hautes mers du mois (marée et pression), surcote due au vent. ${hoursNote}`}</div>`);
     el.innerHTML = html.join('');
     return true;
   }
