@@ -205,9 +205,9 @@
 
   /** Valeurs prévues par M-Alert pour après-demain (rafales, vagues) d'un phénomène. */
   function outlookValue(p) {
-    if ((p.id === 1 || p.id === 14) && p.gust) return ` : rafales ${p.gust} km/h${p.mean ? ` (moyen ${p.mean})` : ''}${p.pressure ? `, ${p.pressure} hPa` : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    if ((p.id === 1 || p.id === 14) && p.gust) return ` : rafales ${p.gust} km/h${p.mean ? ` (moyen ${p.mean})` : ''}${p.pressure ? `, ${p.pressure} hPa` : ''}${p.at ? `, pic vers ${M.forecastTime(p.at, p.tz).h}` : ''}`;
     if (p.id === 2 && (p.rain24 || p.river)) return ` : ${p.rain24 ? `${p.rain24} mm en 24 h` : ''}${p.river ? `${p.rain24 ? ', ' : ''}crue de rivière` : ''}`;
-    if (p.id === 9 && typeof p.hs === 'number') return ` : vagues ${p.hs.toLocaleString('fr-FR')} m${typeof p.water === 'number' && p.water >= 0 ? ', mer haute' : ''}${p.at ? `, pic vers ${Number(p.at.slice(11, 13))} h` : ''}`;
+    if (p.id === 9 && typeof p.hs === 'number') return ` : vagues ${p.hs.toLocaleString('fr-FR')} m${typeof p.water === 'number' && p.water >= 0 ? ', mer haute' : ''}${p.at ? `, pic vers ${M.forecastTime(p.at, p.tz).h}` : ''}`;
     return '';
   }
 
@@ -528,7 +528,7 @@
   }));
 
   // Horloge
-  setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('fr-FR'); }, 1000);
+  setInterval(() => { $('clock').textContent = M.clockText(); $('clock').title = M.timeZoneLabel(); }, 1000);
 
   // ---------- Toasts ----------
 
@@ -806,22 +806,22 @@
     if (!r.arrival) return '';
     const t = new Date(r.arrival);
     if (t.getTime() <= Date.now()) return r.estimated ? 'Probablement arrivé' : 'Déjà arrivé';
-    const sameDay = t.toDateString() === new Date().toDateString();
-    const hm = t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    return `${r.estimated ? '≈ ' : ''}${sameDay ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} ${hm}`}`;
+    const sameDay = M.zonedDate(t.getTime()) === M.zonedDate();
+    const hm = M.formatTime(t.toISOString());
+    return `${r.estimated ? '≈ ' : ''}${sameDay ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', timeZone: M.timeZone() })} ${hm}`}`;
   }
   // Vent violent et vagues-submersion automatiques : même tableau, par niveau, chaque département
   // avec ses heures prévues (début, fin, pic) et ses valeurs (rafales et vent moyen, ou vagues et mer).
   const FORECAST_GROUPS = [[5, 'Niveau majeur'], [4, 'Niveau rouge'], [3, 'Niveau orange'], [2, 'Niveau jaune']];
-  /** Heure de Paris « AAAA-MM-JJTHH:MM » : « 14 h », précédée du jour si ce n'est pas aujourd'hui. */
-  // Heures du tableau : heure de Paris, ou du fuseau du tableau (Nouvelle-Calédonie : Nouméa).
+  /**
+   * Heure du tableau (« AAAA-MM-JJTHH:MM », heure de Paris, ou du fuseau du tableau : Nouméa) dans
+   * le fuseau choisi : « 14 h », précédée du jour si ce n'est pas aujourd'hui.
+   */
   function forecastHour(t, withDay, tz) {
     if (!t) return '';
-    const h = `${Number(t.slice(11, 13))} h`;
-    const today = new Date().toLocaleDateString('fr-CA', { timeZone: tz || 'Europe/Paris' });
-    if (!withDay || t.slice(0, 10) === today) return h;
-    const d = new Date(`${t.slice(0, 10)}T12:00:00`);
-    return `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${h}`;
+    const f = M.forecastTime(t, tz || 'Europe/Paris');
+    if (!withDay || f.date === M.zonedDate()) return f.h;
+    return `${new Date(f.ms).toLocaleDateString('fr-FR', { weekday: 'short', timeZone: M.timeZone() })} ${f.h}`;
   }
   const num = (x, d = 1) => x.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
   function renderForecastBoard(alert, el) {
@@ -833,16 +833,18 @@
     const flood = t.kind === 'inondation';
     const wind = t.kind === 'vent' || t.kind === 'tempete';
     const titles = { vent: 'Rafales prévues par département', tempete: 'Tempête : rafales prévues par département', submersion: 'Vagues et niveau de la mer prévus', inondation: 'Pluie et crues prévues par département' };
-    const hoursNote = t.tz === 'Pacific/Noumea' ? 'Heures de Nouméa.' : 'Heures de Paris.';
-    const html = [`<div class="tsu-title">${titles[t.kind] || titles.vent}${t.tz === 'Pacific/Noumea' ? ' (heure de Nouméa)' : ''}</div>`];
+    const hoursNote = `Heures : ${M.timeZoneLabel()}.`;
+    const html = [`<div class="tsu-title">${titles[t.kind] || titles.vent}</div>`];
     const strength = (r) => (wind ? Math.max(r.gust || 0, r.gustCoast || 0) : flood ? Math.max(r.rain24 || 0, (r.river || 0) * 50) : r.hs || 0);
     for (const [level, name] of FORECAST_GROUPS) {
       const group = rows.filter((r) => r.level === level).sort((a, b) => strength(b) - strength(a));
       if (!group.length) continue;
       html.push(`<div class="tsu-head fc-l${level}">${name}</div>`);
       for (const r of group) {
-        const span = r.from ? `${forecastHour(r.from, true, t.tz)} → ${forecastHour(r.to, r.to && r.to.slice(0, 10) !== r.from.slice(0, 10), t.tz)}` : '';
-        const peak = r.at ? `pic ${forecastHour(r.at, r.from && r.at.slice(0, 10) !== r.from.slice(0, 10), t.tz)}` : '';
+        // Jour affiché quand il change par rapport au début (dans le fuseau choisi).
+        const dayOf = (x) => (x ? M.forecastTime(x, t.tz || 'Europe/Paris').date : '');
+        const span = r.from ? `${forecastHour(r.from, true, t.tz)} → ${forecastHour(r.to, r.to && dayOf(r.to) !== dayOf(r.from), t.tz)}` : '';
+        const peak = r.at ? `pic ${forecastHour(r.at, r.from && dayOf(r.at) !== dayOf(r.from), t.tz)}` : '';
         let value;
         let sub;
         if (wind) {
@@ -1467,7 +1469,21 @@
     updateNotifState();
   });
 
+  /** Liste des fuseaux : automatique (appareil), France et outre-mer, puis tous les autres. */
+  function fillTimeZones() {
+    const sel = $('setTimeZone');
+    if (sel.options.length) return;
+    const dev = M.deviceTimeZone();
+    const main = M.TIME_ZONES.map(([id]) => id);
+    const opt = (id, label) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+    sel.innerHTML = opt('', `Automatique : celui de l'appareil (${M.timeZoneLabel(dev)})`)
+      + `<optgroup label="France">${M.TIME_ZONES.map(([id, label]) => opt(id, label)).join('')}</optgroup>`
+      + `<optgroup label="Tous les fuseaux">${M.allTimeZones().filter((id) => !main.includes(id)).map((id) => opt(id, id.replace(/_/g, ' '))).join('')}</optgroup>`;
+  }
+
   async function openSettings({ welcome = false } = {}) {
+    fillTimeZones();
+    $('setTimeZone').value = M.chosenTimeZone();
     $('settingsTitle').textContent = welcome ? 'Bienvenue sur M-Alert' : 'Réglages';
     $('welcomeText').classList.toggle('hidden', !welcome);
     $('settingsClose').classList.toggle('hidden', welcome);
@@ -1551,6 +1567,9 @@
       });
     }
     saveSettings();
+    const tzChanged = M.chosenTimeZone() !== $('setTimeZone').value;
+    M.setTimeZone($('setTimeZone').value);
+    if (tzChanged) renderAll(); // heures affichées dans le nouveau fuseau
     const wasWelcome = Boolean(dlg.dataset.welcome);
     dlg.close();
     if (wasWelcome && 'Notification' in window && Notification.permission === 'default') {

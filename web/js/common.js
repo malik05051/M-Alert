@@ -301,7 +301,11 @@
     const o = alert && alert.forecastOrigin;
     if (!o || !o.at) return '';
     const peak = o.peakAt
-      ? ` · pic prévu ${new Date(`${o.peakAt.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' })} vers ${Number(o.peakAt.slice(11, 13))} h${alert.forecastTable && alert.forecastTable.tz === 'Pacific/Noumea' ? ' (heure de Nouméa)' : ''}`
+      ? (() => {
+        // Heure du pic (heure de Paris, ou du tableau) montrée dans le fuseau choisi.
+        const t = forecastTime(o.peakAt, (alert.forecastTable && alert.forecastTable.tz) || 'Europe/Paris');
+        return ` · pic prévu ${new Date(t.ms).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: timeZone() })} vers ${t.h}`;
+      })()
       : '';
     return `Prévision d'origine, émise ${formatDateTime(o.at)} : ${o.title}${peak}`;
   }
@@ -369,15 +373,91 @@
     }[c]));
   }
 
+  // --- Fuseau horaire choisi par l'utilisateur (Réglages) : toutes les heures affichées le suivent ---
+
+  // Fuseaux proposés en premier (France et outre-mer) ; les autres sont dans la liste complète.
+  const TIME_ZONES = [
+    ['Europe/Paris', 'Paris (métropole)'], ['Pacific/Noumea', 'Nouméa (Nouvelle-Calédonie)'],
+    ['America/Guadeloupe', 'Guadeloupe, Martinique'], ['America/Cayenne', 'Guyane'], ['Indian/Reunion', 'La Réunion'],
+    ['Indian/Mayotte', 'Mayotte'], ['Pacific/Tahiti', 'Tahiti (Polynésie française)'], ['America/Miquelon', 'Saint-Pierre-et-Miquelon'],
+    ['Pacific/Wallis', 'Wallis-et-Futuna'], ['UTC', 'UTC (temps universel)'],
+  ];
+  const TZ_KEY = 'malert.timezone';
+  const deviceTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+  const validTimeZone = (tz) => { try { new Intl.DateTimeFormat('fr-FR', { timeZone: tz }); return true; } catch { return false; } };
+  /** Fuseau choisi (IANA), ou '' : celui de l'appareil. */
+  function chosenTimeZone() {
+    try { const tz = localStorage.getItem(TZ_KEY) || ''; return tz && validTimeZone(tz) ? tz : ''; } catch { return ''; }
+  }
+  function setTimeZone(tz) {
+    try {
+      if (tz && validTimeZone(tz)) localStorage.setItem(TZ_KEY, tz);
+      else localStorage.removeItem(TZ_KEY);
+    } catch { /* stockage indisponible : fuseau de l'appareil */ }
+  }
+  /** Fuseau effectif des heures affichées. */
+  const timeZone = () => chosenTimeZone() || deviceTimeZone();
+  /** Nom court du fuseau effectif : « heure de Paris », « heure de Nouméa », « UTC »… */
+  function timeZoneLabel(tz = timeZone()) {
+    const known = TIME_ZONES.find(([id]) => id === tz);
+    if (tz === 'UTC') return 'UTC';
+    const city = known ? known[1].replace(/ \(.*\)$/, '') : tz.split('/').pop().replace(/_/g, ' ');
+    return `heure de ${city}`;
+  }
+  /** Tous les fuseaux connus du navigateur (pour la liste complète des réglages). */
+  function allTimeZones() {
+    try { return Intl.supportedValuesOf('timeZone'); } catch { return TIME_ZONES.map(([id]) => id); }
+  }
+
+  /** Parties d'un instant dans le fuseau effectif (ou tz) : { year, month, day, hour, minute }. */
+  function zonedParts(ms, tz = timeZone()) {
+    const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms));
+    return Object.fromEntries(p.filter((x) => x.type !== 'literal').map((x) => [x.type, x.value]));
+  }
+  /** « AAAA-MM-JJTHH:MM » (heure locale de tz) -> instant (ms). */
+  function zonedInstant(local, tz) {
+    const guess = new Date(`${local.slice(0, 16)}:00Z`).getTime();
+    const offset = (ms) => { const v = zonedParts(ms, tz); return Date.UTC(v.year, v.month - 1, v.day, v.hour, v.minute) - ms; };
+    return guess - offset(guess - offset(guess));
+  }
+  /** Valeur d'un champ datetime-local, dans le fuseau effectif. */
+  function toLocalInput(d) {
+    const v = zonedParts(new Date(d).getTime());
+    return `${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}`;
+  }
+  /** Champ datetime-local (fuseau effectif) -> Date. */
+  function fromLocalInput(value) {
+    return value ? new Date(zonedInstant(value, timeZone())) : new Date(NaN);
+  }
+  /** Date « AAAA-MM-JJ » d'un instant dans le fuseau effectif. */
+  function zonedDate(ms = Date.now()) {
+    const v = zonedParts(ms);
+    return `${v.year}-${v.month}-${v.day}`;
+  }
+  /**
+   * Heure d'une prévision (« AAAA-MM-JJTHH:MM », heure de Paris, ou de srcTz) dans le fuseau
+   * effectif : { ms, date, h: « 14 h » }.
+   */
+  function forecastTime(local, srcTz = 'Europe/Paris') {
+    const ms = zonedInstant(local, srcTz);
+    const v = zonedParts(ms);
+    return { ms, date: `${v.year}-${v.month}-${v.day}`, h: `${Number(v.hour)} h${v.minute !== '00' ? ` ${v.minute}` : ''}` };
+  }
+
   function formatDateTime(iso) {
     if (!iso) return '';
     const d = new Date(iso);
-    return d.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: timeZone() });
   }
 
   function formatTime(iso) {
     if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: timeZone() });
+  }
+
+  /** Heure courante (horloge), dans le fuseau effectif. */
+  function clockText() {
+    return new Date().toLocaleTimeString('fr-FR', { timeZone: timeZone() });
   }
 
   function relativeTime(iso) {
@@ -482,7 +562,8 @@
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
     FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
-    escapeHtml, formatDateTime, formatTime, relativeTime,
+    escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
+    TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,
     departmentList, departmentName, departmentsLabel, isActive,
     storage, toWsUrl, normalizeServerUrl,
   };
