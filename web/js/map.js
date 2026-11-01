@@ -4,6 +4,19 @@
 
   const M = window.MAlert;
   const { VIGILANCE, LEVELS } = M;
+  // Contours des départements en vraies coordonnées ([lon, lat]), pour les distances.
+  let ringsCache = null;
+  function deptRings() {
+    if (ringsCache) return ringsCache;
+    ringsCache = {};
+    for (const f of (window.MALERT_DEPARTMENTS || { features: [] }).features) {
+      const g = f.geometry || {};
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      ringsCache[f.properties.code] = polys.flatMap((p) => p);
+    }
+    return ringsCache;
+  }
+
   // Phénomènes tracés le long des côtes : vagues-submersion, forte houle (Nouvelle-Calédonie).
   const COASTAL_PHENOMENA = new Set([9, 16]);
   // Métropole et, dans l'Atlantique à l'ouest, l'encart de la Nouvelle-Calédonie.
@@ -560,6 +573,34 @@
       },
 
       /** Centre (approximatif) d'un département. */
+      /**
+       * Distance (km) de ce point au département (0 s'il est dedans) : le point du département le
+       * plus proche, là où un séisme est le plus fort (intensités de la carte).
+       */
+      departmentKm(code, lat, lon) {
+        const rings = deptRings()[code];
+        if (!rings) return null;
+        const kx = Math.cos(lat * Math.PI / 180) * 111.32;
+        let inside = false;
+        let best = Infinity;
+        for (const ring of rings) {
+          let inRing = false;
+          for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inRing = !inRing;
+            // Distance au segment (projection plane locale, suffisante à ces échelles).
+            const ax = (xj - lon) * kx; const ay = (yj - lat) * 110.57;
+            const bx = (xi - lon) * kx; const by = (yi - lat) * 110.57;
+            const dx = bx - ax; const dy = by - ay;
+            const t = dx || dy ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy))) : 0;
+            best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+          }
+          if (inRing) inside = !inside;
+        }
+        return inside ? 0 : best;
+      },
+
       departmentCenter(code) {
         const layer = layers[code];
         if (!layer) return null;

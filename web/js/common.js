@@ -148,10 +148,10 @@
     },
     // Tremblement de terre : quatre niveaux.
     seisme: {
-      2: { label: 'Alerte séisme faible', name: 'Faible' },
-      3: { label: 'Alerte séisme moyen', name: 'Moyen' },
-      4: { label: 'Alerte séisme élevé', name: 'Élevé' },
-      5: { label: 'Alerte séisme majeur', name: 'Majeur' },
+      2: { label: 'Alerte sismique précoce faible', name: 'Faible' },
+      3: { label: 'Alerte sismique précoce moyenne', name: 'Moyen' },
+      4: { label: 'Alerte sismique précoce élevée', name: 'Élevé' },
+      5: { label: 'Alerte sismique précoce majeure', name: 'Majeur' },
     },
   };
   const TSUNAMI_LEVELS = CATEGORY_LEVELS.tsunami;
@@ -200,8 +200,7 @@
     const max = Math.max(...heights);
     // Hauteur estimée par M-Alert (pas annoncée) : « ≈ ».
     const estimated = rows.some((r) => r.heightEstimated && r.height === max) && alert.waveHeight !== max;
-    const ports = Math.max(0, ...rows.map((r) => (typeof r.heightMax === 'number' ? r.heightMax : 0)));
-    return `vagues jusqu'à ${estimated ? '≈ ' : ''}${max.toLocaleString('fr-FR')} m${estimated ? ` (estimation${ports > max ? `, ${ports.toLocaleString('fr-FR')} m dans les ports` : ''})` : ''}`;
+    return `vagues jusqu'à ${estimated ? '≈ ' : ''}${max.toLocaleString('fr-FR')} m${estimated ? ' (estimation)' : ''}`;
   }
 
   // Origine d'une alerte : envoi (automatique ou validé par M-Alert) et source du séisme.

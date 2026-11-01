@@ -902,13 +902,13 @@
         html.push(`<div class="tsu-row${mine.includes(r.department) ? ' mine' : ''}">
           <span class="tsu-name">${mine.includes(r.department) ? '📍 ' : ''}${escapeHtml(M.departmentName(r.department).replace(/ \(\w+\)$/, ''))}</span>
           <span class="tsu-arr${arrival ? '' : ' empty'}">${escapeHtml(arrival)}</span>
-          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>${typeof r.heightMax === 'number' && r.heightMax > r.height ? `<span class="tsu-max">ports ${r.heightMax.toLocaleString('fr-FR')} m</span>` : ''}` : ''}</span>
+          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>` : ''}</span>
         </div>`);
       }
     }
     const notes = [];
     if (rows.some((r) => r.estimated)) notes.push('heure d\'arrivée estimée');
-    if (rows.some((r) => r.heightEstimated)) notes.push('hauteur moyenne estimée (type de faille, magnitude, distance, profondeur de la mer) ; « ports » : maximum possible dans les ports, baies et estuaires');
+    if (rows.some((r) => r.heightEstimated)) notes.push('hauteur moyenne estimée (type de faille, magnitude, distance, profondeur de la mer)');
     if (notes.length) html.push(`<div class="tsu-note">≈ : ${notes.join(' ; ')}</div>`);
     el.innerHTML = html.join('');
   }
@@ -923,9 +923,10 @@
   function deptIntensity(alert, code) {
     if (alert.intensities && alert.intensities[code]) return alert.intensities[code];
     if (!alert.epicenter || typeof alert.magnitude !== 'number') return null;
-    const c = map.departmentCenter(code);
-    if (!c) return null;
-    const { km } = map.waveArrival(alert.epicenter, alert.depth, c.lat, c.lon);
+    // Intensité la plus forte du département : à son point le plus proche de l'épicentre (comme
+    // l'intensité maximale de l'alerte, celle du département le plus touché).
+    const km = map.departmentKm(code, alert.epicenter.lat, alert.epicenter.lon);
+    if (km === null) return null;
     return M.toShindo(M.estimateIntensity(alert.magnitude, Number(alert.depth) || 10, km));
   }
 
