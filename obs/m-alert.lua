@@ -13,6 +13,8 @@ OBS. La source affiche :
 « Informations M-Alert » puis les informations en haut, la scène en cours réduite à 80 % et le
 bandeau en bas ; puis OBS revient à la scène d'avant. Aussi à la main : bouton « Écran réduit :
 activer / désactiver » ou raccourci clavier (Paramètres > Raccourcis clavier > « M-Alert : écran réduit »).
+À la main aussi : texte en haut seul (sans réduire l'image) et bandeau de l'alerte en cours (sources
+« M-Alert (texte) » et « M-Alert (bandeau) », cachées au départ), par bouton ou raccourci clavier.
 ]]
 
 obs = obslua
@@ -244,6 +246,62 @@ local function toggle_reduced()
   if target ~= nil then obs.obs_frontend_set_current_scene(target); obs.obs_source_release(target) end
 end
 
+-- Calques affichés à la main (bouton ou raccourci clavier), cachés au départ : texte en haut seul
+-- (sans réduire l'image) et bandeau de l'alerte en cours.
+local MANUAL = {
+  { key = "texte", name = "M-Alert (texte)", label = "Texte en haut : afficher / masquer" },
+  { key = "bandeau", name = "M-Alert (bandeau)", label = "Bandeau de l'alerte : afficher / masquer" },
+}
+local manual_hotkeys = {}
+
+local function current_program_scene()
+  local cur = obs.obs_frontend_get_current_scene()
+  if cur == nil then return nil end
+  local name = obs.obs_source_get_name(cur)
+  obs.obs_source_release(cur)
+  if name == ALERT_SCENE and program_scene ~= nil then return program_scene end
+  return name
+end
+
+-- Sources des calques à jour (adresse), et présentes dans la scène en cours (cachées si ajoutées).
+local function ensure_manual(st, demo)
+  local scene_name = current_program_scene()
+  local scene = scene_name and scene_by_name(scene_name)
+  for _, m in ipairs(MANUAL) do
+    local data = browser_data(overlay_url(st, demo) .. "&layer=" .. m.key, false)
+    local src = upsert_browser(m.name, data)
+    obs.obs_data_release(data)
+    if src ~= nil then
+      if scene ~= nil and scene then
+        local item = obs.obs_scene_find_source(scene, m.name)
+        if item == nil then
+          item = obs.obs_scene_add(scene, src)
+          if item ~= nil then obs.obs_sceneitem_set_visible(item, false) end
+        end
+        if item ~= nil then obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP) end
+      end
+      obs.obs_source_release(src)
+    end
+  end
+end
+
+local function toggle_manual(m)
+  local scene_name = current_program_scene()
+  if scene_name == nil then return end
+  local scene = scene_by_name(scene_name)
+  if scene == nil then return end
+  local item = obs.obs_scene_find_source(scene, m.name)
+  if item == nil then
+    if settings_ref ~= nil then ensure_manual(settings_ref, nil) end
+    item = obs.obs_scene_find_source(scene, m.name)
+  end
+  if item == nil then return end
+  local visible = not obs.obs_sceneitem_visible(item)
+  obs.obs_sceneitem_set_visible(item, visible)
+  obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP)
+  obs.script_log(obs.LOG_INFO, "M-Alert : « " .. m.name .. " » " .. (visible and "affiché" or "masqué") .. " dans « " .. scene_name .. " »")
+end
+
 local function apply(st, demo)
   if not browser_available() then
     obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
@@ -285,6 +343,7 @@ local function apply(st, demo)
   end
   obs.obs_source_release(src)
   if obs.obs_data_get_bool(st, "reduce") then ensure_alert_scene(st, demo) end
+  ensure_manual(st, demo)
   obs.script_log(obs.LOG_INFO, "M-Alert : incrustation " .. url)
   if demo == nil then
     obs.script_log(obs.LOG_INFO, "M-Alert : la source reste transparente tant qu'aucune alerte n'est en cours (« Aperçu » pour un exemple).")
@@ -320,6 +379,9 @@ function script_properties()
   obs.obs_properties_add_bool(p, "reduce", "Réduire l'image pendant une alerte (texte d'informations en haut, comme la NHK)")
   obs.obs_properties_add_int(p, "reduce_after", "Écran réduit après (s, 0 : tout de suite)", 0, 600, 1)
   obs.obs_properties_add_button(p, "reduce_now", "Écran réduit : activer / désactiver", function() toggle_reduced() return true end)
+  for _, m in ipairs(MANUAL) do
+    obs.obs_properties_add_button(p, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
+  end
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -360,6 +422,15 @@ function script_load(st)
   local keys = obs.obs_data_get_array(st, "malert_reduce_hotkey")
   obs.obs_hotkey_load(hotkey_id, keys)
   obs.obs_data_array_release(keys)
+  for _, m in ipairs(MANUAL) do
+    local id = obs.obs_hotkey_register_frontend("malert_" .. m.key, "M-Alert : " .. m.label:lower(), function(pressed)
+      if pressed then toggle_manual(m) end
+    end)
+    manual_hotkeys[m.key] = id
+    local k = obs.obs_data_get_array(st, "malert_" .. m.key .. "_hotkey")
+    obs.obs_hotkey_load(id, k)
+    obs.obs_data_array_release(k)
+  end
   local src, name = find_overlay()
   if src ~= nil then obs.obs_source_release(src) end
   overlay_name = name
@@ -375,6 +446,13 @@ function script_save(st)
   local keys = obs.obs_hotkey_save(hotkey_id)
   obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
   obs.obs_data_array_release(keys)
+  for _, m in ipairs(MANUAL) do
+    if manual_hotkeys[m.key] ~= nil then
+      local k = obs.obs_hotkey_save(manual_hotkeys[m.key])
+      obs.obs_data_set_array(st, "malert_" .. m.key .. "_hotkey", k)
+      obs.obs_data_array_release(k)
+    end
+  end
 end
 
 function script_unload()

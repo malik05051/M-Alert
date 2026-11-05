@@ -17,6 +17,8 @@
  *                         la source doit avoir l'accès « avancé » à OBS (script m-alert.lua)
  *   reduceAfter=10        secondes avant l'écran réduit (0 : tout de suite)
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
+ *   layer=texte           texte en haut seul (bande bleue), affiché à la main
+ *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
  *   demo=seisme|tsunami|vent|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
@@ -34,7 +36,11 @@
   const tests = q.get('tests') !== '0';
   const tsunamiMap = q.get('tsunami') !== '0';
   const infos = q.get('infos') !== '0';
-  const fondLayer = q.get('layer') === 'fond';
+  // Calques à la main (affichés par le script OBS) : texte en haut seul, bandeau seul.
+  const textLayer = q.get('layer') === 'texte';
+  const bannerLayer = q.get('layer') === 'bandeau';
+  const fondLayer = q.get('layer') === 'fond' || textLayer;
+  if (textLayer) document.body.classList.add('layer-texte');
   const reduceScene = q.get('reduce') || '';
   // Écran réduit quelques secondes après l'arrivée de l'alerte (le bandeau seul d'abord).
   const reduceAfter = q.has('reduceAfter') ? Math.max(0, Number(q.get('reduceAfter')) || 0) : 10;
@@ -56,7 +62,7 @@
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
   function showInfo(info) {
-    if (!infos || fondLayer) return;
+    if (!infos || fondLayer || bannerLayer) return;
     B.drawInfo($('info'), info, { width: 670, height: 330 });
     infoUntil = Date.now() + (hold || 60) * 1000;
     document.body.classList.add('show-info');
@@ -127,6 +133,14 @@
   function render() {
     const a = current();
     if (fondLayer) { renderFond(a); return; }
+    if (bannerLayer) {
+      // Bandeau de l'alerte en cours, tant que la source est affichée (sans durée ni écran réduit).
+      document.body.classList.toggle('top', q.get('pos') === 'top');
+      document.body.classList.toggle('show-banner', Boolean(a));
+      const k = a ? `${a.id}:${a.revision || 0}` : '';
+      if (a && k !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = k; }
+      return;
+    }
     const tsu = alerts.filter(wanted).find((x) => x.category === 'tsunami');
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
@@ -148,7 +162,7 @@
     if (!wanted(a)) return;
     shownId = a.id;
     shownAt = Date.now();
-    if (sound && !fondLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
+    if (sound && !fondLayer && !bannerLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
   }
 
   function handle(msg) {

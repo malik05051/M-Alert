@@ -109,7 +109,9 @@ M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : 
 - pluie-inondation : pluie en 24 h et crues ;
 - vagues-submersion : hauteur des vagues.
 
-Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le déclencher à la main : bouton **« Écran réduit : activer / désactiver »** du script, ou raccourci clavier (*Paramètres* > *Raccourcis clavier* > « M-Alert : écran réduit »). La source d'incrustation a pour cela l'accès « avancé » à OBS (réglé par le script). Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
+Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le déclencher à la main : bouton **« Écran réduit : activer / désactiver »** du script, ou raccourci clavier (*Paramètres* > *Raccourcis clavier* > « M-Alert : écran réduit »). La source d'incrustation a pour cela l'accès « avancé » à OBS (réglé par le script).
+
+**À la main, aussi** : **texte en haut seul** (bande bleue avec « Informations M-Alert » puis les informations, sans réduire l'image) et **bandeau de l'alerte en cours** (sans durée limite). Ce sont les sources « M-Alert (texte) » et « M-Alert (bandeau) », cachées au départ. Les boutons « Texte en haut : afficher / masquer » et « Bandeau de l'alerte : afficher / masquer » du script, ou leurs raccourcis clavier, les affichent ou les masquent. Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
 
 Il faut la source **Navigateur** d'OBS (obs-browser), présente dans OBS pour Windows, macOS et en Flatpak. Sous **Arch Linux**, le paquet `obs-studio` ne l'a pas : installez `obs-studio-browser` (AUR) ou OBS en Flatpak (`flatpak install flathub com.obsproject.Studio`). Le script le signale dans sa description si elle manque.
 
@@ -135,6 +137,8 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `reduce=M-Alert (alerte)` | écran réduit : passe sur cette scène pendant l'alerte (accès « avancé » de la source) |
 | `reduceAfter=10` | secondes avant l'écran réduit (`0` : tout de suite) |
 | `layer=fond` | fond de l'écran réduit (bleu et texte d'informations) |
+| `layer=texte` | texte en haut seul (bande bleue) |
+| `layer=bandeau` | bandeau de l'alerte en cours seul (sans durée) |
 | `demo=seisme` (`tsunami`, `vent`, `inondation`, `annulation`, `info`) | aperçu sans serveur |
 
 ### Version web (téléphone, navigateur)
