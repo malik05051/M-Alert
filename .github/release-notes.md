@@ -7,7 +7,17 @@
   - **carte des tsunamis** en plein écran, aux côtes qui clignotent (avertissement majeur, avertissement, avis), Nouvelle-Calédonie comprise ;
   - **cadre « Information(s) M-Alert »** : alerte annulée (« L'alerte précédente a été annulée. Aucun danger n'est attendu. ») et notifications envoyées depuis M-Alert-sender.
 
-  Les options sont : catégories, départements, niveau minimum, durée d'affichage, position, largeur, son, alertes de test et aperçus.
+  - **écran réduit, comme la NHK** : 10 secondes (réglable) après l'arrivée d'une alerte, OBS passe sur la scène « M-Alert (alerte) ». La scène en cours y est réduite à 80 % sur un fond bleu, et le bandeau reste en bas. En haut s'affiche « Informations M-Alert » pendant 4 secondes, puis les informations :
+    - séisme : heure, magnitude, profondeur et intensités par département ;
+    - tsunami : hauteurs et heures d'arrivée ;
+    - vent et tempête : rafales ;
+    - pluie-inondation : pluie et crues ;
+    - vagues-submersion : hauteur des vagues.
+
+    OBS revient ensuite à la scène d'avant.
+  - **à la main** (boutons du script et raccourcis clavier) : écran réduit, texte en haut seul (sans réduire l'image) et bandeau de l'alerte en cours.
+
+  Les options sont : catégories, départements, niveau minimum, durée d'affichage, délai de l'écran réduit, position, largeur, son, alertes de test et aperçus. Le script fonctionne même si une scène s'appelle déjà « M-Alert ». Il signale l'absence de la source « Navigateur » : sous Arch, il faut `obs-studio-browser` (AUR) ou OBS en Flatpak.
 - **Réglages avancés du son** : durée maximale du son répété, montée progressive du volume, vibration (téléphone), son des informations et notifications, heures calmes avec les alertes qui sonnent quand même.
 - **M-Alert-sender** :
   - **image de l'alerte** (bandeau façon NHK) : aperçu en direct et téléchargement PNG, y compris pour les alertes en cours, planifiées et de l'historique. Une alerte annulée donne le cadre « Information(s) M-Alert ».
@@ -18,5 +28,5 @@
     - épisodes de pollution de l'air (ozone, dioxyde d'azote, PM10) prévus par Copernicus, comparés aux seuils réglementaires.
 
     Chaque type peut être désactivé, à valider ou automatique. Les alertes suivent la vigilance ou la prévision et sont levées quand elle disparaît.
-  - **Soundux** (application de bureau) : chaque nouvelle alerte peut lancer `soundux play "{fichier}"` avec le son de son type : EEW.mp3, EEW (2).mp3, EEW (Léger).mp3, Rouge.mp3 ou Majeur.mp3.
+  - **Soundux** (application de bureau) : chaque nouvelle alerte peut lancer `soundux play "{fichier}"` avec le nom du son de son type, sans extension : EEW, EEW (2), EEW (Léger), Rouge ou Majeur.
 - La version web est désormais à l'adresse https://malik05051.github.io/M-Alert/.
