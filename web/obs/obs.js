@@ -129,7 +129,8 @@
     // bandeau d'une autre alerte (le séisme) passe en haut.
     const mapOn = Boolean(tsu && tsunamiMap);
     const bannerOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
-    document.body.classList.toggle('top', q.get('pos') === 'top' || mapOn);
+    // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
+    document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
     const key = a ? `${a.id}:${a.revision || 0}` : '';
