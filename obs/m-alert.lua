@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-5"
+local PAGE_VERSION = "3.0.0-6"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -379,7 +379,7 @@ function script_description()
   if not browser_available() then
     return "<b>M-Alert</b> : <span style=\"color:#ff5555\">OBS n'a pas de source « Navigateur » (obs-browser). Sous Arch, installez <b>obs-studio-browser</b> (AUR) ou OBS en Flatpak, puis rechargez ce script.</span>"
   end
-  return "<b>M-Alert</b> : alertes sismiques précoces, tsunamis et alertes météo incrustées comme à la NHK " ..
+  return "<b>M-Alert</b> (script " .. PAGE_VERSION .. ") : alertes sismiques précoces, tsunamis et alertes météo incrustées comme à la NHK " ..
     "(bandeau et carte des tsunamis), en temps réel. « Ajouter / mettre à jour » crée la source navigateur " ..
     "« M-Alert » dans la scène en cours."
 end

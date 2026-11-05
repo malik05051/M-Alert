@@ -86,6 +86,23 @@
     return list[0] || null;
   }
 
+  // Dernière alerte reçue (en cours ou terminée) : bandeau et texte affichés à la main quand aucune
+  // alerte n'est en cours.
+  let lastAlert = null;
+  function remember(a) {
+    if (!a || a.pending || a.silent || a.voided) return;
+    const ok = wanted({ ...a, expiresAt: new Date(Date.now() + 60000).toISOString(), cancelledAt: null, noEnd: false });
+    if (ok && (!lastAlert || (a.updatedAt || a.createdAt) >= (lastAlert.updatedAt || lastAlert.createdAt) || a.id === lastAlert.id)) lastAlert = a;
+  }
+  function loadLast() {
+    if (!server) return;
+    fetch(`${server}/api/alerts/last?n=10`).then((r) => (r.ok ? r.json() : [])).then((list) => {
+      for (const a of (list || []).slice().reverse()) remember(a);
+      render();
+    }).catch(() => {});
+  }
+  const manualAlert = () => current() || lastAlert;
+
   /** Écran réduit : passe sur la scène de l'alerte (on), ou revient à la scène d'avant (off). */
   function reduce(on) {
     if (!reduceScene || !obsApi || !obsApi.setCurrentScene || switching) return;
@@ -133,13 +150,14 @@
 
   function render() {
     const a = current();
-    if (fondLayer) { renderFond(a); return; }
+    if (fondLayer) { renderFond(textLayer ? manualAlert() : a); return; }
     if (bannerLayer) {
       // Bandeau de l'alerte en cours, tant que la source est affichée (sans durée ni écran réduit).
       document.body.classList.toggle('top', q.get('pos') === 'top');
-      document.body.classList.toggle('show-banner', Boolean(a));
-      const k = a ? `${a.id}:${a.revision || 0}` : '';
-      if (a && k !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = k; }
+      const m = manualAlert();
+      document.body.classList.toggle('show-banner', Boolean(m));
+      const k = m ? `${m.id}:${m.revision || 0}` : '';
+      if (m && k !== drawnKey) { B.drawBanner($('banner'), m, { width: 1600, height: 450 }); drawnKey = k; }
       return;
     }
     const tsu = alerts.filter(wanted).find((x) => x.category === 'tsunami');
@@ -149,13 +167,14 @@
     const mapOn = Boolean(tsu && tsunamiMap);
     const autoOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
-    const bannerOn = manualBanner === true ? a && !(mapOn && a.category === 'tsunami') : manualBanner === false ? false : autoOn;
+    const shown = manualBanner === true ? manualAlert() : a;
+    const bannerOn = manualBanner === true ? shown && !(mapOn && shown.category === 'tsunami') : manualBanner === false ? false : autoOn;
     // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
-    const key = a ? `${a.id}:${a.revision || 0}` : '';
-    if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = key; }
+    const key = shown ? `${shown.id}:${shown.revision || 0}` : '';
+    if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450 }); drawnKey = key; }
     reduce(Boolean((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000));
     document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
     if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
@@ -173,20 +192,25 @@
     switch (msg.type) {
       case 'hello':
         alerts = (msg.alerts || []).filter(M.isActive);
+        alerts.forEach(remember);
+        loadLast();
         break;
       case 'alert':
       case 'ring':
         alerts = alerts.filter((x) => x.id !== msg.alert.id).concat(msg.alert);
         arrived(msg.alert);
+        remember(msg.alert);
         break;
       case 'update':
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
         if (M.isActive(msg.alert)) alerts.push(msg.alert);
+        if (lastAlert && lastAlert.id === msg.alert.id) lastAlert = msg.alert;
         if (msg.alert.id === shownId) shownAt = Date.now();
         break;
       case 'cancel':
       case 'expire':
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
+        if (msg.alert.voided && lastAlert && lastAlert.id === msg.alert.id) lastAlert = null;
         // Fausse alerte : annonce de l'annulation (si l'alerte était de celles montrées ici).
         if (msg.type === 'cancel' && msg.alert.voided && wanted({ ...msg.alert, expiresAt: new Date(Date.now() + 60000).toISOString(), cancelledAt: null })) {
           showInfo(B.cancelledInfo(msg.alert));
@@ -237,6 +261,7 @@
     const a = { ...DEMOS[demo], createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];
     arrived(a);
+    remember(a);
   } else connect();
 
   // Côtes du tsunami : clignotement ; bandeau : masqué après « hold » secondes.
