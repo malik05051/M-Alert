@@ -13,8 +13,8 @@ OBS. La source affiche :
 « Informations M-Alert » puis les informations en haut, la scène en cours réduite à 80 % et le
 bandeau en bas ; puis OBS revient à la scène d'avant. Aussi à la main : bouton « Écran réduit :
 activer / désactiver » ou raccourci clavier (Paramètres > Raccourcis clavier > « M-Alert : écran réduit »).
-À la main aussi : texte en haut seul (sans réduire l'image) et bandeau de l'alerte en cours (sources
-« M-Alert (texte) » et « M-Alert (bandeau) », cachées au départ), par bouton ou raccourci clavier.
+À la main aussi : texte en haut seul (source « M-Alert (texte) », cachée au départ, sans réduire
+l'image) et bandeau de l'alerte en cours (affiché ou masqué), par bouton ou raccourci clavier.
 ]]
 
 obs = obslua
@@ -246,11 +246,11 @@ local function toggle_reduced()
   if target ~= nil then obs.obs_frontend_set_current_scene(target); obs.obs_source_release(target) end
 end
 
--- Calques affichés à la main (bouton ou raccourci clavier), cachés au départ : texte en haut seul
--- (sans réduire l'image) et bandeau de l'alerte en cours.
+-- Calque affiché à la main (bouton ou raccourci clavier), caché au départ : texte en haut seul
+-- (sans réduire l'image). Le bandeau, lui, est celui de l'incrustation (commande envoyée à la page).
+local OLD_BANNER_SOURCE = "M-Alert (bandeau)" -- ancienne source du bandeau à la main, retirée
 local MANUAL = {
   { key = "texte", name = "M-Alert (texte)", label = "Texte en haut : afficher / masquer" },
-  { key = "bandeau", name = "M-Alert (bandeau)", label = "Bandeau de l'alerte : afficher / masquer" },
 }
 local manual_hotkeys = {}
 
@@ -267,6 +267,10 @@ end
 local function ensure_manual(st, demo)
   local scene_name = current_program_scene()
   local scene = scene_name and scene_by_name(scene_name)
+  if scene ~= nil and scene then
+    local old_item = obs.obs_scene_find_source(scene, OLD_BANNER_SOURCE)
+    if old_item ~= nil then obs.obs_sceneitem_remove(old_item) end
+  end
   for _, m in ipairs(MANUAL) do
     local data = browser_data(overlay_url(st, demo) .. "&layer=" .. m.key, false)
     local src = upsert_browser(m.name, data)
@@ -301,6 +305,22 @@ local function toggle_manual(m)
   obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP)
   obs.script_log(obs.LOG_INFO, "M-Alert : « " .. m.name .. " » " .. (visible and "affiché" or "masqué") .. " dans « " .. scene_name .. " »")
 end
+
+-- Commande envoyée à la page de l'incrustation (événement JavaScript « malert »).
+local function send_overlay(cmd)
+  local src = overlay_name and obs.obs_get_source_by_name(overlay_name)
+  if src == nil or not src then
+    obs.script_log(obs.LOG_WARNING, "M-Alert : incrustation introuvable (« Ajouter / mettre à jour l'incrustation » d'abord)")
+    return
+  end
+  local cd = obs.calldata_create()
+  obs.calldata_set_string(cd, "eventName", "malert")
+  obs.calldata_set_string(cd, "jsonString", '{"cmd":"' .. cmd .. '"}')
+  obs.proc_handler_call(obs.obs_source_get_proc_handler(src), "javascript_event", cd)
+  obs.calldata_destroy(cd)
+  obs.obs_source_release(src)
+end
+local banner_hotkey = nil
 
 local function apply(st, demo)
   if not browser_available() then
@@ -382,6 +402,7 @@ function script_properties()
   for _, m in ipairs(MANUAL) do
     obs.obs_properties_add_button(p, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
   end
+  obs.obs_properties_add_button(p, "banner_toggle", "Bandeau de l'alerte : afficher / masquer", function() send_overlay("banner") return true end)
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -422,6 +443,12 @@ function script_load(st)
   local keys = obs.obs_data_get_array(st, "malert_reduce_hotkey")
   obs.obs_hotkey_load(hotkey_id, keys)
   obs.obs_data_array_release(keys)
+  banner_hotkey = obs.obs_hotkey_register_frontend("malert_bandeau", "M-Alert : bandeau de l'alerte : afficher / masquer", function(pressed)
+    if pressed then send_overlay("banner") end
+  end)
+  local bk = obs.obs_data_get_array(st, "malert_bandeau_hotkey")
+  obs.obs_hotkey_load(banner_hotkey, bk)
+  obs.obs_data_array_release(bk)
   for _, m in ipairs(MANUAL) do
     local id = obs.obs_hotkey_register_frontend("malert_" .. m.key, "M-Alert : " .. m.label:lower(), function(pressed)
       if pressed then toggle_manual(m) end
@@ -446,6 +473,11 @@ function script_save(st)
   local keys = obs.obs_hotkey_save(hotkey_id)
   obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
   obs.obs_data_array_release(keys)
+  if banner_hotkey ~= nil then
+    local bk = obs.obs_hotkey_save(banner_hotkey)
+    obs.obs_data_set_array(st, "malert_bandeau_hotkey", bk)
+    obs.obs_data_array_release(bk)
+  end
   for _, m in ipairs(MANUAL) do
     if manual_hotkeys[m.key] ~= nil then
       local k = obs.obs_hotkey_save(manual_hotkeys[m.key])

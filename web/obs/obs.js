@@ -59,6 +59,7 @@
   let blink = true;
   let drawnKey = '';
   let infoUntil = 0;
+  let manualBanner = null; // null : automatique ; true : affiché à la main ; false : masqué à la main
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
   function showInfo(info) {
@@ -146,20 +147,23 @@
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
     // bandeau d'une autre alerte (le séisme) passe en haut.
     const mapOn = Boolean(tsu && tsunamiMap);
-    const bannerOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
+    const autoOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
+    // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
+    const bannerOn = manualBanner === true ? a && !(mapOn && a.category === 'tsunami') : manualBanner === false ? false : autoOn;
     // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
     const key = a ? `${a.id}:${a.revision || 0}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = key; }
-    reduce(Boolean((bannerOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000));
+    reduce(Boolean((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000));
     document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
     if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
 
   function arrived(a) {
     if (!wanted(a)) return;
+    manualBanner = null;
     shownId = a.id;
     shownAt = Date.now();
     if (sound && !fondLayer && !bannerLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
@@ -197,6 +201,15 @@
     }
     render();
   }
+
+  // Commandes du script OBS (javascript_event d'obs-browser) : { cmd: "banner" } affiche ou masque
+  // le bandeau de l'alerte en cours.
+  window.addEventListener('malert', (e) => {
+    const d = (e && e.detail) || {};
+    if (d.cmd !== 'banner' || fondLayer || bannerLayer) return;
+    manualBanner = document.body.classList.contains('show-banner') ? false : true;
+    render();
+  });
 
   let retry = 0;
   function connect() {
