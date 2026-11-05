@@ -7,12 +7,15 @@ réglez les options puis « Ajouter / mettre à jour l'incrustation ». Le scrip
 jour) une source navigateur « M-Alert » de 1920 × 1080, fond transparent, dont le son passe par
 OBS. La source affiche :
   - le bandeau d'alerte (carte à gauche, titre, consigne, lieux) quand une alerte arrive ;
-  - la carte des côtes en alerte tsunami, qui clignotent, tant qu'un tsunami est en cours.
+  - la carte des côtes en alerte tsunami, qui clignotent, tant qu'un tsunami est en cours ;
+  - le cadre « Information(s) M-Alert » : alerte annulée, notifications envoyées depuis M-Alert-sender.
 ]]
 
 obs = obslua
 
 local SOURCE_NAME = "M-Alert"
+-- Catégories des alertes M-Alert (comme dans l'application).
+local CATEGORIES = { "seisme", "tsunami", "meteo", "pollution", "accident", "attentat", "greve", "blocus" }
 local settings_ref = nil
 
 local function urlencode(s)
@@ -25,16 +28,17 @@ local function overlay_url(st)
   local function add(k, v) if v ~= nil and v ~= "" then table.insert(params, k .. "=" .. urlencode(v)) end end
   add("server", obs.obs_data_get_string(st, "server"))
   local types = {}
-  for _, t in ipairs({ "seisme", "tsunami", "meteo", "pollution", "incendie", "attentat", "blocus", "autre" }) do
+  for _, t in ipairs(CATEGORIES) do
     if obs.obs_data_get_bool(st, "type_" .. t) then table.insert(types, t) end
   end
-  if #types < 8 then add("types", table.concat(types, ",")) end
+  if #types < #CATEGORIES then add("types", table.concat(types, ",")) end
   add("deps", obs.obs_data_get_string(st, "deps"))
   add("min", tostring(obs.obs_data_get_int(st, "min")))
   add("hold", tostring(obs.obs_data_get_int(st, "hold")))
   if obs.obs_data_get_bool(st, "sound") then add("sound", "1") end
   if not obs.obs_data_get_bool(st, "tests") then add("tests", "0") end
   if not obs.obs_data_get_bool(st, "tsunami") then add("tsunami", "0") end
+  if not obs.obs_data_get_bool(st, "infos") then add("infos", "0") end
   if obs.obs_data_get_bool(st, "top") then add("pos", "top") end
   add("width", tostring(obs.obs_data_get_int(st, "width")))
   local q = table.concat(params, "&")
@@ -84,10 +88,10 @@ function script_properties()
   obs.obs_properties_add_bool(p, "type_tsunami", "Tsunamis")
   obs.obs_properties_add_bool(p, "type_meteo", "Météo (vent, tempête, pluie-inondation, crues…)")
   obs.obs_properties_add_bool(p, "type_pollution", "Pollution")
-  obs.obs_properties_add_bool(p, "type_incendie", "Incendies")
+  obs.obs_properties_add_bool(p, "type_accident", "Accidents industriels")
   obs.obs_properties_add_bool(p, "type_attentat", "Attentats")
-  obs.obs_properties_add_bool(p, "type_blocus", "Blocages")
-  obs.obs_properties_add_bool(p, "type_autre", "Autres")
+  obs.obs_properties_add_bool(p, "type_greve", "Grèves")
+  obs.obs_properties_add_bool(p, "type_blocus", "Blocus / manifestations")
   obs.obs_properties_add_text(p, "deps", "Départements (codes, vide : tous)", obs.OBS_TEXT_DEFAULT)
   local lv = obs.obs_properties_add_list(p, "min", "Niveau minimum", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
   for i, n in ipairs({ "Information", "Jaune", "Orange", "Rouge", "Majeur" }) do obs.obs_property_list_add_int(lv, n, i) end
@@ -95,6 +99,7 @@ function script_properties()
   obs.obs_properties_add_int_slider(p, "width", "Largeur du bandeau (% de l'écran)", 30, 100, 1)
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
+  obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
   obs.obs_properties_add_bool(p, "sound", "Son des alertes (dans OBS)")
   obs.obs_properties_add_bool(p, "tests", "Montrer les alertes de test")
   obs.obs_properties_add_button(p, "apply", "Ajouter / mettre à jour l'incrustation", function() apply(settings_ref) return true end)
@@ -112,13 +117,14 @@ end
 function script_defaults(st)
   obs.obs_data_set_default_string(st, "server", "https://m-alert-sender.onrender.com")
   obs.obs_data_set_default_string(st, "base", "https://malik05051.github.io/M-Alert/obs/")
-  for _, t in ipairs({ "seisme", "tsunami", "meteo", "pollution", "incendie", "attentat", "blocus", "autre" }) do
+  for _, t in ipairs(CATEGORIES) do
     obs.obs_data_set_default_bool(st, "type_" .. t, true)
   end
   obs.obs_data_set_default_int(st, "min", 2)
   obs.obs_data_set_default_int(st, "hold", 90)
   obs.obs_data_set_default_int(st, "width", 66)
   obs.obs_data_set_default_bool(st, "tsunami", true)
+  obs.obs_data_set_default_bool(st, "infos", true)
   obs.obs_data_set_default_bool(st, "sound", true)
   obs.obs_data_set_default_bool(st, "tests", true)
 end

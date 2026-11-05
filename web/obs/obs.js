@@ -12,7 +12,7 @@
  *   pos=top               bandeau en haut (par défaut : en bas) ; width=66 : largeur (% de l'écran)
  *   tsunami=0             pas de carte plein écran pour les tsunamis
  *   infos=0               pas de carte « Information(s) M-Alert » (alerte annulée, notification)
- *   demo=seisme|tsunami|vent   aperçu sans serveur ; debug=1 : état de la connexion
+ *   demo=seisme|tsunami|vent|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
   'use strict';

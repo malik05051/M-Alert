@@ -71,6 +71,58 @@ npm run dist:linux   # AppImage + .deb (dans dist/)
 
 Sous Linux, l'icône de la zone de notification nécessite la prise en charge d'AppIndicator (présente par défaut sur Ubuntu, KDE, Cinnamon, XFCE ; sur GNOME « pur », installez l'extension *AppIndicator and KStatusNotifierItem Support*). Pour l'AppImage : `chmod +x M-Alert-*.AppImage` puis double-clic.
 
+### Application mobile (Android et iOS)
+
+| Système | Fichier (dans la *Release*) |
+| --- | --- |
+| Android 7 ou plus | `M-Alert-x.y.z.apk` |
+| iPhone / iPad (iOS 15 ou plus) | `M-Alert-x.y.z-non-signe.ipa` |
+
+**Android** : téléchargez l'APK sur le téléphone, ouvrez-le et autorisez l'installation depuis cette source (Chrome ou Fichiers). L'application est la même que la version web, avec en plus un **service de réception en arrière-plan** : une notification permanente « M-Alert — Réception des alertes en arrière-plan » reste affichée et les alertes arrivent même application fermée, avec leur son (EEW, rouge, majeur, tsunami…), même en mode silencieux pour les séismes, tsunamis et alertes majeures (canal « alarme »). Le service redémarre tout seul après un redémarrage du téléphone. Réglages ⚙ > **Recevoir les alertes en arrière-plan, application fermée** pour l'arrêter ; chaque son a son canal dans les réglages Android des notifications de M-Alert. Autorisez les notifications au premier lancement et, si le téléphone coupe les applications en arrière-plan (Xiaomi, Huawei, Samsung…), retirez M-Alert de l'optimisation de la batterie. Les mises à jour s'installent par-dessus l'ancienne version (même signature).
+
+**iOS** : sans compte développeur Apple payant, l'`.ipa` n'est pas signé. Installez-le avec [AltStore](https://altstore.io) ou [Sideloadly](https://sideloadly.io) (signature avec votre identifiant Apple, à renouveler tous les 7 jours). L'application iOS reçoit les alertes quand elle est ouverte ; pour être prévenu application fermée sur iPhone, utilisez plutôt la version web ajoutée à l'écran d'accueil avec les notifications push (ci-dessous).
+
+Google Play n'est pas utilisé : la publication y demande un compte développeur payant.
+
+Pour construire depuis le code source (dossier `mobile/`, [Capacitor](https://capacitorjs.com)) :
+
+```bash
+cd mobile
+npm ci
+node copy-web.js            # copie web/ dans www/
+npx cap sync android        # ou ios (sur un Mac avec Xcode 26)
+cd android && ./gradlew assembleRelease -PappVersion=3.0.0
+```
+
+L'APK est signé avec la clé publique `mobile/android/app/m-alert-public.jks` (mot de passe `m-alert`), ou avec votre propre clé via les variables `ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
+
+### Incrustation OBS (alertes façon NHK)
+
+M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : **bandeau d'alerte** (carte des départements à gauche, titre de la couleur du niveau, consigne en jaune et lieux concernés), **carte des tsunamis** en plein écran aux côtes qui clignotent (avertissement majeur, avertissement, avis) et cadre **« Information(s) M-Alert »** (alerte annulée, notifications envoyées depuis M-Alert-sender).
+
+**Avec le script (le plus simple)** : téléchargez [`obs/m-alert.lua`](obs/m-alert.lua), puis dans OBS > *Outils* > *Scripts* > **+** > `m-alert.lua`. Réglez les options (catégories, départements, niveau minimum, durée, position, son…) puis **Ajouter / mettre à jour l'incrustation** : une source navigateur « M-Alert » (1920 × 1080, fond transparent) est créée dans la scène en cours. **Aperçu (séisme)** montre un exemple.
+
+**À la main** : ajoutez une *Source navigateur* de 1920 × 1080 avec l'adresse
+
+```
+https://malik05051.github.io/M-Alert/obs/?server=https://m-alert-sender.onrender.com&sound=1
+```
+
+et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (tous facultatifs, séparés par `&`) :
+
+| Paramètre | Effet |
+| --- | --- |
+| `types=seisme,tsunami,meteo` | catégories montrées (par défaut : toutes) |
+| `deps=13,83,988` | départements suivis (par défaut : tous) |
+| `min=3` | niveau minimum (1 information … 5 majeur) |
+| `hold=90` | secondes d'affichage du bandeau (`0` : tant que l'alerte dure) |
+| `sound=1` | joue le son de l'alerte |
+| `tests=0` | ignore les alertes de test |
+| `pos=top`, `width=66` | bandeau en haut ; largeur en % de l'écran |
+| `tsunami=0` | pas de carte plein écran des tsunamis |
+| `infos=0` | pas de cadre « Information(s) M-Alert » |
+| `demo=seisme` (`tsunami`, `vent`, `annulation`, `info`) | aperçu sans serveur |
+
 ### Version web (téléphone, navigateur)
 
 👉 **https://malik05051.github.io/M-Alert/**
@@ -108,7 +160,13 @@ Les sons sont dans `web/sounds/` :
 | `majeur.mp3` | Alertes **majeures** (rose), même tsunami ou crues, sauf tremblement de terre |
 | `tsunami.mp3` | **Crues**, **pluie-inondation**, **tsunami** et **vagues-submersion** (sauf en majeure) |
 
-Chaque utilisateur peut choisir un autre de ces sons et un volume pour chaque type d'alerte dans ⚙ Réglages > **Sons des alertes** (bouton ▶ pour écouter). Pour changer un son pour tout le monde, remplacez le fichier en gardant son nom (sans fichier, une sirène synthétique est jouée). Réglages > **Tester une alerte** permet de vérifier le son, l'affichage et les notifications.
+Chaque utilisateur peut choisir un autre de ces sons et un volume pour chaque type d'alerte dans ⚙ Réglages > **Sons des alertes** (bouton ▶ pour écouter). Dans **Réglages avancés du son** :
+
+- **Durée maximale du son répété** (alertes qui sonnent jusqu'à ce qu'on les arrête) ;
+- **Montée progressive du volume** (le son part bas et monte en 6 secondes) ;
+- **Vibrer** (téléphone) : court pour une information, long et répété pour une alerte rouge ou majeure ;
+- **Son pour les informations et les notifications de M-Alert** ;
+- **Heures calmes** (de … à …) : pas de son ni de vibration, sauf pour les alertes choisies (par exemple rouges et majeures, séismes et tsunamis). Pour changer un son pour tout le monde, remplacez le fichier en gardant son nom (sans fichier, une sirène synthétique est jouée). Réglages > **Tester une alerte** permet de vérifier le son, l'affichage et les notifications.
 
 ## Structure
 
@@ -116,11 +174,15 @@ Chaque utilisateur peut choisir un autre de ces sons et un volume pour chaque ty
 main.js, preload.js     Application de bureau (Electron)
 background.js           Arrière-plan : zone de notification, lancement au démarrage
 updater.js              Mises à jour (electron-updater, Releases GitHub)
+mobile/                 Application Android et iOS (Capacitor) : service d'arrière-plan Android
+obs/m-alert.lua         Script OBS (source navigateur de l'incrustation)
 web/                    Interface (aussi utilisable comme site web)
   index.html, config.js
   js/app.js             Logique : connexion temps réel, alertes, réglages
   js/map.js             Carte des départements (Leaflet)
   js/sound.js           Son d'alerte
+  js/banner.js          Bandeaux façon NHK, carte des tsunamis, cadre « Information(s) M-Alert »
+  obs/                  Page d'incrustation OBS
   sw.js                 Service worker (notifications push)
   data/departements.js  Contours des départements
   data/cotes.js         Trait de côte par département (alertes tsunami), généré par tools/build-coasts.js
