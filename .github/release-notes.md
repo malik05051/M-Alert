@@ -5,8 +5,7 @@
 - **Incrustation OBS façon NHK** : source navigateur `https://malik05051.github.io/M-Alert/obs/` ou script `m-alert.lua` (OBS > Outils > Scripts), qui crée la source et règle les options. Elle affiche :
   - **bandeau d'alerte** : carte des départements touchés, épicentre, titre de la couleur du niveau (« Alerte sismique précoce (M-Alert) », « Vent violent (M-Alert) », « Inondation (M-Alert) »…), consigne en jaune et lieux concernés. Il existe un modèle par type d'alerte : séisme, tsunami, vent, tempête, pluie-inondation, crues, inondation, vagues-submersion, orages, neige, canicule, pollution…
   - **carte des tsunamis** en plein écran, aux côtes qui clignotent (avertissement majeur, avertissement, avis), Nouvelle-Calédonie comprise ;
-  - **cadre « Information(s) M-Alert »** : alerte annulée (« L'alerte précédente a été annulée. Aucun danger n'est attendu. ») et notifications envoyées depuis M-Alert-sender.
-
+  - **cadre « Information(s) M-Alert »** : alerte annulée (« L'alerte précédente a été annulée. Aucun danger n'est attendu. ») et notifications envoyées depuis M-Alert-sender ;
   - **écran réduit, comme la NHK** : 10 secondes (réglable) après l'arrivée d'une alerte, OBS passe sur la scène « M-Alert (alerte) ». La scène en cours y est réduite à 80 % sur un fond bleu, et le bandeau reste en bas. En haut s'affiche « Informations M-Alert » pendant 4 secondes, puis les informations :
     - séisme : heure, magnitude, profondeur et intensités par département ;
     - tsunami : hauteurs et heures d'arrivée ;
