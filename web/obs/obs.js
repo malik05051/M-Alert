@@ -20,7 +20,8 @@
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
- *   demo=seisme|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
+ *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
+ *   demo=seisme|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
   'use strict';
@@ -62,6 +63,10 @@
   let infoUntil = 0;
   let manualBanner = null; // null : automatique ; true : affiché à la main ; false : masqué à la main
   let manualMap = null; // carte du tsunami / des vagues-submersion : même principe
+  // Départements ajoutés par la dernière mise à jour d'une alerte (clignotants pendant ADDED_MS).
+  const ADDED_MS = q.has('addedSeconds') ? Math.max(2, Number(q.get('addedSeconds')) || 10) * 1000 : 10000;
+  let addedInfo = null; // { id, revision, codes, until }
+  const addedNow = (x) => (x && addedInfo && addedInfo.id === x.id && Date.now() < addedInfo.until ? addedInfo.codes : null);
   const isCoast = (x) => Boolean(x) && (x.category === 'tsunami' || ((x.category || 'meteo') === 'meteo' && [9, 16].includes(Number(x.phenomenon))));
   // Alerte annulée (fausse alerte) : cadre d'annulation en bas à la place du bandeau, texte du haut
   // « Alerte de … annulée », pendant « hold » secondes (l'écran réduit reste le temps de l'annonce).
@@ -178,6 +183,13 @@
   function buildPages(a) {
     const out = [{ lines: ['Informations M-Alert'], ms: INTRO_MS, intro: true }];
     const P = a ? B.infoParts(a) : null;
+    // Mise à jour avec des départements ajoutés : annoncés juste après « Informations M-Alert ».
+    if (a && addedInfo && addedInfo.id === a.id && addedInfo.revision === (a.revision || 0)) {
+      const names = addedInfo.codes.map((c) => M.departmentName(c).replace(/ \(\w+\)$/, ''));
+      for (let i = 0, lines = wrap(names, ', ', `${names.length > 1 ? 'Départements ajoutés' : 'Département ajouté'} : `); i < lines.length; i += 2) {
+        out.push({ lines: lines.slice(i, i + 2), ms: 6000 });
+      }
+    }
     if (P) {
       const push = (lines) => {
         for (let i = 0; i < lines.length; i += 2) {
@@ -225,8 +237,9 @@
       document.body.classList.toggle('top', q.get('pos') === 'top');
       const m = manualAlert();
       document.body.classList.toggle('show-banner', Boolean(m));
-      const k = m ? `${m.id}:${m.revision || 0}` : '';
-      if (m && k !== drawnKey) { B.drawBanner($('banner'), m, { width: 1600, height: 450 }); drawnKey = k; }
+      const add = addedNow(m);
+      const k = m ? `${m.id}:${m.revision || 0}${add ? (blink ? ':+' : ':-') : ''}` : '';
+      if (m && k !== drawnKey) { B.drawBanner($('banner'), m, { width: 1600, height: 450, added: add, blinkOn: blink }); drawnKey = k; }
       return;
     }
     // Carte plein écran : tsunami, ou vagues-submersion / forte houle (automatique, ou à la main).
@@ -250,8 +263,9 @@
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
-    const key = shown ? `${shown.id}:${shown.revision || 0}` : '';
-    if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450 }); drawnKey = key; }
+    const add = addedNow(shown);
+    const key = shown ? `${shown.id}:${shown.revision || 0}${add ? (blink ? ':+' : ':-') : ''}` : '';
+    if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450, added: add, blinkOn: blink }); drawnKey = key; }
     // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
     reduce(Boolean(((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
@@ -287,12 +301,20 @@
         arrived(msg.alert);
         remember(msg.alert);
         break;
-      case 'update':
+      case 'update': {
+        // Départements ajoutés : clignotants sur la carte du bandeau, noms en jaune, annoncés en haut.
+        const before = alerts.find((x) => x.id === msg.alert.id) || (lastAlert && lastAlert.id === msg.alert.id ? lastAlert : null);
+        if (before && !msg.alert.departments.includes('ALL')) {
+          const was = new Set(before.departments || []);
+          const added = (msg.alert.departments || []).filter((c) => !was.has(c));
+          if (added.length) addedInfo = { id: msg.alert.id, revision: msg.alert.revision || 0, codes: added, until: Date.now() + ADDED_MS };
+        }
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
         if (M.isActive(msg.alert)) alerts.push(msg.alert);
         if (lastAlert && lastAlert.id === msg.alert.id) lastAlert = msg.alert;
         if (msg.alert.id === shownId) shownAt = Date.now();
         break;
+      }
       case 'cancel':
       case 'expire':
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
@@ -346,6 +368,12 @@
   if (q.get('demo') === 'annulation') announceCancel({ category: 'seisme', title: 'Séisme de magnitude 5.2 — Alpes-Maritimes' });
   if (q.get('demo') === 'info') showInfo({ title: 'Exercice M-Alert', body: 'Un exercice d\'alerte aura lieu demain à 10 h. Aucune action n\'est demandée.' });
   const demo = q.get('demo');
+  if (demo === 'ajout') {
+    // Aperçu : séisme puis mise à jour qui ajoute des départements (au bout de 3 secondes).
+    const a = { ...DEMOS.seisme, departments: ['06', '83'], revision: 0, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
+    alerts = [a]; arrived(a); remember(a);
+    setTimeout(() => handle({ type: 'update', alert: { ...a, departments: ['06', '83', '04', '05', '13'], revision: 1, updatedAt: new Date().toISOString() } }), 3000);
+  }
   if (demo && DEMOS[demo]) {
     const a = { ...DEMOS[demo], createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];

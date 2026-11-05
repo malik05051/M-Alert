@@ -120,7 +120,7 @@
   }
 
   /** Carte de gauche : terre grise, départements concernés colorés, épicentre ✕. */
-  function drawMapPanel(ctx, x, y, w, h, alert) {
+  function drawMapPanel(ctx, x, y, w, h, alert, added = null, blinkOn = true) {
     const { deps, coasts } = geoData();
     const codes = alert.departments.includes('ALL') ? Object.keys(deps).filter((c) => c !== '988') : alert.departments;
     const quake = alert.category === 'seisme' && alert.epicenter;
@@ -133,6 +133,8 @@
     const fillOf = (code) => {
       if (alert.category === 'tsunami') return null;
       if (!codes.includes(code)) return null;
+      // Département ajouté : clignote (éteint une fois sur deux).
+      if (added && added.has(code) && !blinkOn) return null;
       if (alert.category === 'seisme') return C.zone;
       const rows = (alert.forecastTable && alert.forecastTable.rows) || [];
       const row = rows.find((r) => r.department === code);
@@ -198,9 +200,18 @@
   }
 
   /** Lieux à afficher, les plus touchés d'abord (séisme : intensité ; tableau : niveau). */
-  function placesOf(alert) {
+  function placesOf(alert, added = null) {
     if (alert.departments.includes('ALL')) return ['Toute la France'];
     let codes = [...alert.departments];
+    if (added && added.size) {
+      // Départements ajoutés à la fin (comme la NHK), chaque groupe dans son ordre habituel.
+      const order = placesOf({ ...alert }, null);
+      const nameOf = (c) => shortName(c);
+      const old = codes.filter((c) => !added.has(c)).map(nameOf);
+      const neu = codes.filter((c) => added.has(c)).map(nameOf);
+      const rank = (n) => order.indexOf(n);
+      return [...old.sort((a, b) => rank(a) - rank(b)), ...neu.sort((a, b) => rank(a) - rank(b))];
+    }
     if (alert.category === 'tsunami' && Array.isArray(alert.tsunamiTable) && alert.tsunamiTable.length) {
       codes = [...alert.tsunamiTable].sort((a, b) => b.level - a.level).map((r) => r.department);
     } else if (alert.forecastTable && Array.isArray(alert.forecastTable.rows)) {
@@ -226,7 +237,10 @@
    * Bandeau d'alerte (1280 × 360 par défaut, ou la taille du canvas) : comme le bandeau d'alerte
    * sismique précoce de la NHK (carte, titre rouge, consigne en jaune, lieux en blanc).
    */
-  function drawBanner(canvas, alert, { width = 1280, height = 360 } = {}) {
+  function drawBanner(canvas, alert, { width = 1280, height = 360, added = null, blinkOn = true } = {}) {
+    // added : départements ajoutés par une mise à jour (clignotants sur la carte, noms en jaune).
+    added = added && added.length ? new Set(added) : null;
+    const addedNames = new Set(added ? [...added].map(shortName) : []);
     if (!canvas.width || canvas.dataset.auto !== 'off') { canvas.width = width; canvas.height = height; }
     const W = canvas.width; const H = canvas.height;
     const ctx = canvas.getContext('2d');
@@ -234,7 +248,7 @@
     ctx.fillStyle = C.frame; ctx.fillRect(0, 0, W, H);
     // Carte : carré à gauche.
     const mapW = Math.round(H - 2 * pad);
-    drawMapPanel(ctx, pad, pad, mapW, H - 2 * pad, alert);
+    drawMapPanel(ctx, pad, pad, mapW, H - 2 * pad, alert, added, blinkOn);
     ctx.strokeStyle = '#3b4a6b'; ctx.lineWidth = 1; ctx.strokeRect(pad + 0.5, pad + 0.5, mapW - 1, H - 2 * pad - 1);
     // Titre.
     const x0 = pad * 2 + mapW;
@@ -260,7 +274,7 @@
     const wSize = fitText(ctx, watch, rw - 2 * inner, Math.round(H * 0.07), 10, '500');
     ctx.fillText(watch, x0 + inner, by + inner * 0.6);
     // Lieux : en blanc, sur plusieurs colonnes, taille ajustée pour tout faire tenir.
-    const places = placesOf(alert);
+    const places = placesOf(alert, added);
     const top = by + inner * 0.6 + wSize * 1.45;
     const areaH = by + bh - inner - top;
     const areaW = rw - 2 * inner;
@@ -299,7 +313,10 @@
     ctx.fillStyle = C.white;
     layout.lines.forEach((line, i) => {
       let x = x0 + inner;
-      for (const p of line) { ctx.fillText(p, x, top + i * layout.lineH); x += ctx.measureText(p).width + layout.gap; }
+      for (const p of line) {
+        ctx.fillStyle = addedNames.has(p) ? C.yellow : C.white;
+        ctx.fillText(p, x, top + i * layout.lineH); x += ctx.measureText(p).width + layout.gap;
+      }
     });
     return canvas;
   }
