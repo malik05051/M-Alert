@@ -58,6 +58,11 @@
   let alerts = [];
   let shownId = null;
   let shownAt = 0;
+  // Première apparition de l'alerte affichée : départ du délai de l'écran réduit (une mise à jour ou
+  // une relance prolonge le bandeau sans refaire la réduction).
+  let firstId = null;
+  let firstAt = 0;
+  const markFirst = (id) => { if (id !== firstId) { firstId = id; firstAt = Date.now(); } };
   let blink = true;
   let drawnKey = '';
   let infoUntil = 0;
@@ -248,6 +253,7 @@
     const lastCoast = isCoast(lastAlert) ? lastAlert : null;
     const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
+    if (a) markFirst(a.id);
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
     // bandeau d'une autre alerte (le séisme) passe en haut.
     const mapOn = Boolean(tsu);
@@ -267,7 +273,7 @@
     const key = shown ? `${shown.id}:${shown.revision || 0}${add ? (blink ? ':+' : ':-') : ''}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450, added: add, blinkOn: blink }); drawnKey = key; }
     // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
-    reduce(Boolean(((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000) || (cancelOn() && prevScene)));
+    reduce(Boolean(((autoOn || mapOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
     if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
@@ -285,6 +291,7 @@
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
+    markFirst(a.id);
     if (sound && !fondLayer && !bannerLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
   }
 
