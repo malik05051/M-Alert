@@ -14,6 +14,7 @@ OBS. La source affiche :
 obs = obslua
 
 local SOURCE_NAME = "M-Alert"
+local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Catégories des alertes M-Alert (comme dans l'application).
 local CATEGORIES = { "seisme", "tsunami", "meteo", "pollution", "accident", "attentat", "greve", "blocus" }
 local settings_ref = nil
@@ -22,10 +23,13 @@ local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%._~]", function(c) return string.format("%%%02X", string.byte(c)) end))
 end
 
-local function overlay_url(st)
+local function overlay_url(st, demo)
   local base = obs.obs_data_get_string(st, "base")
+  if base == "" then base = DEFAULT_BASE end
   local params = {}
   local function add(k, v) if v ~= nil and v ~= "" then table.insert(params, k .. "=" .. urlencode(v)) end end
+  -- Aperçu : exemple sans serveur, avec la position et la largeur choisies.
+  add("demo", demo)
   add("server", obs.obs_data_get_string(st, "server"))
   local types = {}
   for _, t in ipairs(CATEGORIES) do
@@ -40,13 +44,15 @@ local function overlay_url(st)
   if not obs.obs_data_get_bool(st, "tsunami") then add("tsunami", "0") end
   if not obs.obs_data_get_bool(st, "infos") then add("infos", "0") end
   if obs.obs_data_get_bool(st, "top") then add("pos", "top") end
-  add("width", tostring(obs.obs_data_get_int(st, "width")))
+  local width = obs.obs_data_get_int(st, "width")
+  if width < 30 or width > 100 then width = 66 end
+  add("width", tostring(width))
   local q = table.concat(params, "&")
   return base .. (base:find("?", 1, true) and "&" or "?") .. q
 end
 
-local function apply(st)
-  local url = overlay_url(st)
+local function apply(st, demo)
+  local url = overlay_url(st, demo)
   local src = obs.obs_get_source_by_name(SOURCE_NAME)
   local data = obs.obs_data_create()
   obs.obs_data_set_string(data, "url", url)
@@ -72,6 +78,9 @@ local function apply(st)
   end
   obs.obs_data_release(data)
   obs.script_log(obs.LOG_INFO, "M-Alert : incrustation " .. url)
+  if demo == nil then
+    obs.script_log(obs.LOG_INFO, "M-Alert : la source reste transparente tant qu'aucune alerte n'est en cours (« Aperçu » pour un exemple).")
+  end
 end
 
 function script_description()
@@ -104,11 +113,7 @@ function script_properties()
   obs.obs_properties_add_bool(p, "tests", "Montrer les alertes de test")
   obs.obs_properties_add_button(p, "apply", "Ajouter / mettre à jour l'incrustation", function() apply(settings_ref) return true end)
   obs.obs_properties_add_button(p, "demo", "Aperçu (séisme)", function()
-    local d = obs.obs_data_create()
-    obs.obs_data_apply(d, settings_ref)
-    obs.obs_data_set_string(d, "base", obs.obs_data_get_string(settings_ref, "base") .. "?demo=seisme")
-    apply(d)
-    obs.obs_data_release(d)
+    apply(settings_ref, "seisme")
     return true
   end)
   return p
@@ -116,7 +121,7 @@ end
 
 function script_defaults(st)
   obs.obs_data_set_default_string(st, "server", "https://m-alert-sender.onrender.com")
-  obs.obs_data_set_default_string(st, "base", "https://malik05051.github.io/M-Alert/obs/")
+  obs.obs_data_set_default_string(st, "base", DEFAULT_BASE)
   for _, t in ipairs(CATEGORIES) do
     obs.obs_data_set_default_bool(st, "type_" .. t, true)
   end

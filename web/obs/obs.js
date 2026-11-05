@@ -29,7 +29,8 @@
   const tests = q.get('tests') !== '0';
   const tsunamiMap = q.get('tsunami') !== '0';
   const infos = q.get('infos') !== '0';
-  if (q.get('width')) document.documentElement.style.setProperty('--bw', `${Number(q.get('width'))}vw`);
+  const bw = Number(q.get('width'));
+  if (bw >= 20 && bw <= 100) document.documentElement.style.setProperty('--bw', `${bw}vw`); // largeur invalide : par défaut
   if (q.get('debug') === '1') document.body.classList.add('debug');
 
   const $ = (id) => document.getElementById(id);
