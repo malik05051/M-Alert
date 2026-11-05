@@ -10,6 +10,8 @@
     #tsunami { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; }
     #banner { position: fixed; left: 50%; bottom: 8vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.top #banner { top: 3vh; bottom: auto; }
+    /* Carte des tsunamis : bandeau (alerte sismique précoce) réduit en haut à gauche. */
+    body.show-tsunami #banner { left: 1.5vw; top: 2vh; bottom: auto; transform: none; width: 30vw; }
     body.show-tsunami #tsunami, body.show-banner #banner { display: block; }
     #info { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--iw, 36vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.show-info #info { display: block; }
@@ -26,22 +28,27 @@
       text-shadow: 0 0 .25vh #000, .15vh .15vh 0 #000, -.15vh -.15vh 0 #000, .15vh -.15vh 0 #000, -.15vh .15vh 0 #000; }
     #fondText div { white-space: nowrap; overflow: hidden; }
     #fondText.intro { font-size: 6vh; }
+    /* Séisme : bandeau rouge « Alerte de tremblement de terre » en haut pendant 3 secondes. */
+    #quakeTop { position: fixed; left: 50%; top: 3vh; transform: translateX(-50%); display: none; padding: .6vh 2.2vw .9vh;
+      background: #ff0000; color: #fff; font: 500 5.4vh/1.15 "Noto Sans", "Segoe UI", Arial, sans-serif; white-space: nowrap; box-shadow: 0 0 1.6vh rgba(0,0,0,.45); }
+    body.show-quake-top #quakeTop { display: block; }
     #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
     body.debug #status { opacity: .85; }
   </style>
 </head>
 <body>
   <div id="fond"><div id="fondText"></div></div>
+  <div id="quakeTop">Alerte de tremblement de terre</div>
   <canvas id="tsunami"></canvas>
   <canvas id="banner"></canvas>
   <canvas id="info"></canvas>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.0-7"></script>
-  <script src="../data/departements.js?v=3.0.0-7"></script>
-  <script src="../data/cotes.js?v=3.0.0-7"></script>
-  <script src="../js/common.js?v=3.0.0-7"></script>
-  <script src="../js/sound.js?v=3.0.0-7"></script>
-  <script src="../js/banner.js?v=3.0.0-7"></script>
-  <script src="obs.js?v=3.0.0-7"></script>
+  <script src="../config.js?v=3.0.0-9"></script>
+  <script src="../data/departements.js?v=3.0.0-9"></script>
+  <script src="../data/cotes.js?v=3.0.0-9"></script>
+  <script src="../js/common.js?v=3.0.0-9"></script>
+  <script src="../js/sound.js?v=3.0.0-9"></script>
+  <script src="../js/banner.js?v=3.0.0-9"></script>
+  <script src="obs.js?v=3.0.0-9"></script>
 </body>
 </html>

@@ -135,37 +135,81 @@
     }
   }
 
-  // Fond de l'écran réduit : « Informations M-Alert » pendant 4 secondes à chaque réduction (nouvelle
-  // alerte ou scène affichée), puis les informations de l'alerte.
+  // Texte du haut (fond de l'écran réduit, ou texte seul) : des pages qui défilent en boucle, sans
+  // rien couper : « Informations M-Alert », puis les informations de l'alerte (titre, mesures,
+  // description), puis « Restez informés… ». Alerte mise à jour : texte refait, cycle repris au début.
   const INTRO_MS = 4000;
-  let introUntil = 0;
-  let fondId = null;
-  const startIntro = () => { introUntil = Date.now() + INTRO_MS; setTimeout(render, INTRO_MS + 50); };
-  window.addEventListener('obsSourceVisibleChanged', (e) => { if (e.detail && e.detail.visible) { startIntro(); render(); } });
-  window.addEventListener('obsSourceActiveChanged', (e) => { if (e.detail && e.detail.active) { startIntro(); render(); } });
-  function renderFond(a) {
-    if (cancelOn()) {
-      const el = $('fondText');
-      const html = cancelLines(cancelled.alert).map((l) => `<div>${M.escapeHtml(l)}</div>`).join('');
-      if (el.innerHTML !== html) { el.classList.remove('intro'); el.innerHTML = html; }
-      return;
+  const CLOSING_MS = 4000;
+  let pages = [];
+  let pageIdx = 0;
+  let pageUntil = 0;
+  let pagesKey = '';
+  const restartPages = () => { pageIdx = 0; pageUntil = Date.now() + (pages[0] ? pages[0].ms : INTRO_MS); };
+  window.addEventListener('obsSourceVisibleChanged', (e) => { if (e.detail && e.detail.visible) { restartPages(); pagesKey = ''; render(); } });
+  window.addEventListener('obsSourceActiveChanged', (e) => { if (e.detail && e.detail.active) { restartPages(); pagesKey = ''; render(); } });
+
+  let measureCtx = null;
+  function textWidth(t) {
+    if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+    const probe = $('fondText');
+    const cs = getComputedStyle(probe);
+    measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return measureCtx.measureText(t).width;
+  }
+  /** Lignes qui tiennent dans la largeur : morceaux (mots ou éléments de liste) joints par sep. */
+  function wrap(tokens, sep, first = '') {
+    const max = $('fondText').clientWidth * 0.98 || window.innerWidth * 0.8;
+    const lines = [];
+    let line = first;
+    for (const tk of tokens) {
+      const cand = line && line !== first ? `${line}${sep}${tk}` : `${line}${tk}`;
+      if (textWidth(cand) <= max || !line || line === first) line = cand;
+      else { lines.push(line); line = tk; }
     }
-    if (a && a.id !== fondId) startIntro();
-    fondId = a ? a.id : null;
-    const intro = a && Date.now() < introUntil;
-    // Sans alerte (écran réduit à la main) : « Informations M-Alert » seul.
-    const lines = !a || intro ? ['Informations M-Alert'] : B.infoLines(a);
+    if (line) lines.push(line);
+    return lines;
+  }
+  const words = (t) => String(t || '').split(/\s+/).filter(Boolean);
+  function buildPages(a) {
+    const out = [{ lines: ['Informations M-Alert'], ms: INTRO_MS, intro: true }];
+    const P = a ? B.infoParts(a) : null;
+    if (P) {
+      const push = (lines) => {
+        for (let i = 0; i < lines.length; i += 2) {
+          const chunk = lines.slice(i, i + 2);
+          const chars = chunk.join(' ').length;
+          out.push({ lines: chunk, ms: Math.min(10000, Math.max(5000, 2500 + chars * 45)) });
+        }
+      };
+      push(P.head.flatMap((h) => wrap(words(h), ' ')));
+      for (const l of P.lists) push(wrap(l.items, ' · ', `${l.label} : `));
+      if (P.text) push(wrap(words(P.text), ' ').slice(0, 12));
+      out.push({ lines: [P.closing], ms: CLOSING_MS, intro: true });
+    }
+    return out;
+  }
+  function showLines(lines, intro) {
     const el = $('fondText');
     const html = lines.filter(Boolean).map((l) => `<div>${M.escapeHtml(l)}</div>`).join('');
-    if (el.innerHTML === html) return;
-    el.classList.toggle('intro', Boolean(intro || !a));
+    if (el.innerHTML === html && el.classList.contains('intro') === Boolean(intro)) return;
+    el.classList.toggle('intro', Boolean(intro));
     el.innerHTML = html;
-    // Ligne trop longue : texte réduit (jusqu'à 60 %) plutôt que coupé.
-    for (const d of el.children) {
-      d.style.fontSize = '';
-      const base = parseFloat(getComputedStyle(d).fontSize);
-      if (d.scrollWidth > d.clientWidth) d.style.fontSize = `${Math.max(base * 0.6, base * (d.clientWidth / d.scrollWidth))}px`;
+  }
+  function renderFond(a) {
+    if (cancelOn()) { showLines(cancelLines(cancelled.alert), false); return; }
+    const key = a ? `${a.id}:${a.revision || 0}:${a.updatedAt || ''}` : '-';
+    if (key !== pagesKey) {
+      pagesKey = key;
+      // Page « Informations M-Alert » mesurée à sa taille, les autres à la taille normale.
+      $('fondText').classList.remove('intro');
+      pages = buildPages(a);
+      restartPages();
+    } else if (Date.now() >= pageUntil && pages.length > 1) {
+      pageIdx = (pageIdx + 1) % pages.length;
+      pageUntil = Date.now() + pages[pageIdx].ms;
     }
+    const pg = pages[pageIdx] || pages[0];
+    if (pg) showLines(pg.lines, pg.intro);
   }
 
   function render() {
@@ -185,9 +229,13 @@
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
     // bandeau d'une autre alerte (le séisme) passe en haut.
     const mapOn = Boolean(tsu && tsunamiMap);
-    const autoOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
+    // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
+    const others = mapOn ? alerts.filter(wanted).filter((x) => x.category !== 'tsunami')
+      .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
+    const ba = mapOn && a && a.category === 'tsunami' ? others[0] || a : a;
+    const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && ba.category === 'tsunami');
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
-    const shown = manualBanner === true ? manualAlert() : a;
+    const shown = manualBanner === true ? manualAlert() : ba;
     const bannerOn = cancelOn() ? false : manualBanner === true ? shown && !(mapOn && shown.category === 'tsunami') : manualBanner === false ? false : autoOn;
     // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
@@ -203,6 +251,12 @@
 
   function arrived(a) {
     if (!wanted(a)) return;
+    // Séisme : « Alerte de tremblement de terre » en haut pendant 3 secondes.
+    if (a.category === 'seisme' && !fondLayer && !bannerLayer) {
+      document.body.classList.add('show-quake-top');
+      clearTimeout(arrived.quakeTimer);
+      arrived.quakeTimer = setTimeout(() => document.body.classList.remove('show-quake-top'), 3000);
+    }
     manualBanner = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
@@ -282,6 +336,8 @@
     if (!DEMOS[demo]) return; // aperçu d'une carte d'information (ci-dessus) : pas de serveur
     const a = { ...DEMOS[demo], createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];
+    // Aperçu du tsunami : avec le séisme qui l'a causé (bandeau réduit en haut à gauche).
+    if (demo === 'tsunami') alerts.unshift({ ...DEMOS.seisme, id: 'demo-seisme', epicenter: a.epicenter, createdAt: new Date(Date.now() - 1000).toISOString(), expiresAt: a.expiresAt });
     arrived(a);
     remember(a);
   } else connect();

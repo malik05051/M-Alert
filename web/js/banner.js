@@ -305,7 +305,7 @@
   }
 
   /**
-   * Carte des tsunamis (1920 × 1080, fond bleu semi-transparent pour l'incrustation) : la
+   * Carte des tsunamis (1920 × 1080, fond bleu opaque) : la
    * métropole, la Corse et l'encart de la Nouvelle-Calédonie, côtes colorées par niveau
    * (clignotantes : on = allumées), légende à droite.
    */
@@ -314,7 +314,10 @@
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(14, 32, 84, 0.78)';
+    // Fond opaque (comme la NHK) : la carte masque tout ce qu'il y a derrière.
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1c3fa8'); bg.addColorStop(1, '#16328c');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
     const legendW = Math.round(W * 0.2);
     const { deps, coasts } = geoData();
@@ -356,7 +359,7 @@
     if (alert && alert.epicenter && !nc) {
       const [ex, ey] = P(alert.epicenter.lat, alert.epicenter.lon);
       if (ex > 0 && ex < W - legendW && ey > 0 && ey < H) {
-        const r = W / 80;
+        const r = W / 160;
         for (const [col, lw] of [['#fff', r / 2], [C.red, r / 3.2]]) {
           ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(ex - r, ey - r); ctx.lineTo(ex + r, ey + r); ctx.moveTo(ex + r, ey - r); ctx.lineTo(ex - r, ey + r); ctx.stroke();
@@ -558,5 +561,63 @@
     return [a.title || headerOf(a), second];
   }
 
-  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, deptKm };
+
+  /**
+   * Informations complètes de l'alerte, pour le texte en pages du haut de l'écran (rien n'est coupé) :
+   * { head: [lignes], lists: [{ label, items }], text, closing }.
+   */
+  function infoParts(a) {
+    if (!a) return null;
+    const at = hourOf(a.originTime || a.createdAt);
+    const out = { head: [], lists: [], text: '', closing: '' };
+    const deps = (a.departments || []).filter((d) => d !== 'ALL');
+    const meteo = (a.category || 'meteo') === 'meteo';
+    out.closing = meteo ? 'Restez informés sur M-Alert et Météo-France' : 'Restez informés sur M-Alert';
+    if (a.category === 'seisme') {
+      const head = [`Séisme vers ${at}`];
+      if (typeof a.magnitude === 'number') head.push(`magnitude ${frNum(a.magnitude)}`);
+      if (typeof a.depth === 'number') head.push(`profondeur ${frNum(a.depth, 0)} km`);
+      if (a.shindo) head.push(`intensité max ${a.shindo}`);
+      out.head.push(head.join(' — '));
+      if (a.title) out.head.push(a.title);
+      const ints = quakeIntensities(a).map(([c, sh]) => `${shortName(c)} ${sh}`);
+      if (ints.length) out.lists.push({ label: 'Intensités', items: ints });
+    } else if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
+      out.head.push(a.title || `Tsunami — ${at}`);
+      const rows = a.tsunamiTable.slice().sort((x, y) => (y.level - x.level) || ((y.height || 0) - (x.height || 0)));
+      out.lists.push({ label: 'Vagues', items: rows.map((r) => {
+        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${frNum(r.height)} m` : '';
+        const t = r.arrival === 'arrived' ? ' (arrivé)' : r.arrival === 'imminent' ? ' (imminent)' : r.arrival ? ` (${hourOf(r.arrival)})` : '';
+        return `${shortName(r.department)}${h}${t}`;
+      }) });
+    } else if (a.forecastTable && Array.isArray(a.forecastTable.rows) && a.forecastTable.rows.length) {
+      const t = a.forecastTable;
+      const set = new Set(a.departments || []);
+      const rows = t.rows.filter((r) => set.has('ALL') || set.has(r.department));
+      const wind = t.kind === 'vent' || t.kind === 'tempete';
+      const flood = t.kind === 'inondation';
+      const val = (r) => (wind ? Math.max(r.gust || 0, r.gustCoast || 0) : flood ? Math.max(r.rain24 || 0, (r.river || 0) * 50) : r.hs || r.wind || 0);
+      out.head.push(a.title || headerOf(a));
+      out.lists.push({ label: wind ? 'Rafales' : flood ? 'Pluie en 24 h' : 'Vagues', items: rows.slice().sort((x, y) => (y.level - x.level) || (val(y) - val(x))).map((r) => {
+        let v = '';
+        if (wind) v = `${Math.max(r.gust || 0, r.gustCoast || 0)} km/h`;
+        else if (flood) v = [r.rain24 >= 1 ? `${Math.round(r.rain24)} mm` : '', r.river ? `rivière ×${frNum(r.river)}` : ''].filter(Boolean).join(', ');
+        else v = r.hs > 0 ? `${frNum(r.hs)} m` : typeof r.wind === 'number' ? `vent ${r.wind} km/h` : '';
+        return `${shortName(r.department)} ${v}`.trim();
+      }) });
+    } else {
+      out.head.push(a.title || headerOf(a));
+      const extra = [];
+      if (typeof a.windKmh === 'number') extra.push(`vent attendu ${a.windKmh} km/h`);
+      if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${frNum(a.waveHeight)} m`);
+      if (M && M.pollutionSummary && M.pollutionSummary(a)) extra.push(M.pollutionSummary(a));
+      if (extra.length) out.head.push(extra.join(' — '));
+      if ((a.departments || []).includes('ALL')) out.lists.push({ label: 'Lieux', items: ['France entière'] });
+      else if (deps.length) out.lists.push({ label: deps.length > 1 ? 'Départements' : 'Département', items: deps.map(shortName) });
+    }
+    out.text = String(a.description || '').replace(/\s+/g, ' ').trim();
+    return out;
+  }
+
+  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm };
 })();
