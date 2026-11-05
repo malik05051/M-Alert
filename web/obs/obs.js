@@ -60,6 +60,20 @@
   let drawnKey = '';
   let infoUntil = 0;
   let manualBanner = null; // null : automatique ; true : affiché à la main ; false : masqué à la main
+  // Alerte annulée (fausse alerte) : cadre d'annulation en bas à la place du bandeau, texte du haut
+  // « Alerte de … annulée », pendant « hold » secondes (l'écran réduit reste le temps de l'annonce).
+  let cancelled = null; // { alert, until }
+  const cancelOn = () => Boolean(cancelled && Date.now() < cancelled.until);
+  function cancelLines(a) {
+    const name = (M.alertKind(a || {}).name || 'alerte').replace(/^./, (c) => c.toLowerCase());
+    return [`Alerte de ${name} annulée`, 'Aucun danger n\'est attendu.'];
+  }
+  function announceCancel(a) {
+    cancelled = { alert: a, until: Date.now() + (hold || 60) * 1000 };
+    manualBanner = null;
+    document.body.classList.add('cancelling');
+    showInfo(B.cancelledInfo(a));
+  }
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
   function showInfo(info) {
@@ -130,6 +144,12 @@
   window.addEventListener('obsSourceVisibleChanged', (e) => { if (e.detail && e.detail.visible) { startIntro(); render(); } });
   window.addEventListener('obsSourceActiveChanged', (e) => { if (e.detail && e.detail.active) { startIntro(); render(); } });
   function renderFond(a) {
+    if (cancelOn()) {
+      const el = $('fondText');
+      const html = cancelLines(cancelled.alert).map((l) => `<div>${M.escapeHtml(l)}</div>`).join('');
+      if (el.innerHTML !== html) { el.classList.remove('intro'); el.innerHTML = html; }
+      return;
+    }
     if (a && a.id !== fondId) startIntro();
     fondId = a ? a.id : null;
     const intro = a && Date.now() < introUntil;
@@ -168,14 +188,15 @@
     const autoOn = a && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && a.category === 'tsunami');
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : a;
-    const bannerOn = manualBanner === true ? shown && !(mapOn && shown.category === 'tsunami') : manualBanner === false ? false : autoOn;
+    const bannerOn = cancelOn() ? false : manualBanner === true ? shown && !(mapOn && shown.category === 'tsunami') : manualBanner === false ? false : autoOn;
     // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
     const key = shown ? `${shown.id}:${shown.revision || 0}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450 }); drawnKey = key; }
-    reduce(Boolean((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000));
+    // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
+    reduce(Boolean(((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
     if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
@@ -183,6 +204,7 @@
   function arrived(a) {
     if (!wanted(a)) return;
     manualBanner = null;
+    if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
     if (sound && !fondLayer && !bannerLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
@@ -213,7 +235,7 @@
         if (msg.alert.voided && lastAlert && lastAlert.id === msg.alert.id) lastAlert = null;
         // Fausse alerte : annonce de l'annulation (si l'alerte était de celles montrées ici).
         if (msg.type === 'cancel' && msg.alert.voided && wanted({ ...msg.alert, expiresAt: new Date(Date.now() + 60000).toISOString(), cancelledAt: null })) {
-          showInfo(B.cancelledInfo(msg.alert));
+          announceCancel(msg.alert);
         }
         break;
       case 'notice':
@@ -253,7 +275,7 @@
     inondation: { id: 'demo', category: 'meteo', phenomenon: 2, level: 4, departments: ['30', '34', '07'], title: 'Pluie-inondation : épisode cévenol',
       forecastTable: { kind: 'inondation', rows: [['30', 4, 310, 3.2], ['34', 3, 190, 1.8], ['07', 3, 220, 2.4]].map(([department, level, rain24, river]) => ({ department, level, rain24, river })) } },
   };
-  if (q.get('demo') === 'annulation') showInfo(B.cancelledInfo({ title: 'Séisme de magnitude 5.2 — Alpes-Maritimes' }));
+  if (q.get('demo') === 'annulation') announceCancel({ category: 'seisme', title: 'Séisme de magnitude 5.2 — Alpes-Maritimes' });
   if (q.get('demo') === 'info') showInfo({ title: 'Exercice M-Alert', body: 'Un exercice d\'alerte aura lieu demain à 10 h. Aucune action n\'est demandée.' });
   const demo = q.get('demo');
   if (demo) {
@@ -268,6 +290,7 @@
   setInterval(() => {
     blink = !blink;
     if (infoUntil && Date.now() > infoUntil) { infoUntil = 0; document.body.classList.remove('show-info'); }
+    if (cancelled && !cancelOn()) { cancelled = null; document.body.classList.remove('cancelling'); }
     render();
   }, 700);
 })();

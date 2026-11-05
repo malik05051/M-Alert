@@ -14,6 +14,9 @@
     #info { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--iw, 36vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.show-info #info { display: block; }
     body.show-info.show-banner #info { bottom: auto; top: 3vh; }
+    /* Annulation : le cadre prend la place du bandeau, en bas (le bandeau est masqué). */
+    body.cancelling #banner { display: none !important; }
+    body.cancelling.show-info #info { top: auto; bottom: 8vh; }
     /* Fond de l'écran réduit (source « M-Alert (fond) », layer=fond) : bleu et texte en haut. */
     #fond { position: fixed; inset: 0; display: none; background: linear-gradient(160deg, #0b3fae 0%, #1257d6 45%, #0a3a9e 100%); }
     body.layer-fond #fond { display: block; }
@@ -33,12 +36,12 @@
   <canvas id="banner"></canvas>
   <canvas id="info"></canvas>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.0-6"></script>
-  <script src="../data/departements.js?v=3.0.0-6"></script>
-  <script src="../data/cotes.js?v=3.0.0-6"></script>
-  <script src="../js/common.js?v=3.0.0-6"></script>
-  <script src="../js/sound.js?v=3.0.0-6"></script>
-  <script src="../js/banner.js?v=3.0.0-6"></script>
-  <script src="obs.js?v=3.0.0-6"></script>
+  <script src="../config.js?v=3.0.0-7"></script>
+  <script src="../data/departements.js?v=3.0.0-7"></script>
+  <script src="../data/cotes.js?v=3.0.0-7"></script>
+  <script src="../js/common.js?v=3.0.0-7"></script>
+  <script src="../js/sound.js?v=3.0.0-7"></script>
+  <script src="../js/banner.js?v=3.0.0-7"></script>
+  <script src="obs.js?v=3.0.0-7"></script>
 </body>
 </html>
