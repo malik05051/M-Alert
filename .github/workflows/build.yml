@@ -17,6 +17,10 @@ on:
         description: "Version à publier (ex. 1.0.0) ; laisser vide pour construire sans publier"
         required: false
         default: ""
+      remplacer:
+        description: "Remplacer la Release et le tag de cette version s'ils existent déjà"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -135,6 +139,11 @@ jobs:
           merge-multiple: true
       - name: Somme de contrôle des fichiers
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Remplacer la Release existante
+        if: inputs.remplacer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "$TAG" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || echo "Pas de Release $TAG à remplacer."
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
