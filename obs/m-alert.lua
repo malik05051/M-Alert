@@ -20,6 +20,8 @@ l'image) et bandeau de l'alerte en cours (affiché ou masqué), par bouton ou ra
 obs = obslua
 
 local SOURCE_NAME = "M-Alert"
+-- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
+local PAGE_VERSION = "3.0.0-5"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -64,6 +66,7 @@ local function overlay_url(st, demo)
   local width = obs.obs_data_get_int(st, "width")
   if width < 30 or width > 100 then width = 66 end
   add("width", tostring(width))
+  add("v", PAGE_VERSION)
   local q = table.concat(params, "&")
   return base .. (base:find("?", 1, true) and "&" or "?") .. q
 end
@@ -316,7 +319,9 @@ local function send_overlay(cmd)
   local cd = obs.calldata_create()
   obs.calldata_set_string(cd, "eventName", "malert")
   obs.calldata_set_string(cd, "jsonString", '{"cmd":"' .. cmd .. '"}')
-  obs.proc_handler_call(obs.obs_source_get_proc_handler(src), "javascript_event", cd)
+  local ok = obs.proc_handler_call(obs.obs_source_get_proc_handler(src), "javascript_event", cd)
+  obs.script_log(obs.LOG_INFO, "M-Alert : commande « " .. cmd .. " » envoyée à « " .. overlay_name .. " »" ..
+    (ok and "" or " (refusée : source navigateur trop ancienne ?)"))
   obs.calldata_destroy(cd)
   obs.obs_source_release(src)
 end
