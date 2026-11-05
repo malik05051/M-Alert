@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-10"
+local PAGE_VERSION = "3.0.0-11"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -124,6 +124,7 @@ end
 local overlay_name = nil   -- nom de la source de l'incrustation
 local program_scene = nil  -- scène réduite pendant l'alerte (celle d'avant)
 local hidden_in = nil      -- scène où l'incrustation est masquée pendant l'écran réduit
+local text_hidden_in = nil -- scène où le texte en haut seul est masqué pendant l'écran réduit
 local anim = nil
 
 -- Scène de l'écran réduit : fond (bleu et texte), puis la scène d'avant (ajoutée à l'alerte), puis
@@ -211,6 +212,13 @@ local function enter_reduced()
   set_xform(item, 0)
   set_overlay_visible(program_scene, false)
   hidden_in = program_scene
+  -- Texte en haut seul (affiché à la main) : masqué dans la scène réduite (le fond a déjà le texte).
+  local ps = scene_by_name(program_scene)
+  local ti = ps and obs.obs_scene_find_source(ps, "M-Alert (texte)")
+  if ti ~= nil and ti and obs.obs_sceneitem_visible(ti) then
+    obs.obs_sceneitem_set_visible(ti, false)
+    text_hidden_in = program_scene
+  end
   anim = { start = obs.os_gettime_ns(), name = program_scene }
   obs.timer_remove(anim_tick)
   obs.timer_add(anim_tick, 16)
@@ -226,6 +234,12 @@ local function on_event(event)
     enter_reduced()
   else
     if hidden_in ~= nil then set_overlay_visible(hidden_in, true); hidden_in = nil end
+    if text_hidden_in ~= nil then
+      local ps = scene_by_name(text_hidden_in)
+      local ti = ps and obs.obs_scene_find_source(ps, "M-Alert (texte)")
+      if ti ~= nil and ti then obs.obs_sceneitem_set_visible(ti, true) end
+      text_hidden_in = nil
+    end
     program_scene = name
   end
 end

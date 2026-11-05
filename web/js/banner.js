@@ -168,7 +168,7 @@
     }
     if (alert.epicenter && (alert.category === 'seisme' || alert.category === 'tsunami')) {
       const [ex, ey] = P(alert.epicenter.lat, alert.epicenter.lon);
-      const r = Math.max(10, w / 13);
+      const r = Math.max(6, w / 28); // croix discrète (épicentre)
       ctx.lineCap = 'round';
       for (const [col, lw] of [['#fff', r / 2.2], [C.red, r / 3.4]]) {
         ctx.strokeStyle = col; ctx.lineWidth = lw;
@@ -463,7 +463,7 @@
 
   /** Texte de la carte d'information d'une alerte annulée (fausse alerte). */
   function cancelledInfo(alert) {
-    const lines = ['L\'alerte précédente a été annulée.', 'Aucun danger n\'est attendu.'];
+    const lines = ['L\'alerte précédente a été annulée.', 'Aucun danger est attendu.'];
     if (alert && alert.title) lines.push(`(${alert.title})`);
     return { lines };
   }
@@ -479,6 +479,24 @@
 
 
   // --- Texte d'informations (en haut de l'écran réduit, comme la NHK) ---
+
+  /** Le point est-il dans un département (à terre) ? */
+  function onLand(lat, lon) {
+    for (const d of Object.values(geoData().deps)) {
+      const [s0, n0, w0, e0] = d.box;
+      if (lat < s0 || lat > n0 || lon < w0 || lon > e0) continue;
+      for (const p of d.polys) {
+        const ring = p[0];
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [xi, yi] = ring[i]; const [xj, yj] = ring[j];
+          if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+        if (inside) return true;
+      }
+    }
+    return false;
+  }
 
   /** Distance (km) entre un point et le département (son point le plus proche, ou dedans : 0). */
   function deptKm(code, lat, lon) {
@@ -597,6 +615,8 @@
       if (typeof a.depth === 'number') head.push(`profondeur ${frNum(a.depth, 0)} km`);
       if (a.shindo) head.push(`intensité max ${a.shindo}`);
       out.head.push(head.join(' — '));
+      // Épicentre en mer : risque de tsunami.
+      if (a.epicenter && !onLand(a.epicenter.lat, a.epicenter.lon)) out.head.push('Épicentre en mer : évitez les bords de mer, risque de tsunami');
       if (a.title) out.head.push(a.title);
       const ints = quakeIntensities(a).map(([c, sh]) => `${shortName(c)} ${sh}`);
       if (ints.length) out.lists.push({ label: 'Intensités', items: ints });

@@ -68,7 +68,7 @@
   const cancelOn = () => Boolean(cancelled && Date.now() < cancelled.until);
   function cancelLines(a) {
     const name = (M.alertKind(a || {}).name || 'alerte').replace(/^./, (c) => c.toLowerCase());
-    return [`Alerte de ${name} annulée`, 'Aucun danger n\'est attendu.'];
+    return [`Alerte de ${name} annulée`, 'Aucun danger est attendu.'];
   }
   function announceCancel(a) {
     cancelled = { alert: a, until: Date.now() + (hold || 60) * 1000 };
@@ -331,7 +331,7 @@
 
   // Aperçu sans serveur.
   const DEMOS = {
-    seisme: { id: 'demo', category: 'seisme', level: 5, departments: ['06', '83', '04', '05'], epicenter: { lat: 43.85, lon: 7.25 }, magnitude: 6.4, depth: 12, originTime: new Date(Date.now() - 20000).toISOString(), title: 'Séisme dans les Alpes-Maritimes' },
+    seisme: { id: 'demo', category: 'seisme', level: 5, departments: ['06', '83', '04', '05'], epicenter: { lat: 43.55, lon: 7.45 }, magnitude: 6.4, depth: 12, originTime: new Date(Date.now() - 20000).toISOString(), title: 'Séisme dans les Alpes-Maritimes' },
     tsunami: { id: 'demo', category: 'tsunami', level: 4, departments: ['06', '83', '13', '2B', '2A'], epicenter: { lat: 43.2, lon: 7.8 }, tsunamiTable: [{ department: '06', level: 4 }, { department: '83', level: 4 }, { department: '2B', level: 4 }, { department: '13', level: 2 }, { department: '2A', level: 2 }] },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
