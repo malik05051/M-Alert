@@ -24,6 +24,14 @@
     push: false,
     notices: true, // notifications de M-Alert (messages hors alerte)
     sounds: {}, // sons choisis par type d'alerte : { clé: { file, volume } } (voir sound.js)
+    maxSound: 120, // durée maximale du son répété (s ; 0 : jusqu'à « J'ai compris »)
+    fadeIn: false, // montée progressive du volume
+    vibrate: true, // vibration (téléphone)
+    infoSound: true, // son des informations et des notifications
+    quiet: false, // heures calmes
+    quietFrom: '22:00',
+    quietTo: '07:00',
+    quietMin: 4, // pendant les heures calmes : sonne dès ce niveau (9 : séismes et tsunamis seulement)
     tiles: false,
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
@@ -592,7 +600,7 @@
     } else {
       showNoticeBanner(n);
     }
-    if (settings.sound) window.MAlertSound.play({ level: 1, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false });
+    shortSound({ level: 1, category: 'meteo', phenomenon: 0 });
     // Persistante (comme les alertes orange et rouge) : une notification qui expire seule peut ne
     // jamais s'afficher (KDE Plasma notamment, quand la fenêtre de M-Alert passe au premier plan).
     systemNotification(`${n.test ? '[TEST] ' : ''}🔔 ${n.title}`, n.body || M.departmentsLabel(n.departments, 3), { tag: `notice-${n.id}`, urgent: true });
@@ -619,10 +627,7 @@
     }
     // Séisme annulé : son EEW (eew.mp3, réglable dans les sons « Jaune et orange ») ; autre alerte
     // annulée (tsunami lié) : son d'information.
-    if (settings.sound) {
-      const sound = a.category === 'seisme' ? { level: 2, category: 'meteo', phenomenon: 0 } : { level: 1, category: 'meteo', phenomenon: 0 };
-      window.MAlertSound.play(sound, { volume: settings.volume, loop: false });
-    }
+    shortSound(a.category === 'seisme' ? { level: 2, category: 'meteo', phenomenon: 0 } : { level: 1, category: 'meteo', phenomenon: 0 });
     systemNotification(`${a.test ? '[TEST] ' : ''}❌ Alerte annulée — ${a.title}`, a.voided.reason, { tag: `void-${a.id}`, urgent: true });
     if (native) native.alert({ level: 1, front: settings.front });
   }
@@ -659,7 +664,7 @@
     if (g.phenomenon && (settings.phenomenaOff || []).includes(Number(g.phenomenon))) return;
     showVigBanner(g, { ring: true });
     const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
-    if (settings.sound) window.MAlertSound.play({ level: g.level, category: 'meteo', phenomenon: g.phenomenon }, { volume: settings.volume, loop: false });
+    shortSound({ level: g.level, category: 'meteo', phenomenon: g.phenomenon });
     systemNotification(`Rappel · Vigilance ${VIGILANCE[g.level].name.toLowerCase()} — ${ph.name}`, M.departmentsLabel(g.departments, 3), { tag: `vig-${g.key}`, urgent: true });
     if (native) native.alert({ level: g.level, front: settings.front });
   }
@@ -995,15 +1000,49 @@
     ov.querySelector('.alert-body').classList.remove('expanded');
   }
 
+  /** Heures calmes en cours (réglages) ? */
+  function inQuietHours() {
+    if (!settings.quiet) return false;
+    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: M.timeZone() });
+    const from = settings.quietFrom || '22:00';
+    const to = settings.quietTo || '07:00';
+    return from <= to ? now >= from && now < to : now >= from || now < to;
+  }
+  /** Le son (et la vibration) passent-ils pour cette alerte, vu les heures calmes ? */
+  function soundAllowed(alert) {
+    if (!inQuietHours()) return true;
+    const quake = ['seisme', 'tsunami'].includes(alert.category);
+    const min = Number(settings.quietMin) || 4;
+    return (quake && min < 99) || (min <= 5 && Number(alert.level) >= min);
+  }
+  /** Vibration du téléphone selon le niveau (navigateur ou application mobile). */
+  function vibrate(level) {
+    if (!settings.vibrate || !navigator.vibrate) return;
+    const patterns = { 1: [150], 2: [300, 150, 300], 3: [500, 200, 500, 200, 500], 4: [800, 200, 800, 200, 800, 200, 800], 5: [1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000] };
+    try { navigator.vibrate(patterns[Math.max(1, Math.min(5, level))] || patterns[2]); } catch (_) { /* non pris en charge */ }
+  }
+  /** Son court (information, notification, rappel) : selon les réglages. */
+  function shortSound(what) {
+    const level = Number(what.level) || 1;
+    if (!settings.sound || !soundAllowed(what) || (level <= 1 && settings.infoSound === false)) return;
+    window.MAlertSound.play(what, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+    vibrate(level);
+  }
+
   // Son d'une alerte. Majeur.mp3 se répète toujours jusqu'à « J'ai compris », sans limite de durée.
   let pendingSound = null; // alerte qui n'a pas pu sonner (son bloqué par le navigateur)
   function alertSound(alert) {
+    if (!soundAllowed(alert)) return;
     const majeur = window.MAlertSound.soundFile(alert) === 'majeur';
+    const max = Number(settings.maxSound ?? 120);
     window.MAlertSound.play(alert, {
       volume: settings.volume,
       loop: majeur || (settings.repeat && alert.level >= 3),
-      untilStopped: majeur,
+      untilStopped: majeur || max === 0,
+      maxSeconds: max || 120,
+      fadeIn: settings.fadeIn,
     });
+    vibrate(alert.level);
   }
 
   function acknowledge() {
@@ -1500,6 +1539,17 @@
     $('setVolume').value = String(settings.volume);
     fillSoundRows(settings.sounds);
     $('setRepeat').checked = settings.repeat;
+    // Application mobile Android : réception en arrière-plan par le service natif.
+    document.querySelectorAll('.mobile-bg').forEach((el) => el.classList.toggle('hidden', !(window.MAlertMobile && window.MAlertMobile.background)));
+    $('setMobileBg').checked = settings.mobileBackground !== false;
+    $('setMaxSound').value = String(settings.maxSound ?? 120);
+    $('setFadeIn').checked = Boolean(settings.fadeIn);
+    $('setVibrate').checked = settings.vibrate !== false;
+    $('setInfoSound').checked = settings.infoSound !== false;
+    $('setQuiet').checked = Boolean(settings.quiet);
+    $('setQuietFrom').value = settings.quietFrom || '22:00';
+    $('setQuietTo').value = settings.quietTo || '07:00';
+    $('setQuietMin').value = String(settings.quietMin || 4);
     $('setVigNotify').checked = settings.vigNotify;
     $('setFront').checked = settings.front;
     $('setPush').checked = settings.push;
@@ -1551,6 +1601,15 @@
       volume: Number($('setVolume').value),
       sounds: readSoundRows(),
       repeat: $('setRepeat').checked,
+      mobileBackground: $('setMobileBg').checked,
+      maxSound: Number($('setMaxSound').value),
+      fadeIn: $('setFadeIn').checked,
+      vibrate: $('setVibrate').checked,
+      infoSound: $('setInfoSound').checked,
+      quiet: $('setQuiet').checked,
+      quietFrom: $('setQuietFrom').value || '22:00',
+      quietTo: $('setQuietTo').value || '07:00',
+      quietMin: Number($('setQuietMin').value),
       vigNotify: $('setVigNotify').checked,
       front: $('setFront').checked,
       push: $('setPush').checked,

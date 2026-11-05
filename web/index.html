@@ -156,8 +156,26 @@
           <div class="sound-rows" id="setSounds"></div>
         </div>
         <label class="check"><input type="checkbox" id="setRepeat"> Répéter le son jusqu'à « J'ai compris » (orange et rouge)</label>
+        <details class="field sound-adv">
+          <summary>Réglages avancés du son</summary>
+          <label class="field">Durée maximale du son répété
+            <select id="setMaxSound"><option value="30">30 secondes</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="0">Jusqu'à « J'ai compris »</option></select>
+          </label>
+          <label class="check"><input type="checkbox" id="setFadeIn"> Montée progressive du volume (le son part bas et monte en 6 secondes)</label>
+          <label class="check"><input type="checkbox" id="setVibrate"> Vibrer (téléphone) : court pour une information, long et répété pour une alerte rouge ou majeure</label>
+          <label class="check"><input type="checkbox" id="setInfoSound"> Son pour les informations et les notifications de M-Alert</label>
+          <label class="check"><input type="checkbox" id="setQuiet"> Heures calmes : pas de son ni de vibration, sauf pour les alertes fortes</label>
+          <div class="row2">
+            <label class="field">De <input type="time" id="setQuietFrom"></label>
+            <label class="field">À <input type="time" id="setQuietTo"></label>
+          </div>
+          <label class="field">Pendant les heures calmes, sonner quand même
+            <select id="setQuietMin"><option value="4">Alertes rouges et majeures, séismes et tsunamis</option><option value="5">Alertes majeures, séismes et tsunamis</option><option value="9">Séismes et tsunamis seulement</option><option value="99">Jamais</option></select>
+          </label>
+        </details>
         <label class="check"><input type="checkbox" id="setVigNotify"> Me prévenir quand la vigilance de mes départements passe en jaune, orange ou rouge</label>
         <label class="check native-only hidden"><input type="checkbox" id="setFront"> Afficher la fenêtre au premier plan lors d'une alerte</label>
+        <label class="check mobile-bg hidden"><input type="checkbox" id="setMobileBg"> Recevoir les alertes en arrière-plan, application fermée (notification permanente « M-Alert » ; chaque son a son canal dans les réglages Android des notifications)</label>
       </fieldset>
 
       <fieldset>

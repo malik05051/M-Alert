@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>M-Alert — incrustation OBS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Source navigateur OBS : 1920 × 1080, fond transparent. */
+    html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
+    #tsunami { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; }
+    #banner { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
+    body.top #banner { top: 3vh; bottom: auto; }
+    body.show-tsunami #tsunami, body.show-banner #banner { display: block; }
+    #info { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--iw, 36vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
+    body.show-info #info { display: block; }
+    body.show-info.show-banner #info { bottom: auto; top: 3vh; }
+    #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
+    body.debug #status { opacity: .85; }
+  </style>
+</head>
+<body>
+  <canvas id="tsunami"></canvas>
+  <canvas id="banner"></canvas>
+  <canvas id="info"></canvas>
+  <div id="status"></div>
+  <script src="../config.js"></script>
+  <script src="../data/departements.js"></script>
+  <script src="../data/cotes.js"></script>
+  <script src="../js/common.js"></script>
+  <script src="../js/sound.js"></script>
+  <script src="../js/banner.js"></script>
+  <script src="obs.js"></script>
+</body>
+</html>

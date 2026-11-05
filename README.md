@@ -73,7 +73,7 @@ Sous Linux, l'icône de la zone de notification nécessite la prise en charge d'
 
 ### Version web (téléphone, navigateur)
 
-👉 **https://malik05051.github.io/M-alert/**
+👉 **https://malik05051.github.io/M-Alert/**
 
 
 Le dossier `web/` est un site statique. Le workflow **Version web (GitHub Pages)** le publie automatiquement à chaque modification sur `main` (à activer une fois : *Settings > Pages > Source : GitHub Actions*).

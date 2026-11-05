@@ -54,7 +54,7 @@
     return buffers.get(name);
   }
 
-  async function tryBuffer(name, volume, loop, token) {
+  async function tryBuffer(name, volume, loop, token, fadeIn) {
     let buffer;
     try {
       buffer = await loadBuffer(name);
@@ -68,6 +68,11 @@
     src.buffer = buffer;
     src.loop = loop;
     gain.gain.value = volume;
+    // Montée progressive : de 5 % au volume choisi en 6 secondes.
+    if (fadeIn) {
+      gain.gain.setValueAtTime(volume * 0.05, c.currentTime);
+      gain.gain.linearRampToValueAtTime(volume, c.currentTime + 6);
+    }
     src.connect(gain);
     gain.connect(c.destination);
     src.start();
@@ -268,7 +273,7 @@
     }
     // Web, son débloqué : Web Audio.
     if (WEB && !isLocked()) {
-      const s = await tryBuffer(name, volume, loop, token);
+      const s = await tryBuffer(name, volume, loop, token, opts.fadeIn);
       if (token !== loopToken) return;
       if (s) {
         if (loop && Number.isFinite(maxMs)) synthTimer = setTimeout(stop, maxMs);

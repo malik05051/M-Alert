@@ -225,6 +225,10 @@
     storm: { label: '🌀 Prévision de tempête : rafales et dépression (Météo-France, ECMWF) · alerte validée par M-Alert', short: '🌀 prévision' },
     'flood-auto': { label: '🤖 Alerte automatique · prévision de pluie et de crues (Météo-France, ECMWF, GloFAS)', short: '🌧️ automatique (prévision)' },
     flood: { label: '🌧️ Prévision de pluie et de crues (Météo-France, ECMWF, GloFAS) · alerte validée par M-Alert', short: '🌧️ prévision' },
+    'vigilance-auto': { label: '🤖 Alerte automatique · vigilance Météo-France', short: '🟠 automatique (vigilance)' },
+    vigilance: { label: '🟠 Vigilance Météo-France · alerte validée par M-Alert', short: '🟠 vigilance' },
+    'pollution-auto': { label: '🤖 Alerte automatique · prévision de qualité de l\'air (Copernicus CAMS)', short: '🌫️ automatique (prévision)' },
+    pollution: { label: '🌫️ Prévision de qualité de l\'air (Copernicus CAMS) · alerte validée par M-Alert', short: '🌫️ prévision' },
     'tornado-auto': { label: '🤖 Alerte automatique · tornade (simulation des règles)', short: '🌪️ automatique' },
     tornado: { label: '🌪️ Tornade · alerte validée par M-Alert', short: '🌪️ tornade' },
   };
