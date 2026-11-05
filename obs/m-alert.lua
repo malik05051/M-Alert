@@ -9,12 +9,21 @@ OBS. La source affiche :
   - le bandeau d'alerte (carte à gauche, titre, consigne, lieux) quand une alerte arrive ;
   - la carte des côtes en alerte tsunami, qui clignotent, tant qu'un tsunami est en cours ;
   - le cadre « Information(s) M-Alert » : alerte annulée, notifications envoyées depuis M-Alert-sender.
+Écran réduit (option) : pendant une alerte, OBS passe sur la scène « M-Alert (alerte) » : fond bleu,
+« Informations M-Alert » puis les informations en haut, la scène en cours réduite à 80 % et le
+bandeau en bas ; puis OBS revient à la scène d'avant.
 ]]
 
 obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
+-- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
+local ALERT_SCENE = "M-Alert (alerte)"
+local FOND_NAME = "M-Alert (fond)"
+local REDUCED_SCALE = 0.8   -- image du direct réduite à 80 %
+local REDUCED_Y = 196       -- sous le texte d'informations (canevas 1920 × 1080)
+local ANIM_MS = 500
 -- Catégories des alertes M-Alert (comme dans l'application).
 local CATEGORIES = { "seisme", "tsunami", "meteo", "pollution", "accident", "attentat", "greve", "blocus" }
 local settings_ref = nil
@@ -38,7 +47,9 @@ local function overlay_url(st, demo)
   if #types < #CATEGORIES then add("types", table.concat(types, ",")) end
   add("deps", obs.obs_data_get_string(st, "deps"))
   add("min", tostring(obs.obs_data_get_int(st, "min")))
-  add("hold", tostring(obs.obs_data_get_int(st, "hold")))
+  -- Aperçu : 20 secondes (écran réduit compris), puis retour à la scène.
+  add("hold", demo and "20" or tostring(obs.obs_data_get_int(st, "hold")))
+  if obs.obs_data_get_bool(st, "reduce") then add("reduce", ALERT_SCENE) end
   if obs.obs_data_get_bool(st, "sound") then add("sound", "1") end
   if not obs.obs_data_get_bool(st, "tests") then add("tests", "0") end
   if not obs.obs_data_get_bool(st, "tsunami") then add("tsunami", "0") end
@@ -70,13 +81,8 @@ local function browser_available()
   return obs.obs_source_get_display_name("browser_source") ~= nil
 end
 
-local function apply(st, demo)
-  if not browser_available() then
-    obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
-      "Sous Arch, le paquet obs-studio n'en a pas : installez obs-studio-browser (AUR) ou OBS en Flatpak (com.obsproject.Studio).")
-    return
-  end
-  local url = overlay_url(st, demo)
+
+local function browser_data(url, control)
   local data = obs.obs_data_create()
   obs.obs_data_set_string(data, "url", url)
   obs.obs_data_set_bool(data, "is_local_file", false)
@@ -85,7 +91,144 @@ local function apply(st, demo)
   obs.obs_data_set_bool(data, "reroute_audio", true)
   obs.obs_data_set_bool(data, "shutdown", false)
   obs.obs_data_set_bool(data, "restart_when_active", false)
+  -- Accès « avancé » à OBS : la page passe sur la scène de l'écran réduit et revient.
+  if control then obs.obs_data_set_int(data, "webpage_control_level", 4) end
   obs.obs_data_set_string(data, "css", "body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }")
+  return data
+end
+
+-- Source navigateur par nom (créée ou mise à jour), avec une référence à relâcher.
+local function upsert_browser(name, data)
+  local src = obs.obs_get_source_by_name(name)
+  if src ~= nil then obs.obs_source_update(src, data) else src = obs.obs_source_create("browser_source", name, data, nil) end
+  return src
+end
+
+local function scene_by_name(name)
+  local src = obs.obs_get_source_by_name(name)
+  if src == nil then return nil end
+  local scene = obs.obs_scene_from_source(src)
+  obs.obs_source_release(src)
+  return scene
+end
+
+local overlay_name = nil   -- nom de la source de l'incrustation
+local program_scene = nil  -- scène réduite pendant l'alerte (celle d'avant)
+local hidden_in = nil      -- scène où l'incrustation est masquée pendant l'écran réduit
+local anim = nil
+
+-- Scène de l'écran réduit : fond (bleu et texte), puis la scène d'avant (ajoutée à l'alerte), puis
+-- l'incrustation (bandeau) au premier plan.
+local function ensure_alert_scene(st, demo)
+  local scene = scene_by_name(ALERT_SCENE)
+  if scene == nil then
+    local created = obs.obs_scene_create(ALERT_SCENE)
+    scene = created
+    obs.script_log(obs.LOG_INFO, "M-Alert : scène « " .. ALERT_SCENE .. " » créée (écran réduit)")
+  end
+  local data = browser_data(overlay_url(st, demo) .. "&layer=fond", false)
+  local fond = upsert_browser(FOND_NAME, data)
+  obs.obs_data_release(data)
+  if fond ~= nil then
+    local item = obs.obs_scene_find_source(scene, FOND_NAME)
+    if item == nil then item = obs.obs_scene_add(scene, fond) end
+    if item ~= nil then obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_BOTTOM) end
+    obs.obs_source_release(fond)
+  end
+  local ov = obs.obs_get_source_by_name(overlay_name)
+  if ov ~= nil then
+    local item = obs.obs_scene_find_source(scene, overlay_name)
+    if item == nil then item = obs.obs_scene_add(scene, ov) end
+    if item ~= nil then obs.obs_sceneitem_set_visible(item, true); obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP) end
+    obs.obs_source_release(ov)
+  end
+end
+
+local function set_xform(item, k)
+  local scale = 1 - (1 - REDUCED_SCALE) * k
+  local pos = obs.vec2()
+  pos.x = (1920 - 1920 * scale) / 2
+  pos.y = REDUCED_Y * k -- haut de l'image : de 0 à REDUCED_Y
+  local sc = obs.vec2()
+  sc.x = scale
+  sc.y = scale
+  obs.obs_sceneitem_set_pos(item, pos)
+  obs.obs_sceneitem_set_scale(item, sc)
+end
+
+local function anim_tick()
+  if anim == nil then obs.timer_remove(anim_tick) return end
+  local t = math.min(1, (obs.os_gettime_ns() - anim.start) / (ANIM_MS * 1e6))
+  local k = 1 - (1 - t) * (1 - t)
+  local scene = scene_by_name(ALERT_SCENE)
+  local item = scene and anim.name and obs.obs_scene_find_source(scene, anim.name)
+  if item ~= nil and item then set_xform(item, k) end
+  if t >= 1 then anim = nil; obs.timer_remove(anim_tick) end
+end
+
+local function set_overlay_visible(scene_name, visible)
+  if scene_name == nil or overlay_name == nil then return end
+  local scene = scene_by_name(scene_name)
+  if scene == nil then return end
+  local item = obs.obs_scene_find_source(scene, overlay_name)
+  if item ~= nil then obs.obs_sceneitem_set_visible(item, visible) end
+end
+
+-- OBS est passé sur la scène de l'écran réduit : la scène d'avant y est mise, réduite (animation),
+-- et l'incrustation y est masquée (elle reste affichée en grand au premier plan).
+local function enter_reduced()
+  local scene = scene_by_name(ALERT_SCENE)
+  if scene == nil or program_scene == nil then return end
+  local items = obs.obs_scene_enum_items(scene)
+  if items ~= nil then
+    for _, it in ipairs(items) do
+      local src = obs.obs_sceneitem_get_source(it)
+      local id = obs.obs_source_get_unversioned_id(src)
+      if id == "scene" and obs.obs_source_get_name(src) ~= program_scene then obs.obs_sceneitem_remove(it) end
+    end
+    obs.sceneitem_list_release(items)
+  end
+  local item = obs.obs_scene_find_source(scene, program_scene)
+  if item == nil then
+    local src = obs.obs_get_source_by_name(program_scene)
+    if src ~= nil then item = obs.obs_scene_add(scene, src); obs.obs_source_release(src) end
+  end
+  if item == nil then return end
+  obs.obs_sceneitem_set_visible(item, true)
+  -- Ordre : fond, scène réduite, incrustation.
+  obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_BOTTOM)
+  local fond = obs.obs_scene_find_source(scene, FOND_NAME)
+  if fond ~= nil then obs.obs_sceneitem_set_order(fond, obs.OBS_ORDER_MOVE_BOTTOM) end
+  set_xform(item, 0)
+  set_overlay_visible(program_scene, false)
+  hidden_in = program_scene
+  anim = { start = obs.os_gettime_ns(), name = program_scene }
+  obs.timer_remove(anim_tick)
+  obs.timer_add(anim_tick, 16)
+end
+
+local function on_event(event)
+  if event ~= obs.OBS_FRONTEND_EVENT_SCENE_CHANGED then return end
+  local cur = obs.obs_frontend_get_current_scene()
+  if cur == nil then return end
+  local name = obs.obs_source_get_name(cur)
+  obs.obs_source_release(cur)
+  if name == ALERT_SCENE then
+    enter_reduced()
+  else
+    if hidden_in ~= nil then set_overlay_visible(hidden_in, true); hidden_in = nil end
+    program_scene = name
+  end
+end
+
+local function apply(st, demo)
+  if not browser_available() then
+    obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
+      "Sous Arch, le paquet obs-studio n'en a pas : installez obs-studio-browser (AUR) ou OBS en Flatpak (com.obsproject.Studio).")
+    return
+  end
+  local url = overlay_url(st, demo)
+  local data = browser_data(url, true)
   local src, name = find_overlay()
   if src ~= nil then
     obs.obs_source_update(src, data)
@@ -97,9 +240,16 @@ local function apply(st, demo)
     obs.script_log(obs.LOG_ERROR, "M-Alert : impossible de créer la source navigateur « " .. name .. " ».")
     return
   end
-  -- Dans la scène en cours (ajoutée si elle n'y est pas encore), au premier plan.
+  overlay_name = name
+  -- Dans la scène en cours (ajoutée si elle n'y est pas encore), au premier plan. Depuis la scène de
+  -- l'écran réduit : dans la scène d'avant.
   local scene_src = obs.obs_frontend_get_current_scene()
+  if scene_src ~= nil and obs.obs_source_get_name(scene_src) == ALERT_SCENE then
+    obs.obs_source_release(scene_src)
+    scene_src = program_scene and obs.obs_get_source_by_name(program_scene) or nil
+  end
   if scene_src ~= nil then
+    if obs.obs_source_get_name(scene_src) ~= ALERT_SCENE then program_scene = obs.obs_source_get_name(scene_src) end
     local scene = obs.obs_scene_from_source(scene_src)
     local item = obs.obs_scene_find_source(scene, name)
     if item == nil then item = obs.obs_scene_add(scene, src) end
@@ -111,6 +261,7 @@ local function apply(st, demo)
     obs.obs_source_release(scene_src)
   end
   obs.obs_source_release(src)
+  if obs.obs_data_get_bool(st, "reduce") then ensure_alert_scene(st, demo) end
   obs.script_log(obs.LOG_INFO, "M-Alert : incrustation " .. url)
   if demo == nil then
     obs.script_log(obs.LOG_INFO, "M-Alert : la source reste transparente tant qu'aucune alerte n'est en cours (« Aperçu » pour un exemple).")
@@ -143,6 +294,7 @@ function script_properties()
   for i, n in ipairs({ "Information", "Jaune", "Orange", "Rouge", "Majeur" }) do obs.obs_property_list_add_int(lv, n, i) end
   obs.obs_properties_add_int(p, "hold", "Bandeau affiché (s, 0 : tant que l'alerte dure)", 0, 3600, 5)
   obs.obs_properties_add_int_slider(p, "width", "Largeur du bandeau (% de l'écran)", 30, 100, 1)
+  obs.obs_properties_add_bool(p, "reduce", "Réduire l'image pendant une alerte (texte d'informations en haut, comme la NHK)")
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -166,10 +318,27 @@ function script_defaults(st)
   obs.obs_data_set_default_int(st, "hold", 90)
   obs.obs_data_set_default_int(st, "width", 66)
   obs.obs_data_set_default_bool(st, "tsunami", true)
+  obs.obs_data_set_default_bool(st, "reduce", true)
   obs.obs_data_set_default_bool(st, "infos", true)
   obs.obs_data_set_default_bool(st, "sound", true)
   obs.obs_data_set_default_bool(st, "tests", true)
 end
 
-function script_load(st) settings_ref = st end
+function script_load(st)
+  settings_ref = st
+  obs.obs_frontend_add_event_callback(on_event)
+  local src, name = find_overlay()
+  if src ~= nil then obs.obs_source_release(src) end
+  overlay_name = name
+  local cur = obs.obs_frontend_get_current_scene()
+  if cur ~= nil then
+    if obs.obs_source_get_name(cur) ~= ALERT_SCENE then program_scene = obs.obs_source_get_name(cur) end
+    obs.obs_source_release(cur)
+  end
+end
+
+function script_unload()
+  obs.timer_remove(anim_tick)
+  if hidden_in ~= nil then set_overlay_visible(hidden_in, true) end
+end
 function script_update(st) settings_ref = st end

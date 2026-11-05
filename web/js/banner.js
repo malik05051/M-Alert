@@ -456,5 +456,107 @@
     return new Promise((ok) => canvas.toBlob(ok, 'image/png'));
   }
 
-  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf };
+
+  // --- Texte d'informations (en haut de l'écran réduit, comme la NHK) ---
+
+  /** Distance (km) entre un point et le département (son point le plus proche, ou dedans : 0). */
+  function deptKm(code, lat, lon) {
+    const d = geoData().deps[code];
+    if (!d) return null;
+    const [s, n, w, e] = d.box;
+    if (lat >= s && lat <= n && lon >= w && lon <= e) {
+      let inside = false;
+      for (const p of d.polys) {
+        const ring = p[0];
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [xi, yi] = ring[i]; const [xj, yj] = ring[j];
+          if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+      }
+      if (inside) return 0;
+    }
+    let best = Infinity;
+    const k = Math.cos((lat * Math.PI) / 180);
+    for (const p of d.polys) for (const ring of p) for (const [lo, la] of ring) {
+      const dx = (lo - lon) * 111.32 * k; const dy = (la - lat) * 110.57;
+      best = Math.min(best, dx * dx + dy * dy);
+    }
+    return Math.sqrt(best);
+  }
+
+  const frNum = (x, d = 1) => Number(x).toLocaleString('fr-FR', { maximumFractionDigits: d });
+  const hourOf = (iso) => {
+    if (!iso) return '';
+    const t = M && M.formatTime ? M.formatTime(new Date(iso).toISOString()) : new Date(iso).toTimeString().slice(0, 5);
+    return t.replace(':', ' h ');
+  };
+  const listOf = (items, max = 6) => items.slice(0, max).join(' · ') + (items.length > max ? ' …' : '');
+
+  /** Intensités par département (les plus fortes d'abord) : corrigées par M-Alert ou calculées. */
+  function quakeIntensities(a) {
+    const order = (M && M.SHINDO_ORDER) || ['1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'];
+    const out = [];
+    for (const code of a.departments || []) {
+      let sh = a.intensities && a.intensities[code];
+      if (!sh && a.epicenter && typeof a.magnitude === 'number' && M && M.estimateIntensity) {
+        const km = deptKm(code, a.epicenter.lat, a.epicenter.lon);
+        if (km !== null) sh = M.toShindo(M.estimateIntensity(a.magnitude, Number(a.depth) || 10, km));
+      }
+      if (sh) out.push([code, sh]);
+    }
+    return out.sort((x, y) => order.indexOf(y[1]) - order.indexOf(x[1]));
+  }
+
+  /**
+   * Deux lignes d'informations sur l'alerte : ce qui s'est passé, puis les mesures (intensités d'un
+   * séisme, hauteurs et arrivées d'un tsunami, rafales, pluie et crues, vagues…).
+   */
+  function infoLines(a) {
+    if (!a) return [];
+    const at = hourOf(a.originTime || a.createdAt);
+    const where = (a.departments || []).includes('ALL') ? 'France entière' : '';
+    if (a.category === 'seisme') {
+      const head = [`Séisme vers ${at}`];
+      if (typeof a.magnitude === 'number') head.push(`magnitude ${frNum(a.magnitude)}`);
+      if (typeof a.depth === 'number') head.push(`profondeur ${frNum(a.depth, 0)} km`);
+      if (a.shindo) head.push(`intensité max ${a.shindo}`);
+      const ints = quakeIntensities(a).map(([c, sh]) => `${shortName(c)} ${sh}`);
+      return [head.join(' — '), ints.length ? `Intensités : ${listOf(ints)}` : (a.title || '')];
+    }
+    if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
+      const rows = a.tsunamiTable.slice().sort((x, y) => (y.level - x.level) || ((y.height || 0) - (x.height || 0)));
+      const items = rows.map((r) => {
+        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${frNum(r.height)} m` : '';
+        const t = r.arrival === 'arrived' ? ' (arrivé)' : r.arrival === 'imminent' ? ' (imminent)' : r.arrival ? ` (${hourOf(r.arrival)})` : '';
+        return `${shortName(r.department)}${h}${t}`;
+      });
+      return [a.title || `Tsunami — ${at}`, `Vagues : ${listOf(items, 4)}`];
+    }
+    const t = a.forecastTable;
+    if (t && Array.isArray(t.rows) && t.rows.length) {
+      const deps = new Set(a.departments || []);
+      const rows = t.rows.filter((r) => deps.has('ALL') || deps.has(r.department));
+      const wind = t.kind === 'vent' || t.kind === 'tempete';
+      const flood = t.kind === 'inondation';
+      const val = (r) => (wind ? Math.max(r.gust || 0, r.gustCoast || 0) : flood ? Math.max(r.rain24 || 0, (r.river || 0) * 50) : r.hs || r.wind || 0);
+      const items = rows.slice().sort((x, y) => (y.level - x.level) || (val(y) - val(x))).map((r) => {
+        let v = '';
+        if (wind) v = `${Math.max(r.gust || 0, r.gustCoast || 0)} km/h`;
+        else if (flood) v = [r.rain24 >= 1 ? `${Math.round(r.rain24)} mm` : '', r.river ? `rivière ×${frNum(r.river)}` : ''].filter(Boolean).join(', ');
+        else v = r.hs > 0 ? `${frNum(r.hs)} m` : typeof r.wind === 'number' ? `vent ${r.wind} km/h` : '';
+        return `${shortName(r.department)} ${v}`.trim();
+      });
+      const label = wind ? 'Rafales' : flood ? 'Pluie en 24 h' : 'Vagues';
+      return [a.title || '', `${label} : ${listOf(items, 4)}`];
+    }
+    // Autres alertes : titre, puis mesures connues ou description.
+    const extra = [];
+    if (typeof a.windKmh === 'number') extra.push(`vent attendu ${a.windKmh} km/h`);
+    if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${frNum(a.waveHeight)} m`);
+    if (M && M.pollutionSummary && M.pollutionSummary(a)) extra.push(M.pollutionSummary(a));
+    const second = extra.length ? extra.join(' — ') : (a.description || where || '').replace(/\s+/g, ' ');
+    return [a.title || headerOf(a), second];
+  }
+
+  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, deptKm };
 })();

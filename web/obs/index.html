@@ -8,17 +8,25 @@
     /* Source navigateur OBS : 1920 × 1080, fond transparent. */
     html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
     #tsunami { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; }
-    #banner { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
+    #banner { position: fixed; left: 50%; bottom: 8vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.top #banner { top: 3vh; bottom: auto; }
     body.show-tsunami #tsunami, body.show-banner #banner { display: block; }
     #info { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); width: var(--iw, 36vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.show-info #info { display: block; }
     body.show-info.show-banner #info { bottom: auto; top: 3vh; }
+    /* Fond de l'écran réduit (source « M-Alert (fond) », layer=fond) : bleu et texte en haut. */
+    #fond { position: fixed; inset: 0; display: none; background: linear-gradient(160deg, #0b3fae 0%, #1257d6 45%, #0a3a9e 100%); }
+    body.layer-fond #fond { display: block; }
+    #fondText { position: absolute; left: 10vw; right: 6vw; top: 2.2vh; font: 700 4.6vh/1.18 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff;
+      text-shadow: 0 0 .25vh #000, .15vh .15vh 0 #000, -.15vh -.15vh 0 #000, .15vh -.15vh 0 #000, -.15vh .15vh 0 #000; }
+    #fondText div { white-space: nowrap; overflow: hidden; }
+    #fondText.intro { font-size: 6vh; }
     #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
     body.debug #status { opacity: .85; }
   </style>
 </head>
 <body>
+  <div id="fond"><div id="fondText"></div></div>
   <canvas id="tsunami"></canvas>
   <canvas id="banner"></canvas>
   <canvas id="info"></canvas>

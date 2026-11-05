@@ -12,6 +12,10 @@
  *   pos=top               bandeau en haut (par défaut : en bas) ; width=66 : largeur (% de l'écran)
  *   tsunami=0             pas de carte plein écran pour les tsunamis
  *   infos=0               pas de carte « Information(s) M-Alert » (alerte annulée, notification)
+ *   reduce=Nom de scène   écran réduit comme la NHK : à l'alerte, OBS passe sur cette scène (fond bleu,
+ *                         texte d'informations en haut, la scène en cours réduite) puis revient ;
+ *                         la source doit avoir l'accès « avancé » à OBS (script m-alert.lua)
+ *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   demo=seisme|tsunami|vent|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
@@ -29,6 +33,12 @@
   const tests = q.get('tests') !== '0';
   const tsunamiMap = q.get('tsunami') !== '0';
   const infos = q.get('infos') !== '0';
+  const fondLayer = q.get('layer') === 'fond';
+  const reduceScene = q.get('reduce') || '';
+  if (fondLayer) document.body.classList.add('layer-fond');
+  const obsApi = window.obsstudio || null;
+  let prevScene = null; // scène d'avant l'écran réduit
+  let switching = false;
   const bw = Number(q.get('width'));
   if (bw >= 20 && bw <= 100) document.documentElement.style.setProperty('--bw', `${bw}vw`); // largeur invalide : par défaut
   if (q.get('debug') === '1') document.body.classList.add('debug');
@@ -43,7 +53,7 @@
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
   function showInfo(info) {
-    if (!infos) return;
+    if (!infos || fondLayer) return;
     B.drawInfo($('info'), info, { width: 670, height: 330 });
     infoUntil = Date.now() + (hold || 60) * 1000;
     document.body.classList.add('show-info');
@@ -66,8 +76,53 @@
     return list[0] || null;
   }
 
+  /** Écran réduit : passe sur la scène de l'alerte (on), ou revient à la scène d'avant (off). */
+  function reduce(on) {
+    if (!reduceScene || !obsApi || !obsApi.setCurrentScene || switching) return;
+    if (on && !prevScene) {
+      switching = true;
+      const go = (name) => {
+        switching = false;
+        if (name === reduceScene) return;
+        prevScene = name || null;
+        obsApi.setCurrentScene(reduceScene);
+      };
+      if (obsApi.getCurrentScene) obsApi.getCurrentScene((sc) => go(sc && sc.name)); else go(null);
+    } else if (!on && prevScene) {
+      obsApi.setCurrentScene(prevScene);
+      prevScene = null;
+    }
+  }
+
+  // Fond de l'écran réduit : « Informations M-Alert » pendant 4 secondes à chaque réduction (nouvelle
+  // alerte ou scène affichée), puis les informations de l'alerte.
+  const INTRO_MS = 4000;
+  let introUntil = 0;
+  let fondId = null;
+  const startIntro = () => { introUntil = Date.now() + INTRO_MS; setTimeout(render, INTRO_MS + 50); };
+  window.addEventListener('obsSourceVisibleChanged', (e) => { if (e.detail && e.detail.visible) { startIntro(); render(); } });
+  window.addEventListener('obsSourceActiveChanged', (e) => { if (e.detail && e.detail.active) { startIntro(); render(); } });
+  function renderFond(a) {
+    if (a && a.id !== fondId) startIntro();
+    fondId = a ? a.id : null;
+    const intro = a && Date.now() < introUntil;
+    const lines = !a ? [] : intro ? ['Informations M-Alert'] : B.infoLines(a);
+    const el = $('fondText');
+    const html = lines.filter(Boolean).map((l) => `<div>${M.escapeHtml(l)}</div>`).join('');
+    if (el.innerHTML === html) return;
+    el.classList.toggle('intro', Boolean(intro));
+    el.innerHTML = html;
+    // Ligne trop longue : texte réduit (jusqu'à 60 %) plutôt que coupé.
+    for (const d of el.children) {
+      d.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(d).fontSize);
+      if (d.scrollWidth > d.clientWidth) d.style.fontSize = `${Math.max(base * 0.6, base * (d.clientWidth / d.scrollWidth))}px`;
+    }
+  }
+
   function render() {
     const a = current();
+    if (fondLayer) { renderFond(a); return; }
     const tsu = alerts.filter(wanted).find((x) => x.category === 'tsunami');
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
@@ -79,6 +134,7 @@
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
     const key = a ? `${a.id}:${a.revision || 0}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = key; }
+    reduce(Boolean(bannerOn || mapOn));
     document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
     if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
@@ -87,7 +143,7 @@
     if (!wanted(a)) return;
     shownId = a.id;
     shownAt = Date.now();
-    if (sound && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
+    if (sound && !fondLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
   }
 
   function handle(msg) {
@@ -134,9 +190,12 @@
 
   // Aperçu sans serveur.
   const DEMOS = {
-    seisme: { id: 'demo', category: 'seisme', level: 5, departments: ['06', '83', '04', '05'], epicenter: { lat: 43.85, lon: 7.25 }, magnitude: 6.4 },
+    seisme: { id: 'demo', category: 'seisme', level: 5, departments: ['06', '83', '04', '05'], epicenter: { lat: 43.85, lon: 7.25 }, magnitude: 6.4, depth: 12, originTime: new Date(Date.now() - 20000).toISOString(), title: 'Séisme dans les Alpes-Maritimes' },
     tsunami: { id: 'demo', category: 'tsunami', level: 4, departments: ['06', '83', '13', '2B', '2A'], epicenter: { lat: 43.2, lon: 7.8 }, tsunamiTable: [{ department: '06', level: 4 }, { department: '83', level: 4 }, { department: '2B', level: 4 }, { department: '13', level: 2 }, { department: '2A', level: 2 }] },
-    vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'] },
+    vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
+      forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
+    inondation: { id: 'demo', category: 'meteo', phenomenon: 2, level: 4, departments: ['30', '34', '07'], title: 'Pluie-inondation : épisode cévenol',
+      forecastTable: { kind: 'inondation', rows: [['30', 4, 310, 3.2], ['34', 3, 190, 1.8], ['07', 3, 220, 2.4]].map(([department, level, rain24, river]) => ({ department, level, rain24, river })) } },
   };
   if (q.get('demo') === 'annulation') showInfo(B.cancelledInfo({ title: 'Séisme de magnitude 5.2 — Alpes-Maritimes' }));
   if (q.get('demo') === 'info') showInfo({ title: 'Exercice M-Alert', body: 'Un exercice d\'alerte aura lieu demain à 10 h. Aucune action n\'est demandée.' });
