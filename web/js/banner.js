@@ -321,8 +321,14 @@
     ctx.fillRect(0, 0, W, H);
     const legendW = Math.round(W * 0.2);
     const { deps, coasts } = geoData();
+    // Tsunami, ou vagues-submersion / forte houle (mêmes côtes, couleurs des niveaux météo).
+    const surge = Boolean(alert && alert.category !== 'tsunami');
+    const colors = surge ? LEVEL_FILL : TSU_COLORS;
+    const names = surge ? { 5: 'Majeure', 4: 'Rouge', 3: 'Orange', 2: 'Jaune' } : TSU_NAMES;
     const levels = {};
-    for (const r of (alert && alert.tsunamiTable) || []) levels[r.department] = Math.max(levels[r.department] || 0, r.level);
+    const rows = (alert && (alert.tsunamiTable || (alert.forecastTable && alert.forecastTable.rows))) || [];
+    const set = new Set((alert && alert.departments) || []);
+    for (const r of rows) if (!surge || set.has(r.department) || set.has('ALL')) levels[r.department] = Math.max(levels[r.department] || 0, r.level);
     if (alert && !Object.keys(levels).length) for (const c of alert.departments || []) levels[c] = alert.level;
     const nc = Boolean(levels['988']);
     // Métropole (et Corse) : à gauche ; encart Nouvelle-Calédonie en bas à gauche.
@@ -346,7 +352,7 @@
     // Côtes en alerte (clignotantes).
     if (on) {
       for (const [code, lv] of Object.entries(levels)) {
-        ctx.strokeStyle = TSU_COLORS[lv] || TSU_COLORS[2];
+        ctx.strokeStyle = colors[lv] || colors[2];
         ctx.lineWidth = Math.max(6, W / 220); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         const Pr = code === '988' ? PN : P;
         for (const line of coasts[code] || []) {
@@ -370,20 +376,32 @@
     const lx = W - legendW;
     ctx.fillStyle = 'rgba(16, 44, 200, 0.85)';
     ctx.fillRect(lx, 0, legendW, H);
-    const shown = [5, 4, 2].filter((l) => Object.values(levels).includes(l));
-    const list = shown.length ? shown : [4, 2];
+    const order = surge ? [5, 4, 3, 2] : [5, 4, 2];
+    const shown = order.filter((l) => Object.values(levels).includes(l));
+    const list = shown.length ? shown : surge ? [3] : [4, 2];
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // Même taille pour toutes les étiquettes : celle qui tient pour la plus longue.
     let fs = Math.round(H * 0.045);
-    for (const l of list) { fs = Math.min(fs, fitText(ctx, TSU_NAMES[l], legendW * 0.66, fs, 14)); }
+    for (const l of list) { fs = Math.min(fs, fitText(ctx, names[l], legendW * 0.66, fs, 14)); }
     list.forEach((l, i) => {
       const y = H * 0.32 + i * fs * 2.6;
-      ctx.fillStyle = TSU_COLORS[l]; ctx.fillRect(lx + legendW * 0.08, y - fs * 0.5, legendW * 0.14, fs);
+      ctx.fillStyle = colors[l]; ctx.fillRect(lx + legendW * 0.08, y - fs * 0.5, legendW * 0.14, fs);
       ctx.fillStyle = '#fff'; ctx.font = `700 ${fs}px ${FONT}`;
-      ctx.fillText(TSU_NAMES[l], lx + legendW * 0.27, y);
+      ctx.fillText(names[l], lx + legendW * 0.27, y);
     });
     ctx.font = `700 ${Math.round(H * 0.034)}px ${FONT}`; ctx.textBaseline = 'top';
-    ctx.fillText('Tsunami (M-Alert)', lx + legendW * 0.08, H * 0.08);
+    const title = surge ? `${(M && M.alertKind ? M.alertKind(alert).name : 'Vagues-submersion')} (M-Alert)` : 'Tsunami (M-Alert)';
+    const ts = Math.round(H * 0.034);
+    ctx.font = `700 ${ts}px ${FONT}`;
+    if (ctx.measureText(title).width <= legendW * 0.86) ctx.fillText(title, lx + legendW * 0.08, H * 0.08);
+    else {
+      // Titre long (vagues-submersion) : nom, puis « (M-Alert) » dessous.
+      const name = title.replace(/ \(M-Alert\)$/, '');
+      fitText(ctx, name, legendW * 0.86, ts, 12);
+      ctx.fillText(name, lx + legendW * 0.08, H * 0.08);
+      ctx.font = `700 ${ts}px ${FONT}`;
+      ctx.fillText('(M-Alert)', lx + legendW * 0.08, H * 0.08 + ts * 1.25);
+    }
     return canvas;
   }
 

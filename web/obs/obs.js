@@ -19,7 +19,7 @@
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
- *   demo=seisme|tsunami|vent|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
+ *   demo=seisme|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
   'use strict';
@@ -60,6 +60,8 @@
   let drawnKey = '';
   let infoUntil = 0;
   let manualBanner = null; // null : automatique ; true : affiché à la main ; false : masqué à la main
+  let manualMap = null; // carte du tsunami / des vagues-submersion : même principe
+  const isCoast = (x) => Boolean(x) && (x.category === 'tsunami' || ((x.category || 'meteo') === 'meteo' && [9, 16].includes(Number(x.phenomenon))));
   // Alerte annulée (fausse alerte) : cadre d'annulation en bas à la place du bandeau, texte du haut
   // « Alerte de … annulée », pendant « hold » secondes (l'écran réduit reste le temps de l'annonce).
   let cancelled = null; // { alert, until }
@@ -224,19 +226,23 @@
       if (m && k !== drawnKey) { B.drawBanner($('banner'), m, { width: 1600, height: 450 }); drawnKey = k; }
       return;
     }
-    const tsu = alerts.filter(wanted).find((x) => x.category === 'tsunami');
+    // Carte plein écran : tsunami, ou vagues-submersion / forte houle (automatique, ou à la main).
+    const coastList = alerts.filter(wanted).filter(isCoast)
+      .sort((x, y) => ((y.category === 'tsunami') - (x.category === 'tsunami')) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+    const lastCoast = isCoast(lastAlert) ? lastAlert : null;
+    const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
     // bandeau d'une autre alerte (le séisme) passe en haut.
-    const mapOn = Boolean(tsu && tsunamiMap);
+    const mapOn = Boolean(tsu);
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
-    const others = mapOn ? alerts.filter(wanted).filter((x) => x.category !== 'tsunami')
+    const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
-    const ba = mapOn && a && a.category === 'tsunami' ? others[0] || a : a;
-    const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000) && !(mapOn && ba.category === 'tsunami');
+    const ba = mapOn && a && (a.id === tsu.id || isCoast(a)) ? others[0] || null : a;
+    const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
-    const bannerOn = cancelOn() ? false : manualBanner === true ? shown && !(mapOn && shown.category === 'tsunami') : manualBanner === false ? false : autoOn;
+    const bannerOn = cancelOn() ? false : manualBanner === true ? shown && !(mapOn && shown.id === tsu.id) : manualBanner === false ? false : autoOn;
     // Écran réduit : bandeau toujours en bas (le texte d'informations est en haut).
     document.body.classList.toggle('top', (q.get('pos') === 'top' && !reduceScene) || mapOn);
     document.body.classList.toggle('show-banner', Boolean(bannerOn));
@@ -245,8 +251,8 @@
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450 }); drawnKey = key; }
     // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
     reduce(Boolean(((autoOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000) || (cancelOn() && prevScene)));
-    document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
-    if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
+    document.body.classList.toggle('show-tsunami', mapOn);
+    if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
 
   function arrived(a) {
@@ -258,6 +264,7 @@
       arrived.quakeTimer = setTimeout(() => document.body.classList.remove('show-quake-top'), 3000);
     }
     manualBanner = null;
+    manualMap = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
@@ -306,8 +313,10 @@
   // le bandeau de l'alerte en cours.
   window.addEventListener('malert', (e) => {
     const d = (e && e.detail) || {};
-    if (d.cmd !== 'banner' || fondLayer || bannerLayer) return;
-    manualBanner = document.body.classList.contains('show-banner') ? false : true;
+    if (fondLayer || bannerLayer) return;
+    if (d.cmd === 'banner') manualBanner = document.body.classList.contains('show-banner') ? false : true;
+    else if (d.cmd === 'map') manualMap = document.body.classList.contains('show-tsunami') ? false : true;
+    else return;
     render();
   });
 
@@ -326,6 +335,8 @@
     tsunami: { id: 'demo', category: 'tsunami', level: 4, departments: ['06', '83', '13', '2B', '2A'], epicenter: { lat: 43.2, lon: 7.8 }, tsunamiTable: [{ department: '06', level: 4 }, { department: '83', level: 4 }, { department: '2B', level: 4 }, { department: '13', level: 2 }, { department: '2A', level: 2 }] },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
+    submersion: { id: 'demo', category: 'meteo', phenomenon: 9, level: 4, departments: ['29', '56', '44', '85', '17'], title: 'Vagues-submersion sur la façade atlantique',
+      forecastTable: { kind: 'submersion', rows: [['29', 4, 9.5], ['56', 4, 8.2], ['44', 3, 7.1], ['85', 3, 6.8], ['17', 2, 5.5]].map(([department, level, hs]) => ({ department, level, hs })) } },
     inondation: { id: 'demo', category: 'meteo', phenomenon: 2, level: 4, departments: ['30', '34', '07'], title: 'Pluie-inondation : épisode cévenol',
       forecastTable: { kind: 'inondation', rows: [['30', 4, 310, 3.2], ['34', 3, 190, 1.8], ['07', 3, 220, 2.4]].map(([department, level, rain24, river]) => ({ department, level, rain24, river })) } },
   };

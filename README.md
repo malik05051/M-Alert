@@ -98,7 +98,7 @@ L'APK est signé avec la clé publique `mobile/android/app/m-alert-public.jks` (
 
 ### Incrustation OBS (alertes façon NHK)
 
-M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : **bandeau d'alerte** (carte des départements à gauche, titre de la couleur du niveau, consigne en jaune et lieux concernés), **carte des tsunamis** en plein écran, sur fond opaque, aux côtes qui clignotent (avertissement majeur, avertissement, avis), avec le bandeau du séisme réduit en haut à gauche et cadre **« Information(s) M-Alert »** (alerte annulée, notifications envoyées depuis M-Alert-sender). Pour un séisme, le bandeau rouge « Alerte de tremblement de terre » s'affiche en haut pendant 3 secondes. Pour une alerte annulée, le cadre d'annulation prend la place du bandeau en bas, et le texte du haut indique « Alerte de … annulée ».
+M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : **bandeau d'alerte** (carte des départements à gauche, titre de la couleur du niveau, consigne en jaune et lieux concernés), **carte des tsunamis et des vagues-submersion** en plein écran, sur fond opaque, aux côtes qui clignotent (avertissement majeur, avertissement, avis), avec le bandeau du séisme réduit en haut à gauche et cadre **« Information(s) M-Alert »** (alerte annulée, notifications envoyées depuis M-Alert-sender). Pour un séisme, le bandeau rouge « Alerte de tremblement de terre » s'affiche en haut pendant 3 secondes. Pour une alerte annulée, le cadre d'annulation prend la place du bandeau en bas, et le texte du haut indique « Alerte de … annulée ».
 
 **Avec le script (le plus simple)** : téléchargez [`obs/m-alert.lua`](obs/m-alert.lua), puis dans OBS > *Outils* > *Scripts* > **+** > `m-alert.lua`. Réglez les options (catégories, départements, niveau minimum, durée, position, son…) puis **Ajouter / mettre à jour l'incrustation** : une source navigateur « M-Alert » (1920 × 1080, fond transparent) est créée dans la scène en cours. **Aperçu (séisme)** montre un exemple. Si une scène ou une autre source s'appelle déjà « M-Alert », la source s'appelle « M-Alert (incrustation) ». Elle reste transparente tant qu'aucune alerte n'est en cours.
 
@@ -114,6 +114,7 @@ Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le
 **À la main, aussi** :
 - **texte en haut seul** : bande bleue avec « Informations M-Alert » puis les informations, sans réduire l'image. C'est la source « M-Alert (texte) », cachée au départ.
 - **bandeau de l'alerte en cours** : affiché sans durée limite, ou masqué jusqu'à la prochaine alerte. La commande est envoyée à la source d'incrustation.
+- **carte du tsunami ou des vagues-submersion** : affichée ou masquée de la même façon (bouton « Carte tsunami / vagues-submersion : afficher / masquer »).
 
 Utilise les boutons « Texte en haut : afficher / masquer » et « Bandeau de l'alerte : afficher / masquer » du script, ou leurs raccourcis clavier. Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
 
@@ -142,7 +143,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `reduceAfter=10` | secondes avant l'écran réduit (`0` : tout de suite) |
 | `layer=fond` | fond de l'écran réduit (bleu et texte d'informations) |
 | `layer=texte` | texte en haut seul (bande bleue) |
-| `demo=seisme` (`tsunami`, `vent`, `inondation`, `annulation`, `info`) | aperçu sans serveur |
+| `demo=seisme` (`tsunami`, `submersion`, `vent`, `inondation`, `annulation`, `info`) | aperçu sans serveur |
 
 ### Version web (téléphone, navigateur)
 

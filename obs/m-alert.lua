@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-9"
+local PAGE_VERSION = "3.0.0-10"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -326,6 +326,7 @@ local function send_overlay(cmd)
   obs.obs_source_release(src)
 end
 local banner_hotkey = nil
+local map_hotkey = nil
 
 local function apply(st, demo)
   if not browser_available() then
@@ -408,6 +409,7 @@ function script_properties()
     obs.obs_properties_add_button(p, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
   end
   obs.obs_properties_add_button(p, "banner_toggle", "Bandeau de l'alerte : afficher / masquer", function() send_overlay("banner") return true end)
+  obs.obs_properties_add_button(p, "map_toggle", "Carte tsunami / vagues-submersion : afficher / masquer", function() send_overlay("map") return true end)
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -454,6 +456,12 @@ function script_load(st)
   local bk = obs.obs_data_get_array(st, "malert_bandeau_hotkey")
   obs.obs_hotkey_load(banner_hotkey, bk)
   obs.obs_data_array_release(bk)
+  map_hotkey = obs.obs_hotkey_register_frontend("malert_carte", "M-Alert : carte tsunami / vagues-submersion : afficher / masquer", function(pressed)
+    if pressed then send_overlay("map") end
+  end)
+  local mk = obs.obs_data_get_array(st, "malert_carte_hotkey")
+  obs.obs_hotkey_load(map_hotkey, mk)
+  obs.obs_data_array_release(mk)
   for _, m in ipairs(MANUAL) do
     local id = obs.obs_hotkey_register_frontend("malert_" .. m.key, "M-Alert : " .. m.label:lower(), function(pressed)
       if pressed then toggle_manual(m) end
@@ -478,6 +486,11 @@ function script_save(st)
   local keys = obs.obs_hotkey_save(hotkey_id)
   obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
   obs.obs_data_array_release(keys)
+  if map_hotkey ~= nil then
+    local mk = obs.obs_hotkey_save(map_hotkey)
+    obs.obs_data_set_array(st, "malert_carte_hotkey", mk)
+    obs.obs_data_array_release(mk)
+  end
   if banner_hotkey ~= nil then
     local bk = obs.obs_hotkey_save(banner_hotkey)
     obs.obs_data_set_array(st, "malert_bandeau_hotkey", bk)
