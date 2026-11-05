@@ -16,6 +16,7 @@
  *                         texte d'informations en haut, la scène en cours réduite) puis revient ;
  *                         la source doit avoir l'accès « avancé » à OBS (script m-alert.lua)
  *   reduceAfter=10        secondes avant l'écran réduit (0 : tout de suite)
+ *   cancelHold=30         secondes d'affichage d'une alerte annulée (cadre en bas et texte du haut)
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
@@ -70,18 +71,20 @@
     const name = (M.alertKind(a || {}).name || 'alerte').replace(/^./, (c) => c.toLowerCase());
     return [`Alerte de ${name} annulée`, 'Aucun danger est attendu.'];
   }
+  // Durée de l'annonce d'annulation (secondes, paramètre cancelHold ; par défaut celle du bandeau).
+  const cancelHold = q.has('cancelHold') ? Math.max(3, Number(q.get('cancelHold')) || 30) : (hold || 60);
   function announceCancel(a) {
-    cancelled = { alert: a, until: Date.now() + (hold || 60) * 1000 };
+    cancelled = { alert: a, until: Date.now() + cancelHold * 1000 };
     manualBanner = null;
     document.body.classList.add('cancelling');
-    showInfo(B.cancelledInfo(a));
+    showInfo(B.cancelledInfo(a), cancelHold);
   }
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
-  function showInfo(info) {
+  function showInfo(info, seconds) {
     if (!infos || fondLayer || bannerLayer) return;
     B.drawInfo($('info'), info, { width: 670, height: 330 });
-    infoUntil = Date.now() + (hold || 60) * 1000;
+    infoUntil = Date.now() + (seconds || hold || 60) * 1000;
     document.body.classList.add('show-info');
   }
 
@@ -343,15 +346,14 @@
   if (q.get('demo') === 'annulation') announceCancel({ category: 'seisme', title: 'Séisme de magnitude 5.2 — Alpes-Maritimes' });
   if (q.get('demo') === 'info') showInfo({ title: 'Exercice M-Alert', body: 'Un exercice d\'alerte aura lieu demain à 10 h. Aucune action n\'est demandée.' });
   const demo = q.get('demo');
-  if (demo) {
-    if (!DEMOS[demo]) return; // aperçu d'une carte d'information (ci-dessus) : pas de serveur
+  if (demo && DEMOS[demo]) {
     const a = { ...DEMOS[demo], createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];
     // Aperçu du tsunami : avec le séisme qui l'a causé (bandeau réduit en haut à gauche).
     if (demo === 'tsunami') alerts.unshift({ ...DEMOS.seisme, id: 'demo-seisme', epicenter: a.epicenter, createdAt: new Date(Date.now() - 1000).toISOString(), expiresAt: a.expiresAt });
     arrived(a);
     remember(a);
-  } else connect();
+  } else if (!demo) connect(); // aperçu d'une carte d'information (ci-dessus) : pas de serveur
 
   // Côtes du tsunami : clignotement ; bandeau : masqué après « hold » secondes.
   setInterval(() => {

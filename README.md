@@ -140,6 +140,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `tsunami=0` | pas de carte plein écran des tsunamis |
 | `infos=0` | pas de cadre « Information(s) M-Alert » |
 | `reduce=M-Alert (alerte)` | écran réduit : passe sur cette scène pendant l'alerte (accès « avancé » de la source) |
+| `cancelHold=30` | secondes d'affichage d'une alerte annulée |
 | `reduceAfter=10` | secondes avant l'écran réduit (`0` : tout de suite) |
 | `layer=fond` | fond de l'écran réduit (bleu et texte d'informations) |
 | `layer=texte` | texte en haut seul (bande bleue) |
