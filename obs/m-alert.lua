@@ -51,9 +51,32 @@ local function overlay_url(st, demo)
   return base .. (base:find("?", 1, true) and "&" or "?") .. q
 end
 
+-- Source navigateur de l'incrustation : celle nommée SOURCE_NAME si c'en est bien une (une scène
+-- ou une autre source peut porter ce nom), sinon SOURCE_NAME .. " (incrustation)".
+local function find_overlay()
+  for _, name in ipairs({ SOURCE_NAME, SOURCE_NAME .. " (incrustation)" }) do
+    local src = obs.obs_get_source_by_name(name)
+    if src ~= nil then
+      if obs.obs_source_get_unversioned_id(src) == "browser_source" then return src, name end
+      obs.obs_source_release(src)
+    else
+      return nil, name
+    end
+  end
+  return nil, SOURCE_NAME .. " (incrustation M-Alert)"
+end
+
+local function browser_available()
+  return obs.obs_source_get_display_name("browser_source") ~= nil
+end
+
 local function apply(st, demo)
+  if not browser_available() then
+    obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
+      "Sous Arch, le paquet obs-studio n'en a pas : installez obs-studio-browser (AUR) ou OBS en Flatpak (com.obsproject.Studio).")
+    return
+  end
   local url = overlay_url(st, demo)
-  local src = obs.obs_get_source_by_name(SOURCE_NAME)
   local data = obs.obs_data_create()
   obs.obs_data_set_string(data, "url", url)
   obs.obs_data_set_bool(data, "is_local_file", false)
@@ -63,20 +86,31 @@ local function apply(st, demo)
   obs.obs_data_set_bool(data, "shutdown", false)
   obs.obs_data_set_bool(data, "restart_when_active", false)
   obs.obs_data_set_string(data, "css", "body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }")
+  local src, name = find_overlay()
   if src ~= nil then
     obs.obs_source_update(src, data)
-    obs.obs_source_release(src)
   else
-    src = obs.obs_source_create("browser_source", SOURCE_NAME, data, nil)
-    local scene_src = obs.obs_frontend_get_current_scene()
-    if scene_src ~= nil then
-      local scene = obs.obs_scene_from_source(scene_src)
-      obs.obs_scene_add(scene, src)
-      obs.obs_source_release(scene_src)
-    end
-    obs.obs_source_release(src)
+    src = obs.obs_source_create("browser_source", name, data, nil)
   end
   obs.obs_data_release(data)
+  if src == nil then
+    obs.script_log(obs.LOG_ERROR, "M-Alert : impossible de créer la source navigateur « " .. name .. " ».")
+    return
+  end
+  -- Dans la scène en cours (ajoutée si elle n'y est pas encore), au premier plan.
+  local scene_src = obs.obs_frontend_get_current_scene()
+  if scene_src ~= nil then
+    local scene = obs.obs_scene_from_source(scene_src)
+    local item = obs.obs_scene_find_source(scene, name)
+    if item == nil then item = obs.obs_scene_add(scene, src) end
+    if item ~= nil then
+      obs.obs_sceneitem_set_visible(item, true)
+      obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP)
+    end
+    obs.script_log(obs.LOG_INFO, "M-Alert : source « " .. name .. " » dans la scène « " .. obs.obs_source_get_name(scene_src) .. " »")
+    obs.obs_source_release(scene_src)
+  end
+  obs.obs_source_release(src)
   obs.script_log(obs.LOG_INFO, "M-Alert : incrustation " .. url)
   if demo == nil then
     obs.script_log(obs.LOG_INFO, "M-Alert : la source reste transparente tant qu'aucune alerte n'est en cours (« Aperçu » pour un exemple).")
@@ -84,6 +118,9 @@ local function apply(st, demo)
 end
 
 function script_description()
+  if not browser_available() then
+    return "<b>M-Alert</b> : <span style=\"color:#ff5555\">OBS n'a pas de source « Navigateur » (obs-browser). Sous Arch, installez <b>obs-studio-browser</b> (AUR) ou OBS en Flatpak, puis rechargez ce script.</span>"
+  end
   return "<b>M-Alert</b> : alertes sismiques précoces, tsunamis et alertes météo incrustées comme à la NHK " ..
     "(bandeau et carte des tsunamis), en temps réel. « Ajouter / mettre à jour » crée la source navigateur " ..
     "« M-Alert » dans la scène en cours."

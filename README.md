@@ -100,7 +100,9 @@ L'APK est signé avec la clé publique `mobile/android/app/m-alert-public.jks` (
 
 M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : **bandeau d'alerte** (carte des départements à gauche, titre de la couleur du niveau, consigne en jaune et lieux concernés), **carte des tsunamis** en plein écran aux côtes qui clignotent (avertissement majeur, avertissement, avis) et cadre **« Information(s) M-Alert »** (alerte annulée, notifications envoyées depuis M-Alert-sender).
 
-**Avec le script (le plus simple)** : téléchargez [`obs/m-alert.lua`](obs/m-alert.lua), puis dans OBS > *Outils* > *Scripts* > **+** > `m-alert.lua`. Réglez les options (catégories, départements, niveau minimum, durée, position, son…) puis **Ajouter / mettre à jour l'incrustation** : une source navigateur « M-Alert » (1920 × 1080, fond transparent) est créée dans la scène en cours. **Aperçu (séisme)** montre un exemple.
+**Avec le script (le plus simple)** : téléchargez [`obs/m-alert.lua`](obs/m-alert.lua), puis dans OBS > *Outils* > *Scripts* > **+** > `m-alert.lua`. Réglez les options (catégories, départements, niveau minimum, durée, position, son…) puis **Ajouter / mettre à jour l'incrustation** : une source navigateur « M-Alert » (1920 × 1080, fond transparent) est créée dans la scène en cours. **Aperçu (séisme)** montre un exemple. Si une scène ou une autre source s'appelle déjà « M-Alert », la source s'appelle « M-Alert (incrustation) ». Elle reste transparente tant qu'aucune alerte n'est en cours.
+
+Il faut la source **Navigateur** d'OBS (obs-browser), présente dans OBS pour Windows, macOS et en Flatpak. Sous **Arch Linux**, le paquet `obs-studio` ne l'a pas : installez `obs-studio-browser` (AUR) ou OBS en Flatpak (`flatpak install flathub com.obsproject.Studio`). Le script le signale dans sa description si elle manque.
 
 **À la main** : ajoutez une *Source navigateur* de 1920 × 1080 avec l'adresse
 
