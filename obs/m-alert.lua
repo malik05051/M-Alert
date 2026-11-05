@@ -9,9 +9,10 @@ OBS. La source affiche :
   - le bandeau d'alerte (carte à gauche, titre, consigne, lieux) quand une alerte arrive ;
   - la carte des côtes en alerte tsunami, qui clignotent, tant qu'un tsunami est en cours ;
   - le cadre « Information(s) M-Alert » : alerte annulée, notifications envoyées depuis M-Alert-sender.
-Écran réduit (option) : pendant une alerte, OBS passe sur la scène « M-Alert (alerte) » : fond bleu,
+Écran réduit (option) : 10 secondes (réglable) après l'arrivée d'une alerte, OBS passe sur la scène « M-Alert (alerte) » : fond bleu,
 « Informations M-Alert » puis les informations en haut, la scène en cours réduite à 80 % et le
-bandeau en bas ; puis OBS revient à la scène d'avant.
+bandeau en bas ; puis OBS revient à la scène d'avant. Aussi à la main : bouton « Écran réduit :
+activer / désactiver » ou raccourci clavier (Paramètres > Raccourcis clavier > « M-Alert : écran réduit »).
 ]]
 
 obs = obslua
@@ -49,7 +50,10 @@ local function overlay_url(st, demo)
   add("min", tostring(obs.obs_data_get_int(st, "min")))
   -- Aperçu : 20 secondes (écran réduit compris), puis retour à la scène.
   add("hold", demo and "20" or tostring(obs.obs_data_get_int(st, "hold")))
-  if obs.obs_data_get_bool(st, "reduce") then add("reduce", ALERT_SCENE) end
+  if obs.obs_data_get_bool(st, "reduce") then
+    add("reduce", ALERT_SCENE)
+    add("reduceAfter", demo and "3" or tostring(obs.obs_data_get_int(st, "reduce_after")))
+  end
   if obs.obs_data_get_bool(st, "sound") then add("sound", "1") end
   if not obs.obs_data_get_bool(st, "tests") then add("tests", "0") end
   if not obs.obs_data_get_bool(st, "tsunami") then add("tsunami", "0") end
@@ -221,6 +225,25 @@ local function on_event(event)
   end
 end
 
+-- Écran réduit à la main (bouton ou raccourci clavier) : passe sur la scène de l'écran réduit, ou
+-- revient à la scène d'avant.
+local hotkey_id = nil
+local function toggle_reduced()
+  local cur = obs.obs_frontend_get_current_scene()
+  if cur == nil then return end
+  local name = obs.obs_source_get_name(cur)
+  obs.obs_source_release(cur)
+  if name == ALERT_SCENE then
+    local back = program_scene and obs.obs_get_source_by_name(program_scene)
+    if back ~= nil and back then obs.obs_frontend_set_current_scene(back); obs.obs_source_release(back) end
+    return
+  end
+  program_scene = name
+  if scene_by_name(ALERT_SCENE) == nil and settings_ref ~= nil then ensure_alert_scene(settings_ref, nil) end
+  local target = obs.obs_get_source_by_name(ALERT_SCENE)
+  if target ~= nil then obs.obs_frontend_set_current_scene(target); obs.obs_source_release(target) end
+end
+
 local function apply(st, demo)
   if not browser_available() then
     obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
@@ -295,6 +318,8 @@ function script_properties()
   obs.obs_properties_add_int(p, "hold", "Bandeau affiché (s, 0 : tant que l'alerte dure)", 0, 3600, 5)
   obs.obs_properties_add_int_slider(p, "width", "Largeur du bandeau (% de l'écran)", 30, 100, 1)
   obs.obs_properties_add_bool(p, "reduce", "Réduire l'image pendant une alerte (texte d'informations en haut, comme la NHK)")
+  obs.obs_properties_add_int(p, "reduce_after", "Écran réduit après (s, 0 : tout de suite)", 0, 600, 1)
+  obs.obs_properties_add_button(p, "reduce_now", "Écran réduit : activer / désactiver", function() toggle_reduced() return true end)
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -319,6 +344,7 @@ function script_defaults(st)
   obs.obs_data_set_default_int(st, "width", 66)
   obs.obs_data_set_default_bool(st, "tsunami", true)
   obs.obs_data_set_default_bool(st, "reduce", true)
+  obs.obs_data_set_default_int(st, "reduce_after", 10)
   obs.obs_data_set_default_bool(st, "infos", true)
   obs.obs_data_set_default_bool(st, "sound", true)
   obs.obs_data_set_default_bool(st, "tests", true)
@@ -327,6 +353,13 @@ end
 function script_load(st)
   settings_ref = st
   obs.obs_frontend_add_event_callback(on_event)
+  -- Raccourci clavier (Paramètres > Raccourcis clavier) : écran réduit à la main.
+  hotkey_id = obs.obs_hotkey_register_frontend("malert_reduce", "M-Alert : écran réduit (activer / désactiver)", function(pressed)
+    if pressed then toggle_reduced() end
+  end)
+  local keys = obs.obs_data_get_array(st, "malert_reduce_hotkey")
+  obs.obs_hotkey_load(hotkey_id, keys)
+  obs.obs_data_array_release(keys)
   local src, name = find_overlay()
   if src ~= nil then obs.obs_source_release(src) end
   overlay_name = name
@@ -335,6 +368,13 @@ function script_load(st)
     if obs.obs_source_get_name(cur) ~= ALERT_SCENE then program_scene = obs.obs_source_get_name(cur) end
     obs.obs_source_release(cur)
   end
+end
+
+function script_save(st)
+  if hotkey_id == nil then return end
+  local keys = obs.obs_hotkey_save(hotkey_id)
+  obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
+  obs.obs_data_array_release(keys)
 end
 
 function script_unload()

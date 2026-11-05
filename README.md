@@ -102,14 +102,14 @@ M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : 
 
 **Avec le script (le plus simple)** : téléchargez [`obs/m-alert.lua`](obs/m-alert.lua), puis dans OBS > *Outils* > *Scripts* > **+** > `m-alert.lua`. Réglez les options (catégories, départements, niveau minimum, durée, position, son…) puis **Ajouter / mettre à jour l'incrustation** : une source navigateur « M-Alert » (1920 × 1080, fond transparent) est créée dans la scène en cours. **Aperçu (séisme)** montre un exemple. Si une scène ou une autre source s'appelle déjà « M-Alert », la source s'appelle « M-Alert (incrustation) ». Elle reste transparente tant qu'aucune alerte n'est en cours.
 
-**Écran réduit (comme la NHK, activé par défaut)** : pendant une alerte, OBS passe sur la scène **« M-Alert (alerte) »**, créée par le script. L'image de la scène en cours se réduit à 80 % (animation) sur un fond bleu. En haut s'affiche **« Informations M-Alert »** pendant 4 secondes, puis les informations de l'alerte :
+**Écran réduit (comme la NHK, activé par défaut)** : 10 secondes après l'arrivée d'une alerte (réglable, « Écran réduit après »), OBS passe sur la scène **« M-Alert (alerte) »**, créée par le script. L'image de la scène en cours se réduit à 80 % (animation) sur un fond bleu. En haut s'affiche **« Informations M-Alert »** pendant 4 secondes, puis les informations de l'alerte :
 - séisme : heure, magnitude, profondeur et intensités par département ;
 - tsunami : hauteurs et heures d'arrivée ;
 - vent et tempête : rafales ;
 - pluie-inondation : pluie en 24 h et crues ;
 - vagues-submersion : hauteur des vagues.
 
-Le bandeau reste en bas, puis OBS revient à la scène d'avant. La source d'incrustation a pour cela l'accès « avancé » à OBS (réglé par le script). Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
+Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le déclencher à la main : bouton **« Écran réduit : activer / désactiver »** du script, ou raccourci clavier (*Paramètres* > *Raccourcis clavier* > « M-Alert : écran réduit »). La source d'incrustation a pour cela l'accès « avancé » à OBS (réglé par le script). Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
 
 Il faut la source **Navigateur** d'OBS (obs-browser), présente dans OBS pour Windows, macOS et en Flatpak. Sous **Arch Linux**, le paquet `obs-studio` ne l'a pas : installez `obs-studio-browser` (AUR) ou OBS en Flatpak (`flatpak install flathub com.obsproject.Studio`). Le script le signale dans sa description si elle manque.
 
@@ -133,6 +133,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `tsunami=0` | pas de carte plein écran des tsunamis |
 | `infos=0` | pas de cadre « Information(s) M-Alert » |
 | `reduce=M-Alert (alerte)` | écran réduit : passe sur cette scène pendant l'alerte (accès « avancé » de la source) |
+| `reduceAfter=10` | secondes avant l'écran réduit (`0` : tout de suite) |
 | `layer=fond` | fond de l'écran réduit (bleu et texte d'informations) |
 | `demo=seisme` (`tsunami`, `vent`, `inondation`, `annulation`, `info`) | aperçu sans serveur |
 

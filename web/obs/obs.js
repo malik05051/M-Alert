@@ -15,6 +15,7 @@
  *   reduce=Nom de scène   écran réduit comme la NHK : à l'alerte, OBS passe sur cette scène (fond bleu,
  *                         texte d'informations en haut, la scène en cours réduite) puis revient ;
  *                         la source doit avoir l'accès « avancé » à OBS (script m-alert.lua)
+ *   reduceAfter=10        secondes avant l'écran réduit (0 : tout de suite)
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   demo=seisme|tsunami|vent|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
@@ -35,6 +36,8 @@
   const infos = q.get('infos') !== '0';
   const fondLayer = q.get('layer') === 'fond';
   const reduceScene = q.get('reduce') || '';
+  // Écran réduit quelques secondes après l'arrivée de l'alerte (le bandeau seul d'abord).
+  const reduceAfter = q.has('reduceAfter') ? Math.max(0, Number(q.get('reduceAfter')) || 0) : 10;
   if (fondLayer) document.body.classList.add('layer-fond');
   const obsApi = window.obsstudio || null;
   let prevScene = null; // scène d'avant l'écran réduit
@@ -106,11 +109,12 @@
     if (a && a.id !== fondId) startIntro();
     fondId = a ? a.id : null;
     const intro = a && Date.now() < introUntil;
-    const lines = !a ? [] : intro ? ['Informations M-Alert'] : B.infoLines(a);
+    // Sans alerte (écran réduit à la main) : « Informations M-Alert » seul.
+    const lines = !a || intro ? ['Informations M-Alert'] : B.infoLines(a);
     const el = $('fondText');
     const html = lines.filter(Boolean).map((l) => `<div>${M.escapeHtml(l)}</div>`).join('');
     if (el.innerHTML === html) return;
-    el.classList.toggle('intro', Boolean(intro));
+    el.classList.toggle('intro', Boolean(intro || !a));
     el.innerHTML = html;
     // Ligne trop longue : texte réduit (jusqu'à 60 %) plutôt que coupé.
     for (const d of el.children) {
@@ -135,7 +139,7 @@
     // Bandeau redessiné seulement quand l'alerte change (le clignotement ne concerne que la carte).
     const key = a ? `${a.id}:${a.revision || 0}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), a, { width: 1600, height: 450 }); drawnKey = key; }
-    reduce(Boolean(bannerOn || mapOn));
+    reduce(Boolean((bannerOn || mapOn) && Date.now() - shownAt >= reduceAfter * 1000));
     document.body.classList.toggle('show-tsunami', Boolean(tsu && tsunamiMap));
     if (tsu && tsunamiMap) B.drawTsunamiMap($('tsunami'), tsu, blink);
   }
