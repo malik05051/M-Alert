@@ -23,7 +23,7 @@
  *   stay=quake            écran réduit gardé tant qu'un séisme ou un tsunami est en cours (0 : non ; all : toutes)
  *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
- *   demo=seisme|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
+ *   demo=seisme|missile|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
 (function () {
   'use strict';
@@ -464,7 +464,8 @@
   function arrived(a) {
     if (!wanted(a)) return;
     // Séisme : « Alerte de tremblement de terre » en haut pendant 3 secondes.
-    if (a.category === 'seisme' && !fondLayer && !bannerLayer) {
+    if ((a.category === 'seisme' || a.category === 'missile') && !fondLayer && !bannerLayer) {
+      $('quakeTop').textContent = a.category === 'missile' ? 'Alerte missile' : 'Alerte de tremblement de terre';
       document.body.classList.add('show-quake-top');
       clearTimeout(arrived.quakeTimer);
       arrived.quakeTimer = setTimeout(() => document.body.classList.remove('show-quake-top'), 3000);
@@ -560,6 +561,7 @@
     tsunami: { id: 'demo', category: 'tsunami', level: 4, title: 'Tsunami en Méditerranée', departments: ['06', '83', '13', '2B', '2A', '30', '34'], epicenter: { lat: 43.2, lon: 7.8 },
       tsunamiTable: [['06', 4, 'arrived', 3], ['83', 4, 'imminent', 3], ['2B', 4, 15, 2.5], ['13', 2, 35, 1], ['2A', 2, 40, 1], ['30', 2, 55, 0.5], ['34', 2, 60, 0.5]]
         .map(([department, level, arr, height]) => ({ department, level, height, arrival: typeof arr === 'number' ? new Date(Date.now() + arr * 60000).toISOString() : arr })) },
+    missile: { id: 'demo', category: 'missile', level: 5, departments: ['2B', '2A', '06', '83', '13'], title: 'Missile en direction de la Corse et de la Provence' },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
     submersion: { id: 'demo', category: 'meteo', phenomenon: 9, level: 4, departments: ['29', '56', '44', '85', '17'], title: 'Vagues-submersion sur la façade atlantique',

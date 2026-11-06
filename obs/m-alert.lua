@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-21"
+local PAGE_VERSION = "3.0.1"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -30,7 +30,7 @@ local REDUCED_SCALE = 0.8   -- image du direct réduite à 80 %
 local REDUCED_Y = 196       -- sous le texte d'informations (canevas 1920 × 1080)
 local ANIM_MS = 500
 -- Catégories des alertes M-Alert (comme dans l'application).
-local CATEGORIES = { "seisme", "tsunami", "meteo", "pollution", "accident", "attentat", "greve", "blocus" }
+local CATEGORIES = { "seisme", "tsunami", "meteo", "pollution", "accident", "attentat", "greve", "blocus", "missile" }
 local settings_ref = nil
 
 local function urlencode(s)
@@ -435,6 +435,7 @@ function script_properties()
     obs.obs_properties_add_bool(g, "type_attentat", "Attentats")
     obs.obs_properties_add_bool(g, "type_greve", "Grèves")
     obs.obs_properties_add_bool(g, "type_blocus", "Blocus / manifestations")
+    obs.obs_properties_add_bool(g, "type_missile", "Missiles")
     obs.obs_properties_add_bool(g, "tests", "Alertes de test")
   end)
   tip(obs.obs_properties_add_text(p, "deps", "Départements", obs.OBS_TEXT_DEFAULT), "Codes des départements suivis, séparés par des virgules (ex. 13, 83, 988) ; vide : tous")

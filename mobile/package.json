@@ -1,6 +1,6 @@
 {
   "name": "m-alert-mobile",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Application mobile M-Alert (Android, iOS) : la version web de M-Alert dans Capacitor, avec un service Android qui reçoit les alertes en arrière-plan.",
   "scripts": {

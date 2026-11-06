@@ -38,6 +38,7 @@ Pour recevoir les alertes que j'envoie (dont la source vient des centres météo
 - **Nouvelle-Calédonie** : choisissez « Nouvelle-Calédonie (988) » comme département pour recevoir les alertes **séisme** et **tsunami** (îles Loyauté, fosse du Vanuatu…), à l'heure de Nouméa ; l'archipel est dessiné en encart sur la carte, avec l'épicentre, les ondes et les intensités. Les séismes viennent de l'EMSC et des stations sismiques de l'IRD Nouméa (réseau ND), détectés par M-Alert en quelques dizaines de secondes. Météo : la vigilance de Météo-France Nouvelle-Calédonie (vent violent, fortes pluies-orages, forte houle) et les alertes M-Alert de vent violent, tempête, pluie-inondation et vagues-submersion, aux jours et heures de Nouméa.
 - **Consignes types** pour tous les phénomènes et catégories, affichées dès le niveau jaune (Avis) quand M-Alert n'en a pas écrit.
 - **Blocus / manifestation** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose).
+- **Missile** : trois niveaux, **Avis** (jaune), **Avertissement** (rouge) et **Avertissement majeur** (rose), tous avec le son de la vigilance rouge ; consignes de mise à l'abri. Envoi depuis M-Alert-sender (pas de flux public d'alertes FR-Alert à automatiser).
 - **Vigilances Météo-France dans « Alertes en cours »** : à côté des alertes M-Alert, une ligne par phénomène et par couleur de vigilance du jour (jaune, orange, rouge) avec ses départements et sa plage horaire ; un clic l'affiche en bannière (départements, horaires, consignes) et la montre sur la carte. Option « Afficher les vigilances Météo-France dans « Alertes en cours » » dans les réglages.
 - **Filtre par phénomène** : liste « Alertes en cours » filtrable par catégorie ou par phénomène météo (alertes M-Alert et vigilances Météo-France).
 - **Réglages** : département principal, autres départements suivis, catégories d'alertes et phénomènes météo reçus, alertes de toute la France, niveau minimum, son et volume (général et par type d'alerte, avec écoute), notifications, notifications de M-Alert, notifications push, fond de carte détaillé, lancement au démarrage, adresse du serveur.
@@ -183,7 +184,7 @@ Les sons sont dans `web/sounds/` :
 | `eew.mp3` | Jaune et orange |
 | `seisme-eew.mp3`, `seisme-eew2.mp3`, `seisme-leger.mp3` | **Tremblements de terre** (tous niveaux), son choisi par M-Alert |
 | `countdown.mp3` | Bip du compte à rebours avant l'onde S |
-| `rouge.mp3` | Rouge |
+| `rouge.mp3` | Rouge, et toutes les alertes **missile** |
 | `majeur.mp3` | Alertes **majeures** (rose), même tsunami ou crues, sauf tremblement de terre |
 | `tsunami.mp3` | **Crues**, **pluie-inondation**, **tsunami** et **vagues-submersion** (sauf en majeure) |
 

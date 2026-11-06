@@ -134,6 +134,8 @@
     const category = alert.category || 'meteo';
     // Séisme : son choisi (EEW par défaut), quel que soit le niveau.
     if (category === 'seisme') return QUAKE_SOUNDS[alert.quakeSound] || QUAKE_SOUNDS.eew;
+    // Missile : son de la vigilance rouge, quel que soit le niveau.
+    if (category === 'missile') return 'rouge';
     if (level >= 5) return 'majeur';
     if (category === 'tsunami' || (category === 'meteo' && WATER_PHENOMENA.includes(Number(alert.phenomenon)))) return 'tsunami';
     if (level === 4) return 'rouge';

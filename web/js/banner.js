@@ -37,6 +37,7 @@
   const WATCH = {
     seisme: 'Attention aux secousses fortes dans ces lieux indiqués :',
     tsunami: 'Attention au tsunami sur les côtes indiquées :',
+    missile: 'Abritez-vous immédiatement dans ces lieux indiqués :',
     1: 'Attention au vent violent dans ces lieux indiqués :',
     2: 'Attention aux pluies et aux inondations dans ces lieux indiqués :',
     3: 'Attention aux orages dans ces lieux indiqués :',
@@ -56,6 +57,7 @@
   const HEADERS = {
     seisme: 'Alerte sismique précoce',
     tsunami: 'Alerte tsunami',
+    missile: 'Alerte missile',
   };
   const COASTAL = new Set([9, 16]);
 
@@ -637,6 +639,14 @@
       if (a.title) out.head.push(a.title);
       const ints = quakeIntensities(a).map(([c, sh]) => `${shortName(c)} ${sh}`);
       if (ints.length) out.lists.push({ label: 'Intensités', items: ints });
+    } else if (a.category === 'missile') {
+      // Comme les messages J-Alert : « Missile lancé. Missile lancé. » puis la consigne.
+      out.head.push('Missile lancé. Missile lancé.');
+      if (a.title) out.head.push(a.title);
+      out.head.push('Abritez-vous immédiatement dans un bâtiment solide ou en sous-sol');
+      if ((a.departments || []).includes('ALL')) out.lists.push({ label: 'Lieux', items: ['France entière'] });
+      else if (deps.length) out.lists.push({ label: deps.length > 1 ? 'Départements' : 'Département', items: deps.map(shortName) });
+      out.closing = 'Restez à l\'abri et informés sur M-Alert';
     } else if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
       out.head.push(a.title || `Tsunami — ${at}`);
       const rows = a.tsunamiTable.slice().sort((x, y) => (y.level - x.level) || ((y.height || 0) - (x.height || 0)));

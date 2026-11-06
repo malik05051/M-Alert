@@ -66,6 +66,7 @@
     attentat: { name: 'Attentat', icon: '🚨' },
     greve: { name: 'Grève', icon: '📢' },
     blocus: { name: 'Blocus / manifestation', icon: '🚧' },
+    missile: { name: 'Missile', icon: '🚀' },
   };
 
   // Consignes types inspirées des recommandations officielles (préfectures, ARS, ministère des Affaires étrangères).
@@ -76,6 +77,7 @@
     accident: 'Mettez-vous à l\'abri dans un bâtiment en dur, fermez portes et fenêtres, arrêtez ventilation et climatisation. N\'allez pas chercher vos enfants à l\'école, ils sont pris en charge. Pas de flamme ni de cigarette. Éloignez-vous du site seulement si les autorités le demandent.',
     attentat: 'Si vous êtes témoin d\'une attaque : échappez-vous si vous le pouvez, en aidant les autres et sans vous exposer ; sinon cachez-vous, verrouillez ou barricadez-vous, éteignez la lumière et mettez votre téléphone en silencieux. Alertez le 17 ou le 112 (114 par SMS) dès que vous êtes en sécurité. Évitez la zone, n\'allez pas sur place et ne diffusez pas d\'images ni de rumeurs. Suivez les consignes des forces de l\'ordre.',
     greve: 'Renseignez-vous auprès des transporteurs et des services concernés. Anticipez vos déplacements et prévoyez des solutions de remplacement.',
+    missile: 'Abritez-vous immédiatement dans un bâtiment solide, de préférence en sous-sol ou dans une pièce sans fenêtre au centre du bâtiment, et éloignez-vous des fenêtres. À l\'extérieur, sans bâtiment à proximité, mettez-vous à l\'abri derrière un mur ou allongez-vous au sol en protégeant votre tête. En voiture, arrêtez-vous en lieu sûr et abritez-vous. Ne vous approchez pas d\'un débris : signalez-le au 17 ou au 112. Restez à l\'abri jusqu\'à la fin de l\'alerte et suivez les consignes des autorités.',
     blocus: 'Évitez le secteur concerné et prévoyez un itinéraire de délestage. Attendez-vous à des perturbations de circulation et des transports. Suivez les consignes des forces de l\'ordre et des autorités.',
   };
 
@@ -133,6 +135,12 @@
       2: { label: 'Avis de blocus / manifestation', name: 'Avis' },
       4: { label: 'Avertissement blocus / manifestation', name: 'Avertissement' },
       5: { label: 'Avertissement majeur blocus / manifestation', name: 'Avertissement majeur' },
+    },
+    // Missile : trois niveaux, comme le tsunami.
+    missile: {
+      2: { label: 'Avis de missile', name: 'Avis' },
+      4: { label: 'Avertissement de missile', name: 'Avertissement' },
+      5: { label: 'Avertissement majeur de missile', name: 'Avertissement majeur' },
     },
     // Incendie (phénomène météo 11) : trois niveaux, comme le tsunami.
     incendie: {

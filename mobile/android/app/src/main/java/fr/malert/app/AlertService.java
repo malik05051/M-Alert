@@ -191,6 +191,7 @@ public class AlertService extends Service {
             String s = a.optString("quakeSound", "eew");
             return "eew2".equals(s) ? "seisme_eew2" : "leger".equals(s) ? "seisme_leger" : "seisme_eew";
         }
+        if ("missile".equals(cat)) return "rouge"; // missile : son de la vigilance rouge
         if (level >= 5) return "majeur";
         boolean water = "tsunami".equals(cat);
         if ("meteo".equals(cat)) for (int w : WATER) if (a.optInt("phenomenon") == w) water = true;
