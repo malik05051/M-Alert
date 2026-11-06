@@ -141,6 +141,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `tsunami=0` | pas de carte plein écran des tsunamis |
 | `infos=0` | pas de cadre « Information(s) M-Alert » |
 | `reduce=M-Alert (alerte)` | écran réduit : passe sur cette scène pendant l'alerte (accès « avancé » de la source) |
+| `stay=quake` | séisme et tsunami : écran réduit gardé tant que l'alerte est en cours (le bandeau du bas part après `hold`, le panneau de gauche, le texte du haut et le tableau restent) ; `0` : non ; `all` : toutes les alertes |
 | `mapSeconds=20` | tsunami et vagues-submersion : secondes de carte plein écran, puis l'image avec la mini-carte en bas à droite et le tableau des mesures (arrivée et hauteur ; pic et vagues) en bas à gauche, en pages |
 | `addedSeconds=10` | secondes de clignotement des départements ajoutés par une mise à jour (noms en jaune, annoncés en haut) |
 | `cancelHold=30` | secondes d'affichage d'une alerte annulée |

@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-17"
+local PAGE_VERSION = "3.0.0-18"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -56,6 +56,7 @@ local function overlay_url(st, demo)
   add("hold", demo and "20" or tostring(obs.obs_data_get_int(st, "hold")))
   add("cancelHold", tostring(obs.obs_data_get_int(st, "cancel_hold")))
   add("addedSeconds", tostring(obs.obs_data_get_int(st, "added_seconds")))
+  if not obs.obs_data_get_bool(st, "stay") then add("stay", "0") end
   add("mapSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "map_seconds")))
   if obs.obs_data_get_bool(st, "reduce") then
     add("reduce", ALERT_SCENE)
@@ -431,6 +432,7 @@ function script_properties()
   obs.obs_properties_add_int_slider(p, "width", "Largeur du bandeau (% de l'écran)", 30, 100, 1)
   obs.obs_properties_add_bool(p, "reduce", "Réduire l'image pendant une alerte (texte d'informations en haut, comme la NHK)")
   obs.obs_properties_add_int(p, "reduce_after", "Écran réduit après (s, 0 : tout de suite)", 0, 600, 1)
+  obs.obs_properties_add_bool(p, "stay", "Garder l'écran réduit tant qu'un séisme ou un tsunami est en cours")
   obs.obs_properties_add_button(p, "reduce_now", "Écran réduit : activer / désactiver", function() toggle_reduced() return true end)
   for _, m in ipairs(MANUAL) do
     obs.obs_properties_add_button(p, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
@@ -468,6 +470,7 @@ function script_defaults(st)
   obs.obs_data_set_default_bool(st, "tsunami", true)
   obs.obs_data_set_default_bool(st, "reduce", true)
   obs.obs_data_set_default_int(st, "reduce_after", 10)
+  obs.obs_data_set_default_bool(st, "stay", true)
   obs.obs_data_set_default_bool(st, "infos", true)
   obs.obs_data_set_default_bool(st, "sound", true)
   obs.obs_data_set_default_bool(st, "tests", true)

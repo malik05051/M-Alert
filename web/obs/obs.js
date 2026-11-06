@@ -20,6 +20,7 @@
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
+ *   stay=quake            écran réduit gardé tant qu'un séisme ou un tsunami est en cours (0 : non ; all : toutes)
  *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
  *   demo=seisme|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
@@ -81,6 +82,10 @@
   let manualEew = null;
   // Panneau à gauche (comme la NHK) : automatique avec l'écran réduit pendant un séisme (eewPanel=0 : jamais).
   const eewAuto = q.get('eewPanel') !== '0';
+  // Séisme et tsunami : l'écran réduit (texte en haut, panneau à gauche, tableau) reste tant que l'alerte
+  // est en cours ; seul le bandeau du bas part après « hold ». stay=0 : jamais ; stay=all : toutes les alertes.
+  const stayParam = q.get('stay') || 'quake';
+  const stays = (x) => Boolean(x) && stayParam !== '0' && (stayParam === 'all' || x.category === 'seisme' || x.category === 'tsunami');
   // Départements ajoutés par la dernière mise à jour d'une alerte (clignotants pendant ADDED_MS).
   const ADDED_MS = q.has('addedSeconds') ? Math.max(2, Number(q.get('addedSeconds')) || 10) * 1000 : 10000;
   let addedInfo = null; // { id, revision, codes, until }
@@ -355,7 +360,7 @@
     let phase = 0;
     if (tsu) {
       if (manualMap === true || Date.now() - coastStart < mapSeconds * 1000) phase = 1;
-      else if (hold === 0 || Date.now() - coastShownAt < hold * 1000) phase = 2;
+      else if (hold === 0 || Date.now() - coastShownAt < hold * 1000 || stays(tsu)) phase = 2;
     }
     const mapOn = phase === 1;
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
@@ -375,7 +380,8 @@
     const key = shown ? `${shown.id}:${shown.revision || 0}${add ? (blink ? ':+' : ':-') : ''}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450, added: add, blinkOn: blink }); drawnKey = key; }
     // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
-    reduce(Boolean(((autoOn || phase > 0) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
+    const stayOn = alerts.filter(wanted).some(stays);
+    reduce(Boolean(((autoOn || phase > 0 || stayOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
     if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
@@ -392,7 +398,9 @@
     const quake = quakes[0] || null;
     const quakeAny = quake || (lastAlert && lastAlert.category === 'seisme' ? lastAlert : null);
     const quakeRecent = quake && (hold === 0 || Date.now() - Date.parse(quake.updatedAt || quake.createdAt) < hold * 1000 || phase > 0);
-    const eewOn = !mapOn && !cancelOn() && (manualEew === true ? Boolean(quakeAny) : manualEew === false ? false : eewAuto && Boolean(quakeRecent) && Boolean(prevScene || phase === 2));
+    // Pas en même temps que le bandeau du bas (même alerte deux fois).
+    const eewOn = !mapOn && !cancelOn() && (manualEew === true ? Boolean(quakeAny) : manualEew === false ? false
+      : eewAuto && !bannerOn && Boolean(quakeRecent || stays(quake)) && Boolean(prevScene || phase === 2));
     document.body.classList.toggle('show-eew', eewOn);
     if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
   }
