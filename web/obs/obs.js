@@ -241,6 +241,14 @@
   window.addEventListener('obsSceneChanged', (e) => {
     if (reduceScene && e.detail && e.detail.name) document.body.classList.toggle('reduced', e.detail.name === reduceScene);
   });
+  // Magnitude et intensités d'un séisme (pour annoncer leur changement).
+  let fondPrev = null;
+  function quakeSig(a) {
+    if (a.category !== 'seisme') return null;
+    const P = B.infoParts(a);
+    const ints = (P && P.lists.find((l) => l.label === 'Intensités')) || { items: [] };
+    return { mag: String(a.magnitude), ints: `${a.shindo || ''}|${ints.items.join(',')}` };
+  }
   function renderFond(a) {
     if (cancelOn()) { showLines(cancelLines(cancelled.alert), false); return; }
     const key = a ? `${a.id}:${a.revision || 0}:${a.updatedAt || ''}` : '-';
@@ -249,8 +257,22 @@
       // Page « Informations M-Alert » mesurée à sa taille, les autres à la taille normale.
       $('fondText').classList.remove('intro');
       pages = buildPages(a);
+      // Séisme mis à jour (magnitude, intensités) : « La magnitude a changé… » à la place de
+      // « Informations M-Alert », une seule fois, puis les informations.
+      const sig = a ? quakeSig(a) : null;
+      if (a && fondPrev && fondPrev.id === a.id && sig) {
+        const mag = sig.mag !== fondPrev.mag;
+        const ints = sig.ints !== fondPrev.ints;
+        if (mag || ints) {
+          const m = typeof a.magnitude === 'number' ? ` (${a.magnitude.toLocaleString('fr-FR', { maximumFractionDigits: 1 })})` : '';
+          const text = mag && ints ? `La magnitude${m} et les intensités ont changé` : mag ? `La magnitude a changé${m}` : 'Les intensités ont changé';
+          pages[0] = { lines: [text], ms: 5000, intro: true, once: true };
+        }
+      }
+      fondPrev = a ? { id: a.id, ...(sig || {}) } : null;
       restartPages();
     } else if (Date.now() >= pageUntil && pages.length > 1) {
+      if (pages[pageIdx] && pages[pageIdx].once) pages[pageIdx] = { lines: ['Informations M-Alert'], ms: INTRO_MS, intro: true };
       pageIdx = (pageIdx + 1) % pages.length;
       pageUntil = Date.now() + pages[pageIdx].ms;
     }
@@ -327,17 +349,45 @@
   // Panneau « Alerte sismique précoce » à gauche (comme la NHK, en colonne étroite) : titre rouge, lieu
   // du séisme en jaune, départements en blanc, un par ligne, texte horizontal.
   let eewKey = '';
+  // Départements trop nombreux pour la hauteur du panneau : pages qui défilent toutes les 5 secondes.
+  let eewPages = [];
+  let eewPage = 0;
+  let eewUntil = 0;
   function renderEew(a) {
     const key = `${a.id}:${a.revision || 0}`;
-    if (key === eewKey) return;
-    eewKey = key;
-    const places = B.placesOf(a);
-    let where = 'Séisme';
-    if (a.epicenter) where = B.onLand(a.epicenter.lat, a.epicenter.lon) ? `Séisme : ${places[0] || ''}` : 'Séisme en mer';
-    const esc = M.escapeHtml;
-    $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>`
-      // Noms composés : retour à la ligne possible après les traits d'union (« Alpes-de- / Haute-Provence »).
-      + places.map((p) => `<span class="eew-dep">${esc(p).replace(/-/g, '-<wbr>')}</span>`).join('');
+    if (key !== eewKey) {
+      eewKey = key;
+      const places = B.placesOf(a);
+      let where = 'Séisme';
+      if (a.epicenter) where = B.onLand(a.epicenter.lat, a.epicenter.lon) ? `Séisme : ${places[0] || ''}` : 'Séisme en mer';
+      const esc = M.escapeHtml;
+      $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>`
+        // Noms composés : retour à la ligne possible après les traits d'union (« Alpes-de- / Haute-Provence »).
+        + `<div class="eew-list">${places.map((p) => `<span class="eew-dep">${esc(p).replace(/-/g, '-<wbr>')}</span>`).join('')}</div>`
+        + '<div class="eew-page"></div>';
+      // Pages : les noms qui tiennent dans la hauteur de la liste.
+      const list = $('eew').querySelector('.eew-list');
+      const deps = [...list.children];
+      deps.forEach((d) => { d.style.display = ''; });
+      const h = list.clientHeight;
+      eewPages = [];
+      let top = null;
+      let cur = [];
+      for (const d of deps) {
+        const t = d.offsetTop; const bottom = t + d.offsetHeight;
+        if (top === null) top = t;
+        if (cur.length && bottom - top > h) { eewPages.push(cur); cur = []; top = t; }
+        cur.push(d);
+      }
+      if (cur.length) eewPages.push(cur);
+      eewPage = 0;
+      eewUntil = Date.now() + 5000;
+    } else if (eewPages.length > 1 && Date.now() >= eewUntil) {
+      eewPage = (eewPage + 1) % eewPages.length;
+      eewUntil = Date.now() + 5000;
+    } else return;
+    eewPages.forEach((pg, i) => pg.forEach((d) => { d.style.display = i === eewPage ? '' : 'none'; }));
+    $('eew').querySelector('.eew-page').textContent = eewPages.length > 1 ? `${eewPage + 1}/${eewPages.length}` : '';
   }
 
   function render() {
@@ -447,15 +497,18 @@
       case 'update': {
         // Départements ajoutés : clignotants sur la carte du bandeau, noms en jaune, annoncés en haut.
         const before = alerts.find((x) => x.id === msg.alert.id) || (lastAlert && lastAlert.id === msg.alert.id ? lastAlert : null);
+        let added = [];
         if (before && !msg.alert.departments.includes('ALL')) {
           const was = new Set(before.departments || []);
-          const added = (msg.alert.departments || []).filter((c) => !was.has(c));
+          added = (msg.alert.departments || []).filter((c) => !was.has(c));
           if (added.length) addedInfo = { id: msg.alert.id, revision: msg.alert.revision || 0, codes: added, until: Date.now() + ADDED_MS };
         }
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
         if (M.isActive(msg.alert)) alerts.push(msg.alert);
         if (lastAlert && lastAlert.id === msg.alert.id) lastAlert = msg.alert;
-        if (msg.alert.id === shownId) shownAt = Date.now();
+        // Séisme : le bandeau ne revient que pour des départements ajoutés (pas pour la magnitude ou
+        // les intensités recalculées).
+        if (msg.alert.id === shownId && (msg.alert.category !== 'seisme' || added.length)) shownAt = Date.now();
         if (msg.alert.id === coastId) coastShownAt = Date.now();
         break;
       }
