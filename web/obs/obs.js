@@ -88,6 +88,8 @@
   let missileId = null;
   let missileStart = 0;
   let missileKey = '';
+  let missileMapKey = '';
+  let missileShown = null; // alerte missile affichée (pour le clignotement de la carte)
   // Panneau à gauche (comme la NHK) : automatique avec l'écran réduit pendant un séisme (eewPanel=0 : jamais).
   const eewAuto = q.get('eewPanel') !== '0';
   // Séisme et tsunami : l'écran réduit (texte en haut, panneau à gauche, tableau) reste tant que l'alerte
@@ -423,8 +425,9 @@
         .filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileLower').querySelector('.ml-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
       $('missileFlash').querySelector('.mf-text').textContent = t.title || M.alertLevelLabel(m);
-      B.drawZonesMap($('missileMap'), m, { width: 640, height: 600 });
     }
+    missileShown = phase === 2 ? m : null;
+    blinkMissileMap();
     // Consigne en haut à droite : « Intérieur » et « Extérieur » en alternance (6 secondes).
     const indoor = Math.floor(Date.now() / 6000) % 2 === 0;
     const tag = indoor ? 'Intérieur' : 'Extérieur';
@@ -434,6 +437,17 @@
         ? 'Éloignez-vous des fenêtres<br>Pièce sans fenêtre'
         : 'Entrez dans un bâtiment<br>ou en sous-sol';
     }
+  }
+
+  // Carte missile : les départements concernés clignotent comme à la NHK (≈ 0,55 s en jaune, 0,5 s en gris).
+  function blinkMissileMap() {
+    const m = missileShown;
+    if (!m) return;
+    const on = Date.now() % 1050 < 550;
+    const mk = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}:${on}`;
+    if (mk === missileMapKey) return;
+    B.drawZonesMap($('missileMap'), m, { width: 640, height: 600, blinkOn: on });
+    missileMapKey = mk;
   }
 
   function render() {
@@ -466,7 +480,7 @@
     const mPhase = !missile ? 0 : Date.now() - missileStart < cardSeconds * 1000 ? 1 : 2;
     document.body.classList.toggle('show-missile-card', mPhase === 1);
     document.body.classList.toggle('show-missile', mPhase === 2);
-    if (mPhase) renderMissile(missile, mPhase);
+    if (mPhase) renderMissile(missile, mPhase); else missileShown = null;
     // Phase 1 : carte plein écran (le bandeau d'une autre alerte, le séisme, réduit en haut à gauche).
     // Phase 2 : mini-carte et tableau des mesures sur l'image, jusqu'à la fin de « hold ».
     let phase = 0;
@@ -652,4 +666,6 @@
     if (cancelled && !cancelOn()) { cancelled = null; document.body.classList.remove('cancelling'); }
     render();
   }, 700);
+  // Clignotement de la carte missile : seule la carte est redessinée, au changement d'état.
+  setInterval(blinkMissileMap, 50);
 })();
