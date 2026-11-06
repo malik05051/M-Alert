@@ -4,7 +4,12 @@
   - **Son** : celui de la vigilance rouge, pour tous les niveaux. Même chose dans l'application Android et pour Soundux dans M-Alert-sender.
   - **Consignes** : abritez-vous immédiatement dans un bâtiment solide ou en sous-sol, loin des fenêtres.
   - **Envoi** : depuis M-Alert-sender. Il n'existe pas de flux public des alertes FR-Alert à automatiser.
-  - **Incrustation OBS** : bandeau rouge « Alerte missile » en haut pendant 3 secondes, bandeau d'alerte. Le texte du haut affiche « Missile lancé. Missile lancé. », la consigne et les départements. Les missiles ont aussi leur case dans le script OBS.
+  - **Incrustation OBS, comme la NHK (J-Alert)** :
+    - d'abord un écran plein « Informations de protection civile » : barre de la couleur du niveau, message « Missile lancé. Missile lancé. … Abritez-vous… », zones concernées et heure de réception. Il réapparaît à chaque mise à jour ;
+    - puis, sur l'image, le bloc « M-Alert · Informations de protection civile » en bas, avec le message, les zones M-Alert concernées et une carte des zones en jaune ;
+    - en haut à droite, l'encart « Alerte » avec le titre, et la consigne « Intérieur » / « Extérieur » en alternance.
+
+    Pas d'écran réduit pour un missile. La durée de l'écran plein se règle, et un bouton du script affiche ou masque l'alerte missile.
 - **Incrustation OBS** :
   - Séisme et tsunami : l'écran réduit reste tant que l'alerte est en cours. Le bandeau du bas part après sa durée, puis le panneau « Alerte sismique précoce » à gauche prend le relais.
   - Panneau de gauche :

@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.1"
+local PAGE_VERSION = "3.0.1-2"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -57,6 +57,7 @@ local function overlay_url(st, demo)
   add("cancelHold", tostring(obs.obs_data_get_int(st, "cancel_hold")))
   add("addedSeconds", tostring(obs.obs_data_get_int(st, "added_seconds")))
   if not obs.obs_data_get_bool(st, "stay") then add("stay", "0") end
+  add("cardSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "card_seconds")))
   add("mapSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "map_seconds")))
   if obs.obs_data_get_bool(st, "reduce") then
     add("reduce", ALERT_SCENE)
@@ -349,6 +350,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "minimap", label = "Mini-carte (tsunami / vagues-submersion) : afficher / masquer" },
   { cmd = "table", label = "Tableau des mesures (tsunami / vagues-submersion) : afficher / masquer" },
   { cmd = "eew", label = "Alerte sismique précoce à gauche : afficher / masquer" },
+  { cmd = "missile", label = "Alerte missile : afficher / masquer" },
 }
 local toggle_hotkeys = {}
 local map_hotkey = nil
@@ -457,6 +459,7 @@ function script_properties()
     tip(obs.obs_properties_add_int(g, "hold", "Bandeau (s)", 0, 3600, 5), "Durée d'affichage du bandeau du bas ; 0 : tant que l'alerte dure")
     tip(obs.obs_properties_add_int(g, "reduce_after", "Écran réduit après (s)", 0, 600, 1), "Délai avant l'écran réduit ; 0 : tout de suite")
     tip(obs.obs_properties_add_int(g, "map_seconds", "Carte plein écran (s)", 0, 600, 1), "Tsunami et vagues-submersion : durée de la carte plein écran, puis mini-carte et tableau des mesures")
+    tip(obs.obs_properties_add_int(g, "card_seconds", "Missile : écran plein (s)", 0, 600, 1), "Durée de l'écran « Informations de protection civile », puis le bloc en bas sur l'image")
     obs.obs_properties_add_int(g, "cancel_hold", "Alerte annulée (s)", 3, 3600, 1)
     tip(obs.obs_properties_add_int(g, "added_seconds", "Départements ajoutés (s)", 2, 120, 1), "Durée du clignotement des départements ajoutés par une mise à jour")
     obs.obs_properties_add_int_slider(g, "width", "Largeur du bandeau (%)", 30, 100, 1)
@@ -492,6 +495,7 @@ function script_defaults(st)
   obs.obs_data_set_default_bool(st, "reduce", true)
   obs.obs_data_set_default_int(st, "reduce_after", 10)
   obs.obs_data_set_default_bool(st, "stay", true)
+  obs.obs_data_set_default_int(st, "card_seconds", 20)
   obs.obs_data_set_default_bool(st, "infos", true)
   obs.obs_data_set_default_bool(st, "sound", true)
   obs.obs_data_set_default_bool(st, "tests", true)

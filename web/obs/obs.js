@@ -21,6 +21,7 @@
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
  *   stay=quake            écran réduit gardé tant qu'un séisme ou un tsunami est en cours (0 : non ; all : toutes)
+ *   cardSeconds=20       missile : secondes d'écran plein « Informations de protection civile », puis bloc en bas
  *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
  *   demo=seisme|missile|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
@@ -80,6 +81,13 @@
   let manualMini = null;
   let manualTable = null;
   let manualEew = null;
+  // Alerte missile (comme la NHK) : écran plein pendant cardSeconds (à chaque mise à jour aussi), puis
+  // bloc en bas sur l'image, tant que l'alerte est en cours.
+  const cardSeconds = q.has('cardSeconds') ? Math.max(0, Number(q.get('cardSeconds')) || 0) : 20;
+  let manualMissile = null;
+  let missileId = null;
+  let missileStart = 0;
+  let missileKey = '';
   // Panneau à gauche (comme la NHK) : automatique avec l'écran réduit pendant un séisme (eewPanel=0 : jamais).
   const eewAuto = q.get('eewPanel') !== '0';
   // Séisme et tsunami : l'écran réduit (texte en haut, panneau à gauche, tableau) reste tant que l'alerte
@@ -390,6 +398,44 @@
     $('eew').querySelector('.eew-page').textContent = eewPages.length > 1 ? `${eewPage + 1}/${eewPages.length}` : '';
   }
 
+
+  function missileTexts(m) {
+    const all = (m.departments || []).includes('ALL');
+    const zones = all ? ['France entière'] : B.placesOf(m);
+    const desc = String(m.description || '').trim();
+    return { zones, title: m.title || '', desc };
+  }
+  function renderMissile(m, phase) {
+    const lv = { 2: ['#f5e100', '#111'], 4: ['#e01414', '#fff'], 5: ['#d500f9', '#fff'] }[m.level] || ['#e01414', '#fff'];
+    const key = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}`;
+    const esc = M.escapeHtml;
+    if (key !== missileKey) {
+      missileKey = key;
+      const t = missileTexts(m);
+      const when = new Date(m.updatedAt || m.createdAt);
+      $('missileCard').querySelector('.mc-bar').style.background = lv[0];
+      $('missileCard').querySelector('.mc-msg').textContent = `Missile lancé. Missile lancé. ${t.title ? `${t.title.replace(/\.$/, '')}. ` : ''}${t.desc ? `${t.desc.replace(/\.$/, '')}. ` : ''}Abritez-vous à l'intérieur d'un bâtiment ou en sous-sol.`;
+      $('missileCard').querySelector('.mc-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
+      $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(when.toISOString()).replace(':', ' h ')}`;
+      const head = $('missileLower').querySelector('.ml-head');
+      head.style.background = lv[0]; head.style.color = lv[1];
+      $('missileLower').querySelector('.ml-msg').innerHTML = ['Missile lancé. Missile lancé.', t.title, 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.']
+        .filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join('');
+      $('missileLower').querySelector('.ml-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
+      $('missileFlash').querySelector('.mf-text').textContent = t.title || M.alertLevelLabel(m);
+      B.drawZonesMap($('missileMap'), m, { width: 640, height: 600 });
+    }
+    // Consigne en haut à droite : « Intérieur » et « Extérieur » en alternance (6 secondes).
+    const indoor = Math.floor(Date.now() / 6000) % 2 === 0;
+    const tag = indoor ? 'Intérieur' : 'Extérieur';
+    if ($('missileAdvice').querySelector('.ma-tag').textContent !== tag) {
+      $('missileAdvice').querySelector('.ma-tag').textContent = tag;
+      $('missileAdvice').querySelector('.ma-text').innerHTML = indoor
+        ? 'Éloignez-vous des fenêtres<br>Pièce sans fenêtre'
+        : 'Entrez dans un bâtiment<br>ou en sous-sol';
+    }
+  }
+
   function render() {
     const a = current();
     if (fondLayer) { renderFond(textLayer ? manualAlert() : a); return; }
@@ -411,6 +457,16 @@
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     if (a) markFirst(a.id);
     if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
+    // Alerte missile : écran plein, puis bloc en bas (pas de bandeau ni d'écran réduit pour elle).
+    const missiles = alerts.filter(wanted).filter((x) => x.category === 'missile')
+      .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+    const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
+    const missile = manualMissile === false ? null : manualMissile === true ? missiles[0] || lastMissile : missiles[0] || null;
+    if (missile && missile.id !== missileId) { missileId = missile.id; missileStart = Date.now(); }
+    const mPhase = !missile ? 0 : Date.now() - missileStart < cardSeconds * 1000 ? 1 : 2;
+    document.body.classList.toggle('show-missile-card', mPhase === 1);
+    document.body.classList.toggle('show-missile', mPhase === 2);
+    if (mPhase) renderMissile(missile, mPhase);
     // Phase 1 : carte plein écran (le bandeau d'une autre alerte, le séisme, réduit en haut à gauche).
     // Phase 2 : mini-carte et tableau des mesures sur l'image, jusqu'à la fin de « hold ».
     let phase = 0;
@@ -423,7 +479,7 @@
     const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
     // Carte plein écran ou tableau : pas de bandeau (le séisme est dans le panneau à gauche).
-    const ba = phase > 0 ? null : a;
+    const ba = phase > 0 || mPhase > 0 || (a && a.category === 'missile') ? null : a;
     const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
@@ -464,8 +520,7 @@
   function arrived(a) {
     if (!wanted(a)) return;
     // Séisme : « Alerte de tremblement de terre » en haut pendant 3 secondes.
-    if ((a.category === 'seisme' || a.category === 'missile') && !fondLayer && !bannerLayer) {
-      $('quakeTop').textContent = a.category === 'missile' ? 'Alerte missile' : 'Alerte de tremblement de terre';
+    if (a.category === 'seisme' && !fondLayer && !bannerLayer) {
       document.body.classList.add('show-quake-top');
       clearTimeout(arrived.quakeTimer);
       arrived.quakeTimer = setTimeout(() => document.body.classList.remove('show-quake-top'), 3000);
@@ -475,6 +530,7 @@
     manualMini = null;
     manualTable = null;
     manualEew = null;
+    manualMissile = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
@@ -511,6 +567,7 @@
         // les intensités recalculées).
         if (msg.alert.id === shownId && (msg.alert.category !== 'seisme' || added.length)) shownAt = Date.now();
         if (msg.alert.id === coastId) coastShownAt = Date.now();
+        if (msg.alert.id === missileId) missileStart = Date.now(); // mise à jour : écran plein à nouveau
         break;
       }
       case 'cancel':
@@ -541,6 +598,7 @@
     else if (d.cmd === 'map') manualMap = document.body.classList.contains('show-tsunami') ? false : true;
     else if (d.cmd === 'minimap') manualMini = document.body.classList.contains('show-mini') ? false : true;
     else if (d.cmd === 'table') manualTable = document.body.classList.contains('show-table') ? false : true;
+    else if (d.cmd === 'missile') manualMissile = document.body.classList.contains('show-missile') || document.body.classList.contains('show-missile-card') ? false : true;
     else if (d.cmd === 'eew') manualEew = document.body.classList.contains('show-eew') ? false : true;
     else return;
     render();

@@ -684,5 +684,40 @@
     return out;
   }
 
-  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName };
+
+  /**
+   * Carte des zones visées (alerte missile, comme la carte « 対象地域 » de la NHK) : métropole et
+   * Corse en gris clair, départements visés en jaune, fond transparent ; encart de la
+   * Nouvelle-Calédonie seulement si elle est visée.
+   */
+  function drawZonesMap(canvas, alert, { width = 640, height = 600 } = {}) {
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const W = width; const H = height;
+    ctx.clearRect(0, 0, W, H);
+    const { deps } = geoData();
+    const all = (alert.departments || []).includes('ALL');
+    const target = new Set(all ? Object.keys(deps) : alert.departments || []);
+    const nc = target.has('988');
+    const P = projector([41.2, 51.2, -5.4, 9.8], W * 0.04, H * 0.03, W * 0.92, H * (nc ? 0.7 : 0.94));
+    const draw = (code, Pr) => {
+      const d = deps[code];
+      if (!d) return;
+      ctx.beginPath();
+      for (const poly of d.polys) pathPoly(ctx, poly, Pr);
+      ctx.fillStyle = target.has(code) ? '#f5e100' : '#d6d9df';
+      ctx.fill('evenodd');
+      ctx.strokeStyle = 'rgba(40,40,40,.55)'; ctx.lineWidth = Math.max(1, W / 500); ctx.stroke();
+    };
+    for (const code of Object.keys(deps)) if (code !== '988') draw(code, P);
+    if (nc) {
+      const ix = W * 0.04; const iy = H * 0.74; const iw = W * 0.42; const ih = H * 0.24;
+      ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(ix + iw, iy); ctx.lineTo(ix + iw, iy + ih); ctx.stroke();
+      draw('988', projector([-22.9, -19.5, 163.4, 168.3], ix + 6, iy + 6, iw - 12, ih - 12));
+    }
+    return canvas;
+  }
+
+  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
