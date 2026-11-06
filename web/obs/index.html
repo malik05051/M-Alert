@@ -82,12 +82,15 @@
     #missileLower .ml-msg { background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.4vh; line-height: 1.32; margin-bottom: 2.4vh; }
     #missileLower .ml-zhead { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.4vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; }
     #missileLower .ml-zones { flex: 1; border-left: .6vw solid var(--mlv); background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.2vh; line-height: 1.35; overflow: hidden; }
-    #missileLower .ml-map { flex: 1; background: rgba(0,0,0,.45); position: relative; }
-    #missileLegend { position: absolute; left: .6vw; bottom: .6vh; z-index: 1; display: flex; flex-direction: column; gap: .3vh; font: 700 2.1vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; text-shadow: 0 0 .4vh #000; }
+    #missileLower .ml-map { flex: 1; min-height: 0; background: rgba(0,0,0,.45); display: flex; flex-direction: column; padding: 1vh; gap: .6vh; }
+    /* Légende sous la carte (sans la recouvrir) ; elle passe à la ligne si elle ne tient pas. */
+    #missileLegend { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: .3vh 1.1vw; font: 700 2.1vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; }
+    #missileLegend:empty { display: none; }
+    #missileLegend span { white-space: nowrap; }
     #missileLegend i { display: inline-block; width: 1.8vh; height: 1.8vh; margin-right: .4vw; vertical-align: -.25vh; border: 1px solid rgba(0,0,0,.5); }
     .mz-grp { margin-bottom: .4vh; }
     .mz-lv { display: inline-block; font-weight: 800; font-size: .82em; padding: 0 .6vw; margin-right: .8vw; border-radius: .3vh; }
-    #missileLower .ml-map canvas { position: absolute; inset: 1vh; width: calc(100% - 2vh); height: calc(100% - 2vh); object-fit: contain; }
+    #missileLower .ml-map canvas { flex: 1 1 0; min-height: 0; height: 0; width: 100%; object-fit: contain; }
     #missileFlash { position: fixed; right: 3.5vw; top: 4.5vh; display: none; align-items: stretch; box-shadow: 0 0 1vh rgba(0,0,0,.4);
       font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     body.show-missile #missileFlash { display: flex; }
@@ -125,12 +128,12 @@
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-7"></script>
-  <script src="../data/departements.js?v=3.0.1-7"></script>
-  <script src="../data/cotes.js?v=3.0.1-7"></script>
-  <script src="../js/common.js?v=3.0.1-7"></script>
-  <script src="../js/sound.js?v=3.0.1-7"></script>
-  <script src="../js/banner.js?v=3.0.1-7"></script>
-  <script src="obs.js?v=3.0.1-7"></script>
+  <script src="../config.js?v=3.0.1-8"></script>
+  <script src="../data/departements.js?v=3.0.1-8"></script>
+  <script src="../data/cotes.js?v=3.0.1-8"></script>
+  <script src="../js/common.js?v=3.0.1-8"></script>
+  <script src="../js/sound.js?v=3.0.1-8"></script>
+  <script src="../js/banner.js?v=3.0.1-8"></script>
+  <script src="obs.js?v=3.0.1-8"></script>
 </body>
 </html>
