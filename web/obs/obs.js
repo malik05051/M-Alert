@@ -85,6 +85,7 @@
   // bloc en bas sur l'image, tant que l'alerte est en cours.
   const cardSeconds = q.has('cardSeconds') ? Math.max(0, Number(q.get('cardSeconds')) || 0) : 20;
   let manualMissile = null;
+  let manualCard = null; // écran plein du missile à la main (script OBS) : true affiché, false masqué
   let missileId = null;
   let missileStart = 0;
   let missileKey = '';
@@ -427,7 +428,8 @@
     const layers = [...levels].reverse().map((lv) => ({ color: missileColors({ level: lv })[0],
       departments: lv === allLevel ? ['ALL'] : Object.keys(levelOf).filter((c) => levelOf[c] === lv) }));
     const titles = [...new Set(sorted.map((m) => String(m.title || '').trim().replace(/\.$/, '')).filter(Boolean))];
-    const descs = [...new Set(sorted.map((m) => String(m.description || '').trim().replace(/\.$/, '')).filter(Boolean))];
+    // Description écrite dans M-Alert-sender : c'est le message affiché (une ligne par ligne saisie).
+    const descs = [...new Set(sorted.map((m) => String(m.description || '').trim()).filter(Boolean))];
     const when = new Date(sorted.map((m) => m.updatedAt || m.createdAt).sort().pop());
     const key = sorted.map((m) => `${m.id}:${m.revision || 0}:${m.updatedAt || ''}:${m.level}`).join('|');
     return { top, levels, groups, layers, titles, descs, when, key };
@@ -454,24 +456,33 @@
       document.body.style.setProperty('--mlv', lv[0]);
       document.body.style.setProperty('--mlt', lv[1]);
       $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(v.top);
-      $('missileCard').querySelector('.mc-msg').textContent = `Missile lancé. Missile lancé. ${v.titles.map((t) => `${t}. `).join('')}${v.descs.map((t) => `${t}. `).join('')}Abritez-vous à l'intérieur d'un bâtiment ou en sous-sol.`;
+      // Message : la description de l'alerte (M-Alert-sender) ; sans description, le message type.
+      const msgLines = v.descs.length ? v.descs.flatMap((t) => t.split(/\n+/)).map((l) => l.trim()).filter(Boolean)
+        : ['Missile lancé. Missile lancé.', ...v.titles.map((t) => `${t}.`), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.'];
+      $('missileCard').querySelector('.mc-msg').innerHTML = msgLines.map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileCard').querySelector('.mc-zones').innerHTML = missileZonesHtml(v);
       $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${v.when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(v.when.toISOString()).replace(':', ' h ')}`;
-      $('missileLower').querySelector('.ml-msg').innerHTML = ['Missile lancé. Missile lancé.', ...v.titles.slice(0, 2), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.']
+      $('missileLower').querySelector('.ml-msg').innerHTML = (v.descs.length ? msgLines
+        : ['Missile lancé. Missile lancé.', ...v.titles.slice(0, 2), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.'])
         .map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileLower').querySelector('.ml-zones').innerHTML = missileZonesHtml(v);
       // Légende de la carte : les niveaux en cours.
       $('missileLegend').innerHTML = v.groups.map((g) => g.level).map((l) => `<span><i style="background:${missileColors({ level: l })[0]}"></i>${esc(missileLevelName(l))}</span>`).join('');
       $('missileFlash').querySelector('.mf-text').textContent = v.top.title || M.alertLevelLabel(v.top);
     }
-    // Bloc du bas affiché : la liste des zones est réduite si elle ne tient pas (beaucoup de départements).
-    if (phase === 2 && missileFitKey !== v.key) {
-      missileFitKey = v.key;
-      const z = $('missileLower').querySelector('.ml-zones');
-      z.style.fontSize = '';
-      let size = parseFloat(getComputedStyle(z).fontSize);
-      const min = size * 0.55;
-      while (z.scrollHeight > z.clientHeight + 1 && size > min) { size -= 1; z.style.fontSize = `${size}px`; }
+    // Textes réduits s'ils ne tiennent pas (longue description, beaucoup de départements), une fois
+    // affichés : écran plein (message et zones), bloc du bas (message, puis zones).
+    const fit = (el, box = el, ratio = 0.5) => {
+      el.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      const min = size * ratio;
+      while (box.scrollHeight > box.clientHeight + 1 && size > min) { size -= 1; el.style.fontSize = `${size}px`; }
+    };
+    const fitKey = `${phase}:${v.key}`;
+    if (missileFitKey !== fitKey) {
+      missileFitKey = fitKey;
+      if (phase === 1) fit($('missileCard').querySelector('.mc-body'));
+      else { fit($('missileLower').querySelector('.ml-msg')); fit($('missileLower').querySelector('.ml-zones')); }
     }
     missileShown = phase === 2 ? v : null;
     blinkMissileMap();
@@ -522,11 +533,14 @@
     const missiles = alerts.filter(wanted).filter((x) => x.category === 'missile')
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     // Toutes les alertes missile en cours sont affichées ensemble (niveaux différents).
-    const missileList = manualMissile === false ? [] : missiles.length ? missiles : manualMissile === true && lastMissile ? [lastMissile] : [];
     const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
+    const missileList = manualMissile === false ? [] : missiles.length ? missiles
+      : (manualMissile === true || manualCard === true) && lastMissile ? [lastMissile] : [];
     const missile = missileList[0] || null;
     if (missile && missile.id !== missileId) { missileId = missile.id; missileStart = Date.now(); }
-    const mPhase = !missile ? 0 : Date.now() - missileStart < cardSeconds * 1000 ? 1 : 2;
+    // Écran plein : cardSeconds au début (et à chaque mise à jour), ou affiché / masqué à la main.
+    const cardOn = manualCard === true ? true : manualCard === false ? false : Date.now() - missileStart < cardSeconds * 1000;
+    const mPhase = !missile ? 0 : cardOn ? 1 : 2;
     document.body.classList.toggle('show-missile-card', mPhase === 1);
     document.body.classList.toggle('show-missile', mPhase === 2);
     if (mPhase) renderMissile(missileList, mPhase); else missileShown = null;
@@ -594,6 +608,7 @@
     manualTable = null;
     manualEew = null;
     manualMissile = null;
+    manualCard = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
@@ -631,7 +646,7 @@
         if (msg.alert.id === shownId && (msg.alert.category !== 'seisme' || added.length)) shownAt = Date.now();
         if (msg.alert.id === coastId) coastShownAt = Date.now();
         // Mise à jour d'une alerte missile (n'importe laquelle) : écran plein à nouveau.
-        if (msg.alert.category === 'missile' && wanted(msg.alert)) { missileId = msg.alert.id; missileStart = Date.now(); }
+        if (msg.alert.category === 'missile' && wanted(msg.alert)) { missileId = msg.alert.id; missileStart = Date.now(); manualCard = null; }
         break;
       }
       case 'cancel':
@@ -663,6 +678,11 @@
     else if (d.cmd === 'minimap') manualMini = document.body.classList.contains('show-mini') ? false : true;
     else if (d.cmd === 'table') manualTable = document.body.classList.contains('show-table') ? false : true;
     else if (d.cmd === 'missile') manualMissile = document.body.classList.contains('show-missile') || document.body.classList.contains('show-missile-card') ? false : true;
+    else if (d.cmd === 'missilecard') {
+      // Écran plein du missile : affiché ou masqué (le bloc en bas reste) ; l'alerte missile revient si elle était masquée.
+      manualCard = document.body.classList.contains('show-missile-card') ? false : true;
+      if (manualCard && manualMissile === false) manualMissile = null;
+    }
     else if (d.cmd === 'eew') manualEew = document.body.classList.contains('show-eew') ? false : true;
     else return;
     render();
@@ -683,7 +703,8 @@
     tsunami: { id: 'demo', category: 'tsunami', level: 4, title: 'Tsunami en Méditerranée', departments: ['06', '83', '13', '2B', '2A', '30', '34'], epicenter: { lat: 43.2, lon: 7.8 },
       tsunamiTable: [['06', 4, 'arrived', 3], ['83', 4, 'imminent', 3], ['2B', 4, 15, 2.5], ['13', 2, 35, 1], ['2A', 2, 40, 1], ['30', 2, 55, 0.5], ['34', 2, 60, 0.5]]
         .map(([department, level, arr, height]) => ({ department, level, height, arrival: typeof arr === 'number' ? new Date(Date.now() + arr * 60000).toISOString() : arr })) },
-    missile: { id: 'demo', category: 'missile', level: 5, departments: ['2B', '2A', '06', '83', '13'], title: 'Missile en direction de la Corse et de la Provence' },
+    missile: { id: 'demo', category: 'missile', level: 5, departments: ['2B', '2A', '06', '83', '13'], title: 'Missile en direction de la Corse et de la Provence',
+      description: 'Missile lancé. Missile lancé.\nUn missile semble avoir été lancé en direction de la Corse et de la Provence.\nAbritez-vous immédiatement à l\'intérieur d\'un bâtiment ou en sous-sol.' },
     missiles: { id: 'demo', category: 'missile', level: 5, departments: ['57', '55', '54'], title: 'Missile en direction de la Lorraine' },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },

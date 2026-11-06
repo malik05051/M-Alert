@@ -68,7 +68,7 @@
     #missileCard .mc-title { flex: 1; text-align: center; font: 700 5.6vh/1 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .02em; }
     #missileCard .mc-bar { position: absolute; left: 9vw; right: 9vw; top: 12vh; height: 12.5vh; background: var(--mlv); color: var(--mlt);
       display: flex; align-items: center; justify-content: center; font: 800 5vh/1 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .06em; }
-    #missileCard .mc-body { position: absolute; left: 10.5vw; right: 10.5vw; top: 26vh; font-size: 4.1vh; line-height: 1.45; }
+    #missileCard .mc-body { position: absolute; left: 10.5vw; right: 10.5vw; top: 26vh; bottom: 14vh; overflow: hidden; font-size: 4.1vh; line-height: 1.45; }
     #missileCard .mc-zones-label { margin-top: 5vh; display: inline-block; background: var(--mlv); color: var(--mlt); font-weight: 800; padding: 0 1.2vw; margin-bottom: 1vh; }
     #missileCard .mc-zones { border-left: .9vw solid var(--mlv); padding-left: 1.2vw; }
     #missileCard .mc-time { position: absolute; right: 11vw; bottom: 9.5vh; font-size: 3.4vh; }
@@ -79,7 +79,7 @@
     #missileLower .ml-main { flex: 0 0 64%; display: flex; flex-direction: column; }
     #missileLower .ml-side { flex: 1; display: flex; flex-direction: column; }
     #missileLower .ml-head { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.8vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; overflow: hidden; }
-    #missileLower .ml-msg { background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.4vh; line-height: 1.32; margin-bottom: 2.4vh; }
+    #missileLower .ml-msg { background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.4vh; line-height: 1.32; margin-bottom: 2.4vh; max-height: 21vh; overflow: hidden; flex: none; }
     #missileLower .ml-zhead { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.4vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; }
     #missileLower .ml-zones { flex: 1; border-left: .6vw solid var(--mlv); background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.2vh; line-height: 1.35; overflow: hidden; }
     #missileLower .ml-map { flex: 1; min-height: 0; background: rgba(0,0,0,.45); display: flex; flex-direction: column; padding: 1vh; gap: .6vh; }
@@ -128,12 +128,12 @@
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-8"></script>
-  <script src="../data/departements.js?v=3.0.1-8"></script>
-  <script src="../data/cotes.js?v=3.0.1-8"></script>
-  <script src="../js/common.js?v=3.0.1-8"></script>
-  <script src="../js/sound.js?v=3.0.1-8"></script>
-  <script src="../js/banner.js?v=3.0.1-8"></script>
-  <script src="obs.js?v=3.0.1-8"></script>
+  <script src="../config.js?v=3.0.1-9"></script>
+  <script src="../data/departements.js?v=3.0.1-9"></script>
+  <script src="../data/cotes.js?v=3.0.1-9"></script>
+  <script src="../js/common.js?v=3.0.1-9"></script>
+  <script src="../js/sound.js?v=3.0.1-9"></script>
+  <script src="../js/banner.js?v=3.0.1-9"></script>
+  <script src="obs.js?v=3.0.1-9"></script>
 </body>
 </html>

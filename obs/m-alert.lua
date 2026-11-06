@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.1-8"
+local PAGE_VERSION = "3.0.1-9"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -406,6 +406,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "table", label = "Tableau des mesures (tsunami / vagues-submersion) : afficher / masquer" },
   { cmd = "eew", label = "Alerte sismique précoce à gauche : afficher / masquer" },
   { cmd = "missile", label = "Alerte missile : afficher / masquer" },
+  { cmd = "missilecard", label = "Alerte missile en plein écran : afficher / masquer" },
 }
 local toggle_hotkeys = {}
 local map_hotkey = nil
