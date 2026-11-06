@@ -83,6 +83,10 @@
     #missileLower .ml-zhead { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.4vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; }
     #missileLower .ml-zones { flex: 1; border-left: .6vw solid var(--mlv); background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.2vh; line-height: 1.35; overflow: hidden; }
     #missileLower .ml-map { flex: 1; background: rgba(0,0,0,.45); position: relative; }
+    #missileLegend { position: absolute; left: .6vw; bottom: .6vh; z-index: 1; display: flex; flex-direction: column; gap: .3vh; font: 700 2.1vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; text-shadow: 0 0 .4vh #000; }
+    #missileLegend i { display: inline-block; width: 1.8vh; height: 1.8vh; margin-right: .4vw; vertical-align: -.25vh; border: 1px solid rgba(0,0,0,.5); }
+    .mz-grp { margin-bottom: .4vh; }
+    .mz-lv { display: inline-block; font-weight: 800; font-size: .82em; padding: 0 .6vw; margin-right: .8vw; border-radius: .3vh; }
     #missileLower .ml-map canvas { position: absolute; inset: 1vh; width: calc(100% - 2vh); height: calc(100% - 2vh); object-fit: contain; }
     #missileFlash { position: fixed; right: 3.5vw; top: 4.5vh; display: none; align-items: stretch; box-shadow: 0 0 1vh rgba(0,0,0,.4);
       font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
@@ -116,17 +120,17 @@
   </div>
   <div id="missileLower">
     <div class="ml-main"><div class="ml-head">M-Alert　Informations de protection civile</div><div class="ml-msg"></div><div class="ml-zhead">Zones M-Alert concernées</div><div class="ml-zones"></div></div>
-    <div class="ml-side"><div class="ml-zhead">Zones concernées</div><div class="ml-map"><canvas id="missileMap"></canvas></div></div>
+    <div class="ml-side"><div class="ml-zhead">Zones concernées</div><div class="ml-map"><canvas id="missileMap"></canvas><div id="missileLegend"></div></div></div>
   </div>
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-6"></script>
-  <script src="../data/departements.js?v=3.0.1-6"></script>
-  <script src="../data/cotes.js?v=3.0.1-6"></script>
-  <script src="../js/common.js?v=3.0.1-6"></script>
-  <script src="../js/sound.js?v=3.0.1-6"></script>
-  <script src="../js/banner.js?v=3.0.1-6"></script>
-  <script src="obs.js?v=3.0.1-6"></script>
+  <script src="../config.js?v=3.0.1-7"></script>
+  <script src="../data/departements.js?v=3.0.1-7"></script>
+  <script src="../data/cotes.js?v=3.0.1-7"></script>
+  <script src="../js/common.js?v=3.0.1-7"></script>
+  <script src="../js/sound.js?v=3.0.1-7"></script>
+  <script src="../js/banner.js?v=3.0.1-7"></script>
+  <script src="obs.js?v=3.0.1-7"></script>
 </body>
 </html>

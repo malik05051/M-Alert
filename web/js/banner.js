@@ -690,24 +690,28 @@
    * Corse en gris clair, départements visés en jaune, fond transparent ; encart de la
    * Nouvelle-Calédonie seulement si elle est visée.
    */
-  // Carte des zones (missile). color : couleur des zones (celle du niveau). blinkOn = false : zones en
-  // gris, pour le clignotement comme à la NHK.
-  function drawZonesMap(canvas, alert, { width = 640, height = 600, blinkOn = true, color = '#f5e100' } = {}) {
+  // Carte des zones (missile). color : couleur des zones (celle du niveau). layers : plusieurs alertes
+  // [{ departments, color }], du niveau le plus bas au plus haut (le plus haut l'emporte sur un même
+  // département). blinkOn = false : zones en gris, pour le clignotement comme à la NHK.
+  function drawZonesMap(canvas, alert, { width = 640, height = 600, blinkOn = true, color = '#f5e100', layers = null } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
     ctx.clearRect(0, 0, W, H);
     const { deps } = geoData();
-    const all = (alert.departments || []).includes('ALL');
-    const target = new Set(all ? Object.keys(deps) : alert.departments || []);
-    const nc = target.has('988');
+    const colorOf = {};
+    for (const l of layers || [{ departments: (alert && alert.departments) || [], color }]) {
+      const codes = (l.departments || []).includes('ALL') ? Object.keys(deps) : l.departments || [];
+      for (const c of codes) colorOf[c] = l.color;
+    }
+    const nc = Boolean(colorOf['988']);
     const P = projector([41.2, 51.2, -5.4, 9.8], W * 0.04, H * 0.03, W * 0.92, H * (nc ? 0.7 : 0.94));
     const draw = (code, Pr) => {
       const d = deps[code];
       if (!d) return;
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, Pr);
-      ctx.fillStyle = target.has(code) && blinkOn ? color : '#d6d9df';
+      ctx.fillStyle = colorOf[code] && blinkOn ? colorOf[code] : '#d6d9df';
       ctx.fill('evenodd');
       ctx.strokeStyle = 'rgba(40,40,40,.55)'; ctx.lineWidth = Math.max(1, W / 500); ctx.stroke();
     };

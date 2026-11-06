@@ -24,7 +24,7 @@
  *   cardSeconds=20       missile : secondes d'écran plein « Informations de protection civile », puis bloc en bas
  *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
- *   demo=seisme|missile|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion ; level=2|4|5 : niveau de l'aperçu
+ *   demo=seisme|missile|missiles|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion ; level=2|4|5 : niveau de l'aperçu
  */
 (function () {
   'use strict';
@@ -89,7 +89,8 @@
   let missileStart = 0;
   let missileKey = '';
   let missileMapKey = '';
-  let missileShown = null; // alerte missile affichée (pour le clignotement de la carte)
+  let missileFitKey = '';
+  let missileShown = null; // alertes missile affichées (pour le clignotement de la carte)
   // Panneau à gauche (comme la NHK) : automatique avec l'écran réduit pendant un séisme (eewPanel=0 : jamais).
   const eewAuto = q.get('eewPanel') !== '0';
   // Séisme et tsunami : l'écran réduit (texte en haut, panneau à gauche, tableau) reste tant que l'alerte
@@ -402,37 +403,77 @@
   }
 
 
-  function missileTexts(m) {
-    const all = (m.departments || []).includes('ALL');
-    const zones = all ? ['France entière'] : B.placesOf(m);
-    const desc = String(m.description || '').trim();
-    return { zones, title: m.title || '', desc };
-  }
   // Couleurs des niveaux de missile (celles de l'application) : Avis en jaune, Avertissement en rouge,
   // Avertissement majeur en rose.
   const MISSILE_COLORS = { 2: ['#ffe11a', '#111'], 4: ['#e0141e', '#fff'], 5: ['#fe05fd', '#fff'] };
   const missileColors = (m) => MISSILE_COLORS[m && m.level] || MISSILE_COLORS[4];
-  function renderMissile(m, phase) {
-    const lv = missileColors(m);
-    const key = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}`;
+  const missileLevelName = (lv) => ((M.CATEGORY_LEVELS.missile || {})[lv] || {}).name || M.alertLevelLabel({ category: 'missile', level: lv });
+  const byLevel = (x, y) => (y.level - x.level) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt);
+
+  // Plusieurs alertes missile en cours, de niveaux différents : affichées ensemble. Chaque département
+  // prend le niveau le plus haut qui le vise ; l'alerte la plus grave donne la couleur principale.
+  function missileView(list) {
+    const sorted = [...list].sort(byLevel);
+    const top = sorted[0];
+    const allLevel = Math.max(0, ...sorted.filter((m) => (m.departments || []).includes('ALL')).map((m) => m.level));
+    const levelOf = {};
+    for (const m of sorted) for (const c of m.departments || []) if (c !== 'ALL') levelOf[c] = Math.max(levelOf[c] || 0, m.level);
+    const levels = [...new Set(sorted.map((m) => m.level))].sort((x, y) => y - x);
+    // Zones par niveau (du plus haut au plus bas) ; « Toute la France » au niveau d'une alerte nationale.
+    const groups = levels.map((lv) => {
+      const codes = lv === allLevel ? ['ALL'] : lv < allLevel ? [] : Object.keys(levelOf).filter((c) => levelOf[c] === lv);
+      return { level: lv, zones: codes.length ? B.placesOf({ category: 'missile', departments: codes }) : [] };
+    }).filter((g) => g.zones.length);
+    const layers = [...levels].reverse().map((lv) => ({ color: missileColors({ level: lv })[0],
+      departments: lv === allLevel ? ['ALL'] : Object.keys(levelOf).filter((c) => levelOf[c] === lv) }));
+    const titles = [...new Set(sorted.map((m) => String(m.title || '').trim().replace(/\.$/, '')).filter(Boolean))];
+    const descs = [...new Set(sorted.map((m) => String(m.description || '').trim().replace(/\.$/, '')).filter(Boolean))];
+    const when = new Date(sorted.map((m) => m.updatedAt || m.createdAt).sort().pop());
+    const key = sorted.map((m) => `${m.id}:${m.revision || 0}:${m.updatedAt || ''}:${m.level}`).join('|');
+    return { top, levels, groups, layers, titles, descs, when, key };
+  }
+
+  // Zones : par niveau, avec l'étiquette de couleur du niveau quand il y en a plusieurs.
+  function missileZonesHtml(v) {
     const esc = M.escapeHtml;
-    if (key !== missileKey) {
-      missileKey = key;
-      const t = missileTexts(m);
-      const when = new Date(m.updatedAt || m.createdAt);
-      // Couleur du niveau : barre, bandeaux, zones concernées et carte.
+    const list = (zones) => zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
+    if (v.groups.length < 2) return list(v.groups[0] ? v.groups[0].zones : []);
+    return v.groups.map((g) => {
+      const [bg, fg] = missileColors({ level: g.level });
+      return `<div class="mz-grp"><span class="mz-lv" style="background:${bg};color:${fg}">${esc(missileLevelName(g.level))}</span>${list(g.zones)}</div>`;
+    }).join('');
+  }
+
+  function renderMissile(list, phase) {
+    const v = missileView(list);
+    const lv = missileColors(v.top);
+    const esc = M.escapeHtml;
+    if (v.key !== missileKey) {
+      missileKey = v.key;
+      // Couleur du niveau le plus haut : barre, bandeaux et encart ; zones et carte : chaque niveau.
       document.body.style.setProperty('--mlv', lv[0]);
       document.body.style.setProperty('--mlt', lv[1]);
-      $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(m);
-      $('missileCard').querySelector('.mc-msg').textContent = `Missile lancé. Missile lancé. ${t.title ? `${t.title.replace(/\.$/, '')}. ` : ''}${t.desc ? `${t.desc.replace(/\.$/, '')}. ` : ''}Abritez-vous à l'intérieur d'un bâtiment ou en sous-sol.`;
-      $('missileCard').querySelector('.mc-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
-      $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(when.toISOString()).replace(':', ' h ')}`;
-      $('missileLower').querySelector('.ml-msg').innerHTML = ['Missile lancé. Missile lancé.', t.title, 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.']
-        .filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join('');
-      $('missileLower').querySelector('.ml-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
-      $('missileFlash').querySelector('.mf-text').textContent = t.title || M.alertLevelLabel(m);
+      $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(v.top);
+      $('missileCard').querySelector('.mc-msg').textContent = `Missile lancé. Missile lancé. ${v.titles.map((t) => `${t}. `).join('')}${v.descs.map((t) => `${t}. `).join('')}Abritez-vous à l'intérieur d'un bâtiment ou en sous-sol.`;
+      $('missileCard').querySelector('.mc-zones').innerHTML = missileZonesHtml(v);
+      $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${v.when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(v.when.toISOString()).replace(':', ' h ')}`;
+      $('missileLower').querySelector('.ml-msg').innerHTML = ['Missile lancé. Missile lancé.', ...v.titles.slice(0, 2), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.']
+        .map((l) => `<div>${esc(l)}</div>`).join('');
+      $('missileLower').querySelector('.ml-zones').innerHTML = missileZonesHtml(v);
+      // Légende de la carte : les niveaux en cours.
+      $('missileLegend').innerHTML = v.groups.map((g) => g.level).map((l) => `<span><i style="background:${missileColors({ level: l })[0]}"></i>${esc(missileLevelName(l))}</span>`).join('');
+      $('missileFlash').querySelector('.mf-text').textContent = v.top.title || M.alertLevelLabel(v.top);
     }
-    missileShown = phase === 2 ? m : null;
+    // Bloc du bas affiché : la liste des zones est réduite si elle ne tient pas (beaucoup de départements).
+    if (phase === 2 && missileFitKey !== v.key) {
+      missileFitKey = v.key;
+      const z = $('missileLower').querySelector('.ml-zones');
+      z.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(z).fontSize);
+      const min = size * 0.55;
+      while (z.scrollHeight > z.clientHeight + 1 && size > min) { size -= 1; z.style.fontSize = `${size}px`; }
+    }
+    missileShown = phase === 2 ? v : null;
     blinkMissileMap();
     // Consigne en haut à droite : « Intérieur » et « Extérieur » en alternance (6 secondes).
     const indoor = Math.floor(Date.now() / 6000) % 2 === 0;
@@ -447,12 +488,12 @@
 
   // Carte missile : les départements concernés clignotent comme à la NHK (≈ 0,55 s en jaune, 0,5 s en gris).
   function blinkMissileMap() {
-    const m = missileShown;
-    if (!m) return;
+    const v = missileShown;
+    if (!v) return;
     const on = Date.now() % 1050 < 550;
-    const mk = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}:${on}`;
+    const mk = `${v.key}:${on}`;
     if (mk === missileMapKey) return;
-    B.drawZonesMap($('missileMap'), m, { width: 640, height: 600, blinkOn: on, color: missileColors(m)[0] });
+    B.drawZonesMap($('missileMap'), null, { width: 640, height: 600, blinkOn: on, layers: v.layers });
     missileMapKey = mk;
   }
 
@@ -480,13 +521,15 @@
     // Alerte missile : écran plein, puis bloc en bas (pas de bandeau ni d'écran réduit pour elle).
     const missiles = alerts.filter(wanted).filter((x) => x.category === 'missile')
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+    // Toutes les alertes missile en cours sont affichées ensemble (niveaux différents).
+    const missileList = manualMissile === false ? [] : missiles.length ? missiles : manualMissile === true && lastMissile ? [lastMissile] : [];
     const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
-    const missile = manualMissile === false ? null : manualMissile === true ? missiles[0] || lastMissile : missiles[0] || null;
+    const missile = missileList[0] || null;
     if (missile && missile.id !== missileId) { missileId = missile.id; missileStart = Date.now(); }
     const mPhase = !missile ? 0 : Date.now() - missileStart < cardSeconds * 1000 ? 1 : 2;
     document.body.classList.toggle('show-missile-card', mPhase === 1);
     document.body.classList.toggle('show-missile', mPhase === 2);
-    if (mPhase) renderMissile(missile, mPhase); else missileShown = null;
+    if (mPhase) renderMissile(missileList, mPhase); else missileShown = null;
     // Phase 1 : carte plein écran (le bandeau d'une autre alerte, le séisme, réduit en haut à gauche).
     // Phase 2 : mini-carte et tableau des mesures sur l'image, jusqu'à la fin de « hold ».
     let phase = 0;
@@ -587,7 +630,8 @@
         // les intensités recalculées).
         if (msg.alert.id === shownId && (msg.alert.category !== 'seisme' || added.length)) shownAt = Date.now();
         if (msg.alert.id === coastId) coastShownAt = Date.now();
-        if (msg.alert.id === missileId) missileStart = Date.now(); // mise à jour : écran plein à nouveau
+        // Mise à jour d'une alerte missile (n'importe laquelle) : écran plein à nouveau.
+        if (msg.alert.category === 'missile' && wanted(msg.alert)) { missileId = msg.alert.id; missileStart = Date.now(); }
         break;
       }
       case 'cancel':
@@ -640,6 +684,7 @@
       tsunamiTable: [['06', 4, 'arrived', 3], ['83', 4, 'imminent', 3], ['2B', 4, 15, 2.5], ['13', 2, 35, 1], ['2A', 2, 40, 1], ['30', 2, 55, 0.5], ['34', 2, 60, 0.5]]
         .map(([department, level, arr, height]) => ({ department, level, height, arrival: typeof arr === 'number' ? new Date(Date.now() + arr * 60000).toISOString() : arr })) },
     missile: { id: 'demo', category: 'missile', level: 5, departments: ['2B', '2A', '06', '83', '13'], title: 'Missile en direction de la Corse et de la Provence' },
+    missiles: { id: 'demo', category: 'missile', level: 5, departments: ['57', '55', '54'], title: 'Missile en direction de la Lorraine' },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
     submersion: { id: 'demo', category: 'meteo', phenomenon: 9, level: 4, departments: ['29', '56', '44', '85', '17'], title: 'Vagues-submersion sur la façade atlantique',
@@ -660,6 +705,11 @@
     const a = { ...DEMOS[demo], ...(q.get('level') ? { level: Number(q.get('level')) } : {}), createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];
     // Aperçu du tsunami : avec le séisme qui l'a causé (bandeau réduit en haut à gauche).
+    // Aperçu de plusieurs alertes missile de niveaux différents (Avis, Avertissement, Avertissement majeur).
+    if (demo === 'missiles') {
+      alerts.unshift({ ...a, id: 'demo-m4', level: 4, departments: ['57', '67', '68'], title: 'Missile en direction du Grand Est' },
+        { ...a, id: 'demo-m2', level: 2, departments: ['54', '88', '90', '70', '25'], title: '' });
+    }
     if (demo === 'tsunami') alerts.unshift({ ...DEMOS.seisme, id: 'demo-seisme', epicenter: a.epicenter, createdAt: new Date(Date.now() - 1000).toISOString(), expiresAt: a.expiresAt });
     arrived(a);
     remember(a);
