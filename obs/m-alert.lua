@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.1-4"
+local PAGE_VERSION = "3.0.1-5"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -181,18 +181,71 @@ local function anim_tick()
   if t >= 1 then anim = nil; obs.timer_remove(anim_tick) end
 end
 
+-- Incrustation dans une scène, aussi dans ses groupes.
+local function find_overlay_item(scene)
+  if scene == nil or overlay_name == nil then return nil end
+  local find = obs.obs_scene_find_source_recursive or obs.obs_scene_find_source
+  local item = find(scene, overlay_name)
+  if item == nil or not item then return nil end
+  return item
+end
+
 local function set_overlay_visible(scene_name, visible)
-  if scene_name == nil or overlay_name == nil then return end
+  if scene_name == nil then return end
+  local item = find_overlay_item(scene_by_name(scene_name))
+  if item ~= nil then obs.obs_sceneitem_set_visible(item, visible) end
+end
+
+-- Pendant l'écran réduit, l'incrustation reste en grand au premier plan de la scène de l'alerte : elle
+-- est masquée dans la scène d'avant et dans les scènes qu'elle contient (sinon elle s'affiche en double,
+-- réduite). hidden_list : scènes où elle a été masquée, pour la remettre ensuite.
+local hidden_list = {}
+local function hide_overlay_in(scene_name, seen)
+  seen = seen or {}
+  if scene_name == nil or scene_name == ALERT_SCENE or seen[scene_name] then return end
+  seen[scene_name] = true
   local scene = scene_by_name(scene_name)
   if scene == nil then return end
-  local item = obs.obs_scene_find_source(scene, overlay_name)
-  if item ~= nil then obs.obs_sceneitem_set_visible(item, visible) end
+  local item = find_overlay_item(scene)
+  if item ~= nil and obs.obs_sceneitem_visible(item) then
+    obs.obs_sceneitem_set_visible(item, false)
+    table.insert(hidden_list, scene_name)
+  end
+  local items = obs.obs_scene_enum_items(scene)
+  if items ~= nil then
+    for _, it in ipairs(items) do
+      local src = obs.obs_sceneitem_get_source(it)
+      if obs.obs_source_get_unversioned_id(src) == "scene" then hide_overlay_in(obs.obs_source_get_name(src), seen) end
+    end
+    obs.sceneitem_list_release(items)
+  end
+end
+local function restore_overlay()
+  for _, name in ipairs(hidden_list) do set_overlay_visible(name, true) end
+  hidden_list = {}
+end
+
+-- Scène d'avant déjà mise dans la scène de l'écran réduit (OBS ouvert directement sur cette scène).
+local function nested_program_scene()
+  local scene = scene_by_name(ALERT_SCENE)
+  if scene == nil then return nil end
+  local found = nil
+  local items = obs.obs_scene_enum_items(scene)
+  if items ~= nil then
+    for _, it in ipairs(items) do
+      local src = obs.obs_sceneitem_get_source(it)
+      if found == nil and obs.obs_source_get_unversioned_id(src) == "scene" then found = obs.obs_source_get_name(src) end
+    end
+    obs.sceneitem_list_release(items)
+  end
+  return found
 end
 
 -- OBS est passé sur la scène de l'écran réduit : la scène d'avant y est mise, réduite (animation),
 -- et l'incrustation y est masquée (elle reste affichée en grand au premier plan).
-local function enter_reduced()
+local function enter_reduced(no_anim)
   local scene = scene_by_name(ALERT_SCENE)
+  if scene ~= nil and program_scene == nil then program_scene = nested_program_scene() end
   if scene == nil or program_scene == nil then return end
   local items = obs.obs_scene_enum_items(scene)
   if items ~= nil then
@@ -214,8 +267,9 @@ local function enter_reduced()
   obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_BOTTOM)
   local fond = obs.obs_scene_find_source(scene, FOND_NAME)
   if fond ~= nil then obs.obs_sceneitem_set_order(fond, obs.OBS_ORDER_MOVE_BOTTOM) end
-  set_xform(item, 0)
-  set_overlay_visible(program_scene, false)
+  set_xform(item, no_anim and 1 or 0)
+  restore_overlay()
+  hide_overlay_in(program_scene)
   hidden_in = program_scene
   -- Texte en haut seul (affiché à la main) : masqué dans la scène réduite (le fond a déjà le texte).
   local ps = scene_by_name(program_scene)
@@ -224,6 +278,7 @@ local function enter_reduced()
     obs.obs_sceneitem_set_visible(ti, false)
     text_hidden_in = program_scene
   end
+  if no_anim then return end
   anim = { start = obs.os_gettime_ns(), name = program_scene }
   obs.timer_remove(anim_tick)
   obs.timer_add(anim_tick, 16)
@@ -238,7 +293,7 @@ local function on_event(event)
   if name == ALERT_SCENE then
     enter_reduced()
   else
-    if hidden_in ~= nil then set_overlay_visible(hidden_in, true); hidden_in = nil end
+    restore_overlay(); hidden_in = nil
     if text_hidden_in ~= nil then
       local ps = scene_by_name(text_hidden_in)
       local ti = ps and obs.obs_scene_find_source(ps, "M-Alert (texte)")
@@ -378,7 +433,9 @@ local function apply(st, demo)
   -- Dans la scène en cours (ajoutée si elle n'y est pas encore), au premier plan. Depuis la scène de
   -- l'écran réduit : dans la scène d'avant.
   local scene_src = obs.obs_frontend_get_current_scene()
+  local in_reduced = false
   if scene_src ~= nil and obs.obs_source_get_name(scene_src) == ALERT_SCENE then
+    in_reduced = true
     obs.obs_source_release(scene_src)
     scene_src = program_scene and obs.obs_get_source_by_name(program_scene) or nil
   end
@@ -388,8 +445,15 @@ local function apply(st, demo)
     local item = obs.obs_scene_find_source(scene, name)
     if item == nil then item = obs.obs_scene_add(scene, src) end
     if item ~= nil then
-      obs.obs_sceneitem_set_visible(item, true)
+      -- Écran réduit en cours : elle reste masquée dans la scène réduite (sinon, en double).
+      obs.obs_sceneitem_set_visible(item, not in_reduced)
       obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP)
+      if in_reduced then
+        local sn = obs.obs_source_get_name(scene_src)
+        local listed = false
+        for _, n in ipairs(hidden_list) do if n == sn then listed = true end end
+        if not listed then table.insert(hidden_list, sn) end
+      end
     end
     obs.script_log(obs.LOG_INFO, "M-Alert : source « " .. name .. " » dans la scène « " .. obs.obs_source_get_name(scene_src) .. " »")
     obs.obs_source_release(scene_src)
@@ -546,8 +610,10 @@ function script_load(st)
   overlay_name = name
   local cur = obs.obs_frontend_get_current_scene()
   if cur ~= nil then
-    if obs.obs_source_get_name(cur) ~= ALERT_SCENE then program_scene = obs.obs_source_get_name(cur) end
+    local cur_name = obs.obs_source_get_name(cur)
     obs.obs_source_release(cur)
+    if cur_name ~= ALERT_SCENE then program_scene = cur_name
+    else enter_reduced(true) end -- OBS ouvert sur l'écran réduit : incrustation masquée dans la scène réduite
   end
 end
 
@@ -584,6 +650,6 @@ end
 
 function script_unload()
   obs.timer_remove(anim_tick)
-  if hidden_in ~= nil then set_overlay_visible(hidden_in, true) end
+  restore_overlay()
 end
 function script_update(st) settings_ref = st end

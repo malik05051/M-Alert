@@ -95,7 +95,8 @@
   // Séisme et tsunami : l'écran réduit (texte en haut, panneau à gauche, tableau) reste tant que l'alerte
   // est en cours ; seul le bandeau du bas part après « hold ». stay=0 : jamais ; stay=all : toutes les alertes.
   const stayParam = q.get('stay') || 'quake';
-  const stays = (x) => Boolean(x) && stayParam !== '0' && (stayParam === 'all' || x.category === 'seisme' || x.category === 'tsunami');
+  // (Missile : jamais d'écran réduit, son affichage occupe déjà l'image.)
+  const stays = (x) => Boolean(x) && x.category !== 'missile' && stayParam !== '0' && (stayParam === 'all' || x.category === 'seisme' || x.category === 'tsunami');
   // Départements ajoutés par la dernière mise à jour d'une alerte (clignotants pendant ADDED_MS).
   const ADDED_MS = q.has('addedSeconds') ? Math.max(2, Number(q.get('addedSeconds')) || 10) * 1000 : 10000;
   let addedInfo = null; // { id, revision, codes, until }
