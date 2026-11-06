@@ -690,8 +690,9 @@
    * Corse en gris clair, départements visés en jaune, fond transparent ; encart de la
    * Nouvelle-Calédonie seulement si elle est visée.
    */
-  // Carte des zones (missile). blinkOn = false : zones en gris, pour le clignotement comme à la NHK.
-  function drawZonesMap(canvas, alert, { width = 640, height = 600, blinkOn = true } = {}) {
+  // Carte des zones (missile). color : couleur des zones (celle du niveau). blinkOn = false : zones en
+  // gris, pour le clignotement comme à la NHK.
+  function drawZonesMap(canvas, alert, { width = 640, height = 600, blinkOn = true, color = '#f5e100' } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
@@ -706,7 +707,7 @@
       if (!d) return;
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, Pr);
-      ctx.fillStyle = target.has(code) && blinkOn ? '#f5e100' : '#d6d9df';
+      ctx.fillStyle = target.has(code) && blinkOn ? color : '#d6d9df';
       ctx.fill('evenodd');
       ctx.strokeStyle = 'rgba(40,40,40,.55)'; ctx.lineWidth = Math.max(1, W / 500); ctx.stroke();
     };

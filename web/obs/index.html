@@ -60,14 +60,17 @@
     body.show-eew #coastTable { left: 11vw; }
     /* Alerte missile (comme la NHK, J-Alert) : écran plein « Informations de protection civile », puis
        bloc en bas sur l'image (message, zones, carte), encart « Alerte » et consigne en haut à droite. */
+    body { --mlv: #e0141e; --mlt: #fff; } /* couleur du niveau du missile (jaune, rouge, rose) */
     #missileCard { position: fixed; inset: 0; background: #000; display: none; color: #fff; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     body.show-missile-card #missileCard { display: block; }
     #missileCard .mc-head { position: absolute; left: 9vw; right: 9vw; top: 1.5vh; height: 10.5vh; display: flex; align-items: center;
       background: linear-gradient(#4a4a4a, #0c0c0c 70%); }
     #missileCard .mc-title { flex: 1; text-align: center; font: 700 5.6vh/1 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .02em; }
-    #missileCard .mc-bar { position: absolute; left: 9vw; right: 9vw; top: 12vh; height: 12.5vh; background: #d10f0f; }
+    #missileCard .mc-bar { position: absolute; left: 9vw; right: 9vw; top: 12vh; height: 12.5vh; background: var(--mlv); color: var(--mlt);
+      display: flex; align-items: center; justify-content: center; font: 800 5vh/1 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .06em; }
     #missileCard .mc-body { position: absolute; left: 10.5vw; right: 10.5vw; top: 26vh; font-size: 4.1vh; line-height: 1.45; }
-    #missileCard .mc-zones-label { margin-top: 5vh; }
+    #missileCard .mc-zones-label { margin-top: 5vh; display: inline-block; background: var(--mlv); color: var(--mlt); font-weight: 800; padding: 0 1.2vw; margin-bottom: 1vh; }
+    #missileCard .mc-zones { border-left: .9vw solid var(--mlv); padding-left: 1.2vw; }
     #missileCard .mc-time { position: absolute; right: 11vw; bottom: 9.5vh; font-size: 3.4vh; }
     #missileCard .mc-foot { position: absolute; left: 9vw; right: 9vw; bottom: 0; height: 6.5vh; background: linear-gradient(#9a9a9a, #6f6f6f); }
     #missileLower { position: fixed; left: 4.6vw; right: 4vw; bottom: 3.5vh; height: 46vh; display: none; gap: 1.2vw;
@@ -75,16 +78,16 @@
     body.show-missile #missileLower { display: flex; }
     #missileLower .ml-main { flex: 0 0 64%; display: flex; flex-direction: column; }
     #missileLower .ml-side { flex: 1; display: flex; flex-direction: column; }
-    #missileLower .ml-head { background: #e01414; color: #fff; text-align: center; font: 800 3.8vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; overflow: hidden; }
+    #missileLower .ml-head { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.8vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; overflow: hidden; }
     #missileLower .ml-msg { background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.4vh; line-height: 1.32; margin-bottom: 2.4vh; }
-    #missileLower .ml-zhead { background: #f5e60a; color: #111; text-align: center; font: 800 3.4vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; }
-    #missileLower .ml-zones { flex: 1; background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.2vh; line-height: 1.35; overflow: hidden; }
+    #missileLower .ml-zhead { background: var(--mlv); color: var(--mlt); text-align: center; font: 800 3.4vh/1.35 "Noto Sans", "Segoe UI", Arial, sans-serif; letter-spacing: .12em; white-space: nowrap; }
+    #missileLower .ml-zones { flex: 1; border-left: .6vw solid var(--mlv); background: rgba(0,0,0,.55); padding: .8vh 1.2vw; font-size: 3.2vh; line-height: 1.35; overflow: hidden; }
     #missileLower .ml-map { flex: 1; background: rgba(0,0,0,.45); position: relative; }
     #missileLower .ml-map canvas { position: absolute; inset: 1vh; width: calc(100% - 2vh); height: calc(100% - 2vh); object-fit: contain; }
     #missileFlash { position: fixed; right: 3.5vw; top: 4.5vh; display: none; align-items: stretch; box-shadow: 0 0 1vh rgba(0,0,0,.4);
       font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     body.show-missile #missileFlash { display: flex; }
-    #missileFlash .mf-tag { background: #e01414; color: #fff; font: 800 3.4vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .6vh .7vw; display: flex; align-items: center; }
+    #missileFlash .mf-tag { background: var(--mlv); color: var(--mlt); font: 800 3.4vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .6vh .7vw; display: flex; align-items: center; }
     #missileFlash .mf-text { background: #fff; color: #111; font: 700 3.3vh/1.3 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .6vh 1vw; max-width: 30vw; border-right: .5vh solid #1b3bb5; }
     #missileAdvice { position: fixed; right: 3.5vw; top: 22vh; display: none; border: .5vh solid #9b2fb5; background: #fff; box-shadow: 0 0 1vh rgba(0,0,0,.4);
       font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
@@ -107,7 +110,7 @@
   <div id="missileCard">
     <div class="mc-head"><span class="mc-title">Informations de protection civile</span></div>
     <div class="mc-bar"></div>
-    <div class="mc-body"><div class="mc-msg"></div><div class="mc-zones-label">Zones concernées :</div><div class="mc-zones"></div></div>
+    <div class="mc-body"><div class="mc-msg"></div><div class="mc-zones-label">Zones concernées</div><div class="mc-zones"></div></div>
     <div class="mc-time"></div>
     <div class="mc-foot"></div>
   </div>
@@ -118,12 +121,12 @@
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-5"></script>
-  <script src="../data/departements.js?v=3.0.1-5"></script>
-  <script src="../data/cotes.js?v=3.0.1-5"></script>
-  <script src="../js/common.js?v=3.0.1-5"></script>
-  <script src="../js/sound.js?v=3.0.1-5"></script>
-  <script src="../js/banner.js?v=3.0.1-5"></script>
-  <script src="obs.js?v=3.0.1-5"></script>
+  <script src="../config.js?v=3.0.1-6"></script>
+  <script src="../data/departements.js?v=3.0.1-6"></script>
+  <script src="../data/cotes.js?v=3.0.1-6"></script>
+  <script src="../js/common.js?v=3.0.1-6"></script>
+  <script src="../js/sound.js?v=3.0.1-6"></script>
+  <script src="../js/banner.js?v=3.0.1-6"></script>
+  <script src="obs.js?v=3.0.1-6"></script>
 </body>
 </html>

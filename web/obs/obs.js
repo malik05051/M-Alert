@@ -24,7 +24,7 @@
  *   cardSeconds=20       missile : secondes d'écran plein « Informations de protection civile », puis bloc en bas
  *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
- *   demo=seisme|missile|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
+ *   demo=seisme|missile|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion ; level=2|4|5 : niveau de l'aperçu
  */
 (function () {
   'use strict';
@@ -408,20 +408,25 @@
     const desc = String(m.description || '').trim();
     return { zones, title: m.title || '', desc };
   }
+  // Couleurs des niveaux de missile (celles de l'application) : Avis en jaune, Avertissement en rouge,
+  // Avertissement majeur en rose.
+  const MISSILE_COLORS = { 2: ['#ffe11a', '#111'], 4: ['#e0141e', '#fff'], 5: ['#fe05fd', '#fff'] };
+  const missileColors = (m) => MISSILE_COLORS[m && m.level] || MISSILE_COLORS[4];
   function renderMissile(m, phase) {
-    const lv = { 2: ['#f5e100', '#111'], 4: ['#e01414', '#fff'], 5: ['#d500f9', '#fff'] }[m.level] || ['#e01414', '#fff'];
+    const lv = missileColors(m);
     const key = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}`;
     const esc = M.escapeHtml;
     if (key !== missileKey) {
       missileKey = key;
       const t = missileTexts(m);
       const when = new Date(m.updatedAt || m.createdAt);
-      $('missileCard').querySelector('.mc-bar').style.background = lv[0];
+      // Couleur du niveau : barre, bandeaux, zones concernées et carte.
+      document.body.style.setProperty('--mlv', lv[0]);
+      document.body.style.setProperty('--mlt', lv[1]);
+      $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(m);
       $('missileCard').querySelector('.mc-msg').textContent = `Missile lancé. Missile lancé. ${t.title ? `${t.title.replace(/\.$/, '')}. ` : ''}${t.desc ? `${t.desc.replace(/\.$/, '')}. ` : ''}Abritez-vous à l'intérieur d'un bâtiment ou en sous-sol.`;
       $('missileCard').querySelector('.mc-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
       $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(when.toISOString()).replace(':', ' h ')}`;
-      const head = $('missileLower').querySelector('.ml-head');
-      head.style.background = lv[0]; head.style.color = lv[1];
       $('missileLower').querySelector('.ml-msg').innerHTML = ['Missile lancé. Missile lancé.', t.title, 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.']
         .filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileLower').querySelector('.ml-zones').innerHTML = t.zones.map((z) => `<span style="white-space:nowrap">${esc(z)}</span>`).join('\u2003 ');
@@ -447,7 +452,7 @@
     const on = Date.now() % 1050 < 550;
     const mk = `${m.id}:${m.revision || 0}:${m.updatedAt || ''}:${on}`;
     if (mk === missileMapKey) return;
-    B.drawZonesMap($('missileMap'), m, { width: 640, height: 600, blinkOn: on });
+    B.drawZonesMap($('missileMap'), m, { width: 640, height: 600, blinkOn: on, color: missileColors(m)[0] });
     missileMapKey = mk;
   }
 
@@ -652,7 +657,7 @@
     setTimeout(() => handle({ type: 'update', alert: { ...a, departments: ['06', '83', '04', '05', '13'], revision: 1, updatedAt: new Date().toISOString() } }), 3000);
   }
   if (demo && DEMOS[demo]) {
-    const a = { ...DEMOS[demo], createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
+    const a = { ...DEMOS[demo], ...(q.get('level') ? { level: Number(q.get('level')) } : {}), createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     alerts = [a];
     // Aperçu du tsunami : avec le séisme qui l'a causé (bandeau réduit en haut à gauche).
     if (demo === 'tsunami') alerts.unshift({ ...DEMOS.seisme, id: 'demo-seisme', epicenter: a.epicenter, createdAt: new Date(Date.now() - 1000).toISOString(), expiresAt: a.expiresAt });
