@@ -20,6 +20,7 @@
  *   layer=fond            source du fond de l'écran réduit (bleu et texte d'informations)
  *   layer=texte           texte en haut seul (bande bleue), affiché à la main
  *   layer=bandeau         bandeau de l'alerte en cours seul, affiché à la main
+ *   mapSeconds=20        tsunami / vagues-submersion : secondes de carte plein écran, puis mini-carte et tableau
  *   addedSeconds=10       secondes de clignotement des départements ajoutés par une mise à jour
  *   demo=seisme|ajout|tsunami|submersion|vent|inondation|annulation|info   aperçu sans serveur ; debug=1 : état de la connexion
  */
@@ -68,6 +69,12 @@
   let infoUntil = 0;
   let manualBanner = null; // null : automatique ; true : affiché à la main ; false : masqué à la main
   let manualMap = null; // carte du tsunami / des vagues-submersion : même principe
+  // Tsunami / vagues-submersion, comme la NHK : carte plein écran pendant mapSeconds, puis l'image avec
+  // la mini-carte en bas à droite et le tableau des mesures en bas à gauche (pages qui défilent).
+  const mapSeconds = q.has('mapSeconds') ? Math.max(0, Number(q.get('mapSeconds')) || 0) : 20;
+  let coastId = null;
+  let coastStart = 0;
+  let coastShownAt = 0;
   // Départements ajoutés par la dernière mise à jour d'une alerte (clignotants pendant ADDED_MS).
   const ADDED_MS = q.has('addedSeconds') ? Math.max(2, Number(q.get('addedSeconds')) || 10) * 1000 : 10000;
   let addedInfo = null; // { id, revision, codes, until }
@@ -234,6 +241,71 @@
     if (pg) showLines(pg.lines, pg.intro);
   }
 
+
+  // Tableau des mesures (tsunami : arrivée et hauteur ; vagues-submersion : pic et hauteur des vagues),
+  // par niveau, en pages de ROWS_PER_PAGE lignes qui défilent toutes les 6 secondes.
+  const ROWS_PER_PAGE = 5;
+  let tablePages = [];
+  let tableKey = '';
+  let tablePage = 0;
+  let tableUntil = 0;
+  const TSU_LEVELS = { 5: ['Avertissement majeur', '#d500f9', '#fff'], 4: ['Avertissement', '#e60012', '#fff'], 2: ['Avis de tsunami', '#f2d500', '#111'] };
+  const SURGE_LEVELS = { 5: ['Vigilance majeure', '#e040fb', '#fff'], 4: ['Vigilance rouge', '#e60012', '#fff'], 3: ['Vigilance orange', '#ff8c00', '#111'], 2: ['Vigilance jaune', '#f2d500', '#111'] };
+  const depName = (c) => M.departmentName(c).replace(/ \(\w+\)$/, '');
+  const hourText = (iso) => {
+    const t = new Date(iso);
+    const hm = M.formatTime(t.toISOString()).replace(':', ' h ');
+    return M.zonedDate(t.getTime()) === M.zonedDate() ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', timeZone: M.timeZone() })} ${hm}`;
+  };
+  const fr = (x, d = 1) => Number(x).toLocaleString('fr-FR', { maximumFractionDigits: d });
+  function coastRows(a) {
+    if (a.category === 'tsunami') {
+      return (a.tsunamiTable || []).map((r) => ({
+        level: r.level, name: depName(r.department),
+        when: r.arrival === 'arrived' ? 'Déjà arrivé' : r.arrival === 'imminent' ? 'Arrivée imminente' : r.arrival
+          ? (new Date(r.arrival).getTime() <= Date.now() ? (r.estimated ? 'Probablement arrivé' : 'Déjà arrivé') : `${r.estimated ? '≈ ' : ''}${hourText(r.arrival)}`) : '—',
+        value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${fr(r.height)} m` : '',
+      }));
+    }
+    const set = new Set(a.departments || []);
+    return ((a.forecastTable && a.forecastTable.rows) || []).filter((r) => set.has('ALL') || set.has(r.department)).map((r) => ({
+      level: r.level, name: depName(r.department),
+      when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—',
+      value: r.hs > 0 ? `${fr(r.hs)} m` : typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${fr(Math.abs(r.water), 2)} m` : '',
+    }));
+  }
+  function renderCoastTable(a) {
+    const key = `${a.id}:${a.revision || 0}:${Math.floor(Date.now() / 60000)}`;
+    const tsu = a.category === 'tsunami';
+    const LV = tsu ? TSU_LEVELS : SURGE_LEVELS;
+    if (key !== tableKey) {
+      const keep = tableKey.split(':').slice(0, 2).join(':') === key.split(':').slice(0, 2).join(':');
+      tableKey = key;
+      const rows = coastRows(a).sort((x, y) => y.level - x.level);
+      tablePages = [];
+      for (const lv of Object.keys(LV).map(Number).sort((x, y) => y - x)) {
+        const group = rows.filter((r) => r.level === lv);
+        for (let i = 0; i < group.length; i += ROWS_PER_PAGE) tablePages.push({ level: lv, rows: group.slice(i, i + ROWS_PER_PAGE) });
+      }
+      if (!keep) { tablePage = 0; tableUntil = Date.now() + 6000; }
+      tablePage = Math.min(tablePage, Math.max(0, tablePages.length - 1));
+    } else if (Date.now() >= tableUntil && tablePages.length > 1) {
+      tablePage = (tablePage + 1) % tablePages.length;
+      tableUntil = Date.now() + 6000;
+    }
+    const pg = tablePages[tablePage];
+    const el = $('coastTable');
+    if (!pg) { el.innerHTML = ''; return; }
+    const [name, bg, fg] = LV[pg.level] || ['', '#e60012', '#fff'];
+    const esc = M.escapeHtml;
+    const html = `<div class="ct-title">${tsu ? 'Arrivée prévue du tsunami' : 'Vagues-submersion prévues'}</div>`
+      + `<div class="ct-level" style="background:${bg};color:${fg}">${esc(name)}</div>`
+      + pg.rows.map((r) => `<div class="ct-row"><span class="ct-name">${esc(r.name)}</span><span class="ct-when">${esc(r.when)}</span>`
+        + `<span class="ct-val" style="background:${bg};color:${fg}">${esc(r.value)}</span></div>`).join('')
+      + (tablePages.length > 1 ? `<div class="ct-page">${tablePage + 1}/${tablePages.length}</div>` : '');
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+
   function render() {
     const a = current();
     if (fondLayer) { renderFond(textLayer ? manualAlert() : a); return; }
@@ -254,13 +326,19 @@
     const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     if (a) markFirst(a.id);
-    // Carte des tsunamis à l'écran : elle remplace le bandeau du tsunami (légende comprise) ; le
-    // bandeau d'une autre alerte (le séisme) passe en haut.
-    const mapOn = Boolean(tsu);
+    if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
+    // Phase 1 : carte plein écran (le bandeau d'une autre alerte, le séisme, réduit en haut à gauche).
+    // Phase 2 : mini-carte et tableau des mesures sur l'image, jusqu'à la fin de « hold ».
+    let phase = 0;
+    if (tsu) {
+      if (manualMap === true || Date.now() - coastStart < mapSeconds * 1000) phase = 1;
+      else if (hold === 0 || Date.now() - coastShownAt < hold * 1000) phase = 2;
+    }
+    const mapOn = phase === 1;
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
     const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
-    const ba = mapOn && a && (a.id === tsu.id || isCoast(a)) ? others[0] || null : a;
+    const ba = phase === 2 ? null : mapOn && a && (a.id === tsu.id || isCoast(a)) ? others[0] || null : a;
     const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
@@ -273,9 +351,14 @@
     const key = shown ? `${shown.id}:${shown.revision || 0}${add ? (blink ? ':+' : ':-') : ''}` : '';
     if (bannerOn && key !== drawnKey) { B.drawBanner($('banner'), shown, { width: 1600, height: 450, added: add, blinkOn: blink }); drawnKey = key; }
     // Annulation : l'écran réduit (s'il l'est déjà) reste le temps de l'annonce.
-    reduce(Boolean(((autoOn || mapOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
+    reduce(Boolean(((autoOn || phase > 0) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
     if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
+    document.body.classList.toggle('show-coast', phase === 2);
+    if (phase === 2) {
+      B.drawTsunamiMap($('miniMap'), tsu, blink, { width: 960, height: 540 });
+      renderCoastTable(tsu);
+    }
   }
 
   function arrived(a) {
@@ -320,6 +403,7 @@
         if (M.isActive(msg.alert)) alerts.push(msg.alert);
         if (lastAlert && lastAlert.id === msg.alert.id) lastAlert = msg.alert;
         if (msg.alert.id === shownId) shownAt = Date.now();
+        if (msg.alert.id === coastId) coastShownAt = Date.now();
         break;
       }
       case 'cancel':
@@ -364,11 +448,13 @@
   // Aperçu sans serveur.
   const DEMOS = {
     seisme: { id: 'demo', category: 'seisme', level: 5, departments: ['06', '83', '04', '05'], epicenter: { lat: 43.55, lon: 7.45 }, magnitude: 6.4, depth: 12, originTime: new Date(Date.now() - 20000).toISOString(), title: 'Séisme dans les Alpes-Maritimes' },
-    tsunami: { id: 'demo', category: 'tsunami', level: 4, departments: ['06', '83', '13', '2B', '2A'], epicenter: { lat: 43.2, lon: 7.8 }, tsunamiTable: [{ department: '06', level: 4 }, { department: '83', level: 4 }, { department: '2B', level: 4 }, { department: '13', level: 2 }, { department: '2A', level: 2 }] },
+    tsunami: { id: 'demo', category: 'tsunami', level: 4, title: 'Tsunami en Méditerranée', departments: ['06', '83', '13', '2B', '2A', '30', '34'], epicenter: { lat: 43.2, lon: 7.8 },
+      tsunamiTable: [['06', 4, 'arrived', 3], ['83', 4, 'imminent', 3], ['2B', 4, 15, 2.5], ['13', 2, 35, 1], ['2A', 2, 40, 1], ['30', 2, 55, 0.5], ['34', 2, 60, 0.5]]
+        .map(([department, level, arr, height]) => ({ department, level, height, arrival: typeof arr === 'number' ? new Date(Date.now() + arr * 60000).toISOString() : arr })) },
     vent: { id: 'demo', category: 'meteo', phenomenon: 1, level: 3, departments: ['29', '22', '56', '35', '50'], title: 'Vent violent en Bretagne et dans la Manche',
       forecastTable: { kind: 'vent', rows: [['29', 3, 132], ['22', 3, 118], ['56', 3, 112], ['50', 2, 104], ['35', 2, 98]].map(([department, level, gust]) => ({ department, level, gust })) } },
     submersion: { id: 'demo', category: 'meteo', phenomenon: 9, level: 4, departments: ['29', '56', '44', '85', '17'], title: 'Vagues-submersion sur la façade atlantique',
-      forecastTable: { kind: 'submersion', rows: [['29', 4, 9.5], ['56', 4, 8.2], ['44', 3, 7.1], ['85', 3, 6.8], ['17', 2, 5.5]].map(([department, level, hs]) => ({ department, level, hs })) } },
+      forecastTable: { kind: 'submersion', rows: [['29', 4, 9.5, 3], ['56', 4, 8.2, 4], ['44', 3, 7.1, 5], ['85', 3, 6.8, 5], ['17', 2, 5.5, 6]].map(([department, level, hs, h]) => ({ department, level, hs, at: new Date(Date.now() + h * 3600e3).toISOString() })) } },
     inondation: { id: 'demo', category: 'meteo', phenomenon: 2, level: 4, departments: ['30', '34', '07'], title: 'Pluie-inondation : épisode cévenol',
       forecastTable: { kind: 'inondation', rows: [['30', 4, 310, 3.2], ['34', 3, 190, 1.8], ['07', 3, 220, 2.4]].map(([department, level, rain24, river]) => ({ department, level, rain24, river })) } },
   };
