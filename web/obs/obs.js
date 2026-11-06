@@ -313,8 +313,8 @@
   }
 
 
-  // Panneau vertical « Alerte sismique précoce » (comme la NHK) : titre rouge, lieu du séisme en jaune,
-  // départements en blanc, en colonnes de droite à gauche.
+  // Panneau « Alerte sismique précoce » à gauche (comme la NHK, en colonne étroite) : titre rouge, lieu
+  // du séisme en jaune, départements en blanc, un par ligne, texte horizontal.
   let eewKey = '';
   function renderEew(a) {
     const key = `${a.id}:${a.revision || 0}`;
@@ -325,7 +325,8 @@
     if (a.epicenter) where = B.onLand(a.epicenter.lat, a.epicenter.lon) ? `Séisme : ${places[0] || ''}` : 'Séisme en mer';
     const esc = M.escapeHtml;
     $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>`
-      + places.map((p) => `<span class="eew-dep">${esc(p)}</span>`).join('');
+      // Noms composés : retour à la ligne possible après les traits d'union (« Alpes-de- / Haute-Provence »).
+      + places.map((p) => `<span class="eew-dep">${esc(p).replace(/-/g, '-<wbr>')}</span>`).join('');
   }
 
   function render() {
