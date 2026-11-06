@@ -160,11 +160,13 @@
         if (name === reduceScene) return;
         prevScene = name || null;
         obsApi.setCurrentScene(reduceScene);
+        document.body.classList.add('reduced');
       };
       if (obsApi.getCurrentScene) obsApi.getCurrentScene((sc) => go(sc && sc.name)); else go(null);
     } else if (!on && prevScene) {
       obsApi.setCurrentScene(prevScene);
       prevScene = null;
+      document.body.classList.remove('reduced');
     }
   }
 
@@ -235,6 +237,10 @@
     el.classList.toggle('intro', Boolean(intro));
     el.innerHTML = html;
   }
+  // Scène changée (aussi à la main, bouton « Écran réduit ») : positions selon l'écran réduit ou non.
+  window.addEventListener('obsSceneChanged', (e) => {
+    if (reduceScene && e.detail && e.detail.name) document.body.classList.toggle('reduced', e.detail.name === reduceScene);
+  });
   function renderFond(a) {
     if (cancelOn()) { showLines(cancelLines(cancelled.alert), false); return; }
     const key = a ? `${a.id}:${a.revision || 0}:${a.updatedAt || ''}` : '-';
