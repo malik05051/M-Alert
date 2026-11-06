@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-18"
+local PAGE_VERSION = "3.0.0-19"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -412,45 +412,65 @@ end
 
 function script_properties()
   local p = obs.obs_properties_create()
+  -- Libellé court ; explication complète en info-bulle (survol).
+  local function tip(prop, text) if prop ~= nil and text then obs.obs_property_set_long_description(prop, text) end return prop end
+  -- Groupes : sans colonne de libellés, les cases à cocher prennent toute la largeur.
+  local function group(name, title, fill)
+    local g = obs.obs_properties_create()
+    fill(g)
+    obs.obs_properties_add_group(p, name, title, obs.OBS_GROUP_NORMAL, g)
+  end
+
   obs.obs_properties_add_text(p, "server", "Serveur M-Alert", obs.OBS_TEXT_DEFAULT)
   obs.obs_properties_add_text(p, "base", "Page d'incrustation", obs.OBS_TEXT_DEFAULT)
-  obs.obs_properties_add_bool(p, "type_seisme", "Séismes (alerte sismique précoce)")
-  obs.obs_properties_add_bool(p, "type_tsunami", "Tsunamis")
-  obs.obs_properties_add_bool(p, "type_meteo", "Météo (vent, tempête, pluie-inondation, crues…)")
-  obs.obs_properties_add_bool(p, "type_pollution", "Pollution")
-  obs.obs_properties_add_bool(p, "type_accident", "Accidents industriels")
-  obs.obs_properties_add_bool(p, "type_attentat", "Attentats")
-  obs.obs_properties_add_bool(p, "type_greve", "Grèves")
-  obs.obs_properties_add_bool(p, "type_blocus", "Blocus / manifestations")
-  obs.obs_properties_add_text(p, "deps", "Départements (codes, vide : tous)", obs.OBS_TEXT_DEFAULT)
+  obs.obs_properties_add_button(p, "apply", "Ajouter / mettre à jour l'incrustation", function() apply(settings_ref) return true end)
+  obs.obs_properties_add_button(p, "demo", "Aperçu (séisme)", function() apply(settings_ref, "seisme") return true end)
+
+  group("grp_types", "Alertes montrées", function(g)
+    obs.obs_properties_add_bool(g, "type_seisme", "Séismes (alerte sismique précoce)")
+    obs.obs_properties_add_bool(g, "type_tsunami", "Tsunamis")
+    obs.obs_properties_add_bool(g, "type_meteo", "Météo (vent, tempête, pluie-inondation, crues…)")
+    obs.obs_properties_add_bool(g, "type_pollution", "Pollution")
+    obs.obs_properties_add_bool(g, "type_accident", "Accidents industriels")
+    obs.obs_properties_add_bool(g, "type_attentat", "Attentats")
+    obs.obs_properties_add_bool(g, "type_greve", "Grèves")
+    obs.obs_properties_add_bool(g, "type_blocus", "Blocus / manifestations")
+    obs.obs_properties_add_bool(g, "tests", "Alertes de test")
+  end)
+  tip(obs.obs_properties_add_text(p, "deps", "Départements", obs.OBS_TEXT_DEFAULT), "Codes des départements suivis, séparés par des virgules (ex. 13, 83, 988) ; vide : tous")
   local lv = obs.obs_properties_add_list(p, "min", "Niveau minimum", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
   for i, n in ipairs({ "Information", "Jaune", "Orange", "Rouge", "Majeur" }) do obs.obs_property_list_add_int(lv, n, i) end
-  obs.obs_properties_add_int(p, "hold", "Bandeau affiché (s, 0 : tant que l'alerte dure)", 0, 3600, 5)
-  obs.obs_properties_add_int(p, "cancel_hold", "Alerte annulée affichée (s)", 3, 3600, 1)
-  obs.obs_properties_add_int(p, "added_seconds", "Départements ajoutés : clignotement (s)", 2, 120, 1)
-  obs.obs_properties_add_int(p, "map_seconds", "Tsunami / vagues-submersion : carte plein écran (s), puis tableau", 0, 600, 1)
-  obs.obs_properties_add_int_slider(p, "width", "Largeur du bandeau (% de l'écran)", 30, 100, 1)
-  obs.obs_properties_add_bool(p, "reduce", "Réduire l'image pendant une alerte (texte d'informations en haut, comme la NHK)")
-  obs.obs_properties_add_int(p, "reduce_after", "Écran réduit après (s, 0 : tout de suite)", 0, 600, 1)
-  obs.obs_properties_add_bool(p, "stay", "Garder l'écran réduit tant qu'un séisme ou un tsunami est en cours")
-  obs.obs_properties_add_button(p, "reduce_now", "Écran réduit : activer / désactiver", function() toggle_reduced() return true end)
-  for _, m in ipairs(MANUAL) do
-    obs.obs_properties_add_button(p, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
-  end
-  obs.obs_properties_add_button(p, "banner_toggle", "Bandeau de l'alerte : afficher / masquer", function() send_overlay("banner") return true end)
-  obs.obs_properties_add_button(p, "map_toggle", "Carte tsunami / vagues-submersion : afficher / masquer", function() send_overlay("map") return true end)
-  for _, t in ipairs(OVERLAY_TOGGLES) do
-    obs.obs_properties_add_button(p, "toggle_" .. t.cmd, t.label, function() send_overlay(t.cmd) return true end)
-  end
-  obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
-  obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
-  obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
-  obs.obs_properties_add_bool(p, "sound", "Son des alertes (dans OBS)")
-  obs.obs_properties_add_bool(p, "tests", "Montrer les alertes de test")
-  obs.obs_properties_add_button(p, "apply", "Ajouter / mettre à jour l'incrustation", function() apply(settings_ref) return true end)
-  obs.obs_properties_add_button(p, "demo", "Aperçu (séisme)", function()
-    apply(settings_ref, "seisme")
-    return true
+
+  group("grp_display", "Affichage", function(g)
+    tip(obs.obs_properties_add_bool(g, "reduce", "Écran réduit pendant une alerte (comme la NHK)"),
+      "L'image se réduit sur un fond bleu, avec le texte d'informations en haut et le bandeau en bas")
+    tip(obs.obs_properties_add_bool(g, "stay", "Garder l'écran réduit tant qu'un séisme ou un tsunami est en cours"),
+      "Seul le bandeau du bas part après sa durée ; le panneau de gauche, le texte du haut et le tableau restent")
+    obs.obs_properties_add_bool(g, "tsunami", "Carte plein écran (tsunami, vagues-submersion)")
+    obs.obs_properties_add_bool(g, "infos", "Cadre « Information(s) M-Alert » (annulation, notifications)")
+    obs.obs_properties_add_bool(g, "sound", "Son des alertes (dans OBS)")
+    obs.obs_properties_add_bool(g, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
+  end)
+
+  group("grp_times", "Durées et taille", function(g)
+    tip(obs.obs_properties_add_int(g, "hold", "Bandeau (s)", 0, 3600, 5), "Durée d'affichage du bandeau du bas ; 0 : tant que l'alerte dure")
+    tip(obs.obs_properties_add_int(g, "reduce_after", "Écran réduit après (s)", 0, 600, 1), "Délai avant l'écran réduit ; 0 : tout de suite")
+    tip(obs.obs_properties_add_int(g, "map_seconds", "Carte plein écran (s)", 0, 600, 1), "Tsunami et vagues-submersion : durée de la carte plein écran, puis mini-carte et tableau des mesures")
+    obs.obs_properties_add_int(g, "cancel_hold", "Alerte annulée (s)", 3, 3600, 1)
+    tip(obs.obs_properties_add_int(g, "added_seconds", "Départements ajoutés (s)", 2, 120, 1), "Durée du clignotement des départements ajoutés par une mise à jour")
+    obs.obs_properties_add_int_slider(g, "width", "Largeur du bandeau (%)", 30, 100, 1)
+  end)
+
+  group("grp_manual", "Afficher / masquer à la main", function(g)
+    obs.obs_properties_add_button(g, "reduce_now", "Écran réduit : activer / désactiver", function() toggle_reduced() return true end)
+    for _, m in ipairs(MANUAL) do
+      obs.obs_properties_add_button(g, "manual_" .. m.key, m.label, function() toggle_manual(m) return true end)
+    end
+    obs.obs_properties_add_button(g, "banner_toggle", "Bandeau de l'alerte : afficher / masquer", function() send_overlay("banner") return true end)
+    obs.obs_properties_add_button(g, "map_toggle", "Carte tsunami / vagues-submersion : afficher / masquer", function() send_overlay("map") return true end)
+    for _, t in ipairs(OVERLAY_TOGGLES) do
+      obs.obs_properties_add_button(g, "toggle_" .. t.cmd, t.label, function() send_overlay(t.cmd) return true end)
+    end
   end)
   return p
 end
