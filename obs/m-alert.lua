@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.0-15"
+local PAGE_VERSION = "3.0.0-16"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -343,6 +343,13 @@ local function send_overlay(cmd)
   obs.obs_source_release(src)
 end
 local banner_hotkey = nil
+-- Autres éléments affichés ou masqués à la main (commande envoyée à la page de l'incrustation).
+local OVERLAY_TOGGLES = {
+  { cmd = "minimap", label = "Mini-carte (tsunami / vagues-submersion) : afficher / masquer" },
+  { cmd = "table", label = "Tableau des mesures (tsunami / vagues-submersion) : afficher / masquer" },
+  { cmd = "eew", label = "Alerte sismique précoce à gauche : afficher / masquer" },
+}
+local toggle_hotkeys = {}
 local map_hotkey = nil
 
 local function apply(st, demo)
@@ -430,6 +437,9 @@ function script_properties()
   end
   obs.obs_properties_add_button(p, "banner_toggle", "Bandeau de l'alerte : afficher / masquer", function() send_overlay("banner") return true end)
   obs.obs_properties_add_button(p, "map_toggle", "Carte tsunami / vagues-submersion : afficher / masquer", function() send_overlay("map") return true end)
+  for _, t in ipairs(OVERLAY_TOGGLES) do
+    obs.obs_properties_add_button(p, "toggle_" .. t.cmd, t.label, function() send_overlay(t.cmd) return true end)
+  end
   obs.obs_properties_add_bool(p, "top", "Bandeau en haut de l'écran (sans l'écran réduit)")
   obs.obs_properties_add_bool(p, "tsunami", "Carte des tsunamis en plein écran")
   obs.obs_properties_add_bool(p, "infos", "Cadre « Information(s) M-Alert » (alerte annulée, notifications)")
@@ -485,6 +495,15 @@ function script_load(st)
   local mk = obs.obs_data_get_array(st, "malert_carte_hotkey")
   obs.obs_hotkey_load(map_hotkey, mk)
   obs.obs_data_array_release(mk)
+  for _, t in ipairs(OVERLAY_TOGGLES) do
+    local id = obs.obs_hotkey_register_frontend("malert_" .. t.cmd, "M-Alert : " .. t.label:gsub("^%u", string.lower), function(pressed)
+      if pressed then send_overlay(t.cmd) end
+    end)
+    toggle_hotkeys[t.cmd] = id
+    local k = obs.obs_data_get_array(st, "malert_" .. t.cmd .. "_hotkey")
+    obs.obs_hotkey_load(id, k)
+    obs.obs_data_array_release(k)
+  end
   for _, m in ipairs(MANUAL) do
     local id = obs.obs_hotkey_register_frontend("malert_" .. m.key, "M-Alert : " .. m.label:lower(), function(pressed)
       if pressed then toggle_manual(m) end
@@ -509,6 +528,13 @@ function script_save(st)
   local keys = obs.obs_hotkey_save(hotkey_id)
   obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
   obs.obs_data_array_release(keys)
+  for _, t in ipairs(OVERLAY_TOGGLES) do
+    if toggle_hotkeys[t.cmd] ~= nil then
+      local k = obs.obs_hotkey_save(toggle_hotkeys[t.cmd])
+      obs.obs_data_set_array(st, "malert_" .. t.cmd .. "_hotkey", k)
+      obs.obs_data_array_release(k)
+    end
+  end
   if map_hotkey ~= nil then
     local mk = obs.obs_hotkey_save(map_hotkey)
     obs.obs_data_set_array(st, "malert_carte_hotkey", mk)

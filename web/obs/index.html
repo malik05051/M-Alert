@@ -35,7 +35,7 @@
     /* Tsunami / vagues-submersion après la carte plein écran : mini-carte et tableau des mesures. */
     #miniMap { position: fixed; right: 10.6vw; bottom: 1.5vh; width: 30vw; height: auto; display: none; opacity: .93; border: .2vh solid rgba(255,255,255,.35); }
     #coastTable { position: fixed; left: 11vw; bottom: 4vh; width: 46vw; display: none; font: 600 3.3vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; }
-    body.show-coast #miniMap, body.show-coast #coastTable { display: block; }
+    body.show-mini #miniMap, body.show-table #coastTable { display: block; }
     #coastTable .ct-title { background: #000; text-align: center; padding: .5vh 0; font-weight: 700; margin-bottom: .6vh; letter-spacing: .1em; }
     #coastTable .ct-level { display: inline-block; padding: .3vh 2vw; font-weight: 700; margin-bottom: .4vh; }
     #coastTable .ct-row { display: grid; grid-template-columns: 1fr 15.5vw 7.5vw; gap: .5vw; margin-bottom: .45vh; background: rgba(10,10,10,.82); align-items: stretch; }
@@ -43,6 +43,13 @@
     #coastTable .ct-when { margin: .35vh 0; border: .15vh solid #aaa; text-align: center; font-size: 2.5vh; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
     #coastTable .ct-val { text-align: center; font-weight: 700; font-size: 3.6vh; display: flex; align-items: center; justify-content: center; }
     #coastTable .ct-page { position: absolute; right: 0; bottom: -3.2vh; font-size: 2vh; opacity: .85; }
+    /* Panneau « Alerte sismique précoce » à gauche (comme la NHK), colonnes verticales. */
+    #eew { position: fixed; left: 1.2vw; top: 19vh; height: 74vh; display: none; writing-mode: vertical-rl; background: #2f6fd6;
+      border: .35vh solid #fff; padding: 1vh .4vw; font: 700 2.6vh/1.15 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; box-shadow: 0 0 1.4vh rgba(0,0,0,.45); }
+    body.show-eew #eew { display: block; }
+    #eew .eew-red { background: #e8213f; padding: .6vh .25vw; margin-left: .4vw; }
+    #eew .eew-yellow { color: #ffe600; margin-left: .6vw; }
+    #eew .eew-dep { margin-bottom: 1.8vh; display: inline-block; }
     #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
     body.debug #status { opacity: .85; }
   </style>
@@ -53,15 +60,16 @@
   <canvas id="tsunami"></canvas>
   <canvas id="miniMap"></canvas>
   <div id="coastTable"></div>
+  <div id="eew"></div>
   <canvas id="banner"></canvas>
   <canvas id="info"></canvas>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.0-15"></script>
-  <script src="../data/departements.js?v=3.0.0-15"></script>
-  <script src="../data/cotes.js?v=3.0.0-15"></script>
-  <script src="../js/common.js?v=3.0.0-15"></script>
-  <script src="../js/sound.js?v=3.0.0-15"></script>
-  <script src="../js/banner.js?v=3.0.0-15"></script>
-  <script src="obs.js?v=3.0.0-15"></script>
+  <script src="../config.js?v=3.0.0-16"></script>
+  <script src="../data/departements.js?v=3.0.0-16"></script>
+  <script src="../data/cotes.js?v=3.0.0-16"></script>
+  <script src="../js/common.js?v=3.0.0-16"></script>
+  <script src="../js/sound.js?v=3.0.0-16"></script>
+  <script src="../js/banner.js?v=3.0.0-16"></script>
+  <script src="obs.js?v=3.0.0-16"></script>
 </body>
 </html>

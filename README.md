@@ -115,6 +115,7 @@ Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le
 - **texte en haut seul** : bande bleue avec « Informations M-Alert » puis les informations, sans réduire l'image. C'est la source « M-Alert (texte) », cachée au départ.
 - **bandeau de l'alerte en cours** : affiché sans durée limite, ou masqué jusqu'à la prochaine alerte. La commande est envoyée à la source d'incrustation.
 - **carte du tsunami ou des vagues-submersion** : affichée ou masquée de la même façon (bouton « Carte tsunami / vagues-submersion : afficher / masquer »).
+- **mini-carte**, **tableau des mesures** et **panneau « Alerte sismique précoce » à gauche** (comme la NHK, colonnes verticales : titre rouge, lieu du séisme en jaune, départements) : affichés ou masqués de la même façon. Le panneau s'affiche tout seul quand l'écran est réduit pendant un séisme (`eewPanel=0` pour ne jamais l'afficher tout seul). Pendant la carte plein écran du tsunami, aucun bandeau n'est affiché.
 
 Utilise les boutons « Texte en haut : afficher / masquer » et « Bandeau de l'alerte : afficher / masquer » du script, ou leurs raccourcis clavier. Le fond est la source « M-Alert (fond) ». Avec une source ajoutée à la main : paramètre `reduce=Nom de la scène` (et une source `layer=fond` dans cette scène).
 

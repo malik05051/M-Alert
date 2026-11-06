@@ -75,6 +75,12 @@
   let coastId = null;
   let coastStart = 0;
   let coastShownAt = 0;
+  // À la main (script OBS) : mini-carte, tableau des mesures, panneau « Alerte sismique précoce » à gauche.
+  let manualMini = null;
+  let manualTable = null;
+  let manualEew = null;
+  // Panneau à gauche (comme la NHK) : automatique avec l'écran réduit pendant un séisme (eewPanel=0 : jamais).
+  const eewAuto = q.get('eewPanel') !== '0';
   // Départements ajoutés par la dernière mise à jour d'une alerte (clignotants pendant ADDED_MS).
   const ADDED_MS = q.has('addedSeconds') ? Math.max(2, Number(q.get('addedSeconds')) || 10) * 1000 : 10000;
   let addedInfo = null; // { id, revision, codes, until }
@@ -306,6 +312,22 @@
     if (el.innerHTML !== html) el.innerHTML = html;
   }
 
+
+  // Panneau vertical « Alerte sismique précoce » (comme la NHK) : titre rouge, lieu du séisme en jaune,
+  // départements en blanc, en colonnes de droite à gauche.
+  let eewKey = '';
+  function renderEew(a) {
+    const key = `${a.id}:${a.revision || 0}`;
+    if (key === eewKey) return;
+    eewKey = key;
+    const places = B.placesOf(a);
+    let where = 'Séisme';
+    if (a.epicenter) where = B.onLand(a.epicenter.lat, a.epicenter.lon) ? `Séisme : ${places[0] || ''}` : 'Séisme en mer';
+    const esc = M.escapeHtml;
+    $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>`
+      + places.map((p) => `<span class="eew-dep">${esc(p)}</span>`).join('');
+  }
+
   function render() {
     const a = current();
     if (fondLayer) { renderFond(textLayer ? manualAlert() : a); return; }
@@ -338,7 +360,8 @@
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
     const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
-    const ba = phase === 2 ? null : mapOn && a && (a.id === tsu.id || isCoast(a)) ? others[0] || null : a;
+    // Carte plein écran ou tableau : pas de bandeau (le séisme est dans le panneau à gauche).
+    const ba = phase > 0 ? null : a;
     const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
@@ -354,11 +377,23 @@
     reduce(Boolean(((autoOn || phase > 0) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
     if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
-    document.body.classList.toggle('show-coast', phase === 2);
-    if (phase === 2) {
-      B.drawTsunamiMap($('miniMap'), tsu, blink, { width: 960, height: 540 });
-      renderCoastTable(tsu);
-    }
+    // Mini-carte et tableau : après la carte plein écran, ou à la main.
+    const coastAny = tsu || coastList[0] || lastCoast;
+    const miniOn = !mapOn && (manualMini === true ? Boolean(coastAny) : manualMini === false ? false : phase === 2);
+    const tableOn = !mapOn && (manualTable === true ? Boolean(coastAny) : manualTable === false ? false : phase === 2);
+    document.body.classList.toggle('show-mini', miniOn);
+    document.body.classList.toggle('show-table', tableOn);
+    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540 });
+    if (tableOn) renderCoastTable(coastAny);
+    // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
+    const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')
+      .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+    const quake = quakes[0] || null;
+    const quakeAny = quake || (lastAlert && lastAlert.category === 'seisme' ? lastAlert : null);
+    const quakeRecent = quake && (hold === 0 || Date.now() - Date.parse(quake.updatedAt || quake.createdAt) < hold * 1000 || phase > 0);
+    const eewOn = !mapOn && !cancelOn() && (manualEew === true ? Boolean(quakeAny) : manualEew === false ? false : eewAuto && Boolean(quakeRecent) && Boolean(prevScene || phase === 2));
+    document.body.classList.toggle('show-eew', eewOn);
+    if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
   }
 
   function arrived(a) {
@@ -371,6 +406,9 @@
     }
     manualBanner = null;
     manualMap = null;
+    manualMini = null;
+    manualTable = null;
+    manualEew = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
@@ -432,6 +470,9 @@
     if (fondLayer || bannerLayer) return;
     if (d.cmd === 'banner') manualBanner = document.body.classList.contains('show-banner') ? false : true;
     else if (d.cmd === 'map') manualMap = document.body.classList.contains('show-tsunami') ? false : true;
+    else if (d.cmd === 'minimap') manualMini = document.body.classList.contains('show-mini') ? false : true;
+    else if (d.cmd === 'table') manualTable = document.body.classList.contains('show-table') ? false : true;
+    else if (d.cmd === 'eew') manualEew = document.body.classList.contains('show-eew') ? false : true;
     else return;
     render();
   });
