@@ -372,14 +372,50 @@
     return alert.departments.some((d) => myDepartments().includes(d));
   }
 
-  function alertItemHtml(a) {
+  function alertItemHtml(a, mf = null) {
     const lv = LEVELS[a.level];
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
       <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.pollutionSummary(a) ? ` · ${escapeHtml(M.pollutionSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${M.sourceShort(a) ? ` · ${escapeHtml(M.sourceShort(a))}` : ''}</div>
+      ${mf && mf.length ? `<div class="m mf-line">${mfHtml(mf)}</div>` : ''}
     </div>`;
+  }
+
+  // Vigilances Météo-France fusionnées dans l'alerte M-Alert du même phénomène (une seule ligne dans
+  // « Alertes en cours ») : vent violent et tempête, pluie-inondation, crues et inondation,
+  // vagues-submersion et forte houle vont ensemble.
+  const PH_FAMILY = { 1: 'vent', 14: 'vent', 2: 'pluie', 4: 'pluie', 12: 'pluie', 15: 'pluie', 9: 'mer', 16: 'mer' };
+  const phFamily = (p) => PH_FAMILY[Number(p) || 0] || `p${Number(p) || 0}`;
+
+  /**
+   * Répartit les vigilances entre les alertes M-Alert : { vig: vigilances restantes (départements sans
+   * alerte M-Alert du même phénomène), mf: Map id d'alerte → [{ phenomenon, level, departments }] }.
+   */
+  function mergeVigilance(list, vig) {
+    const mf = new Map();
+    const rest = [];
+    for (const g of vig) {
+      const same = list.filter((a) => !a.__vig && M.categoryOf(a) === 'meteo' && phFamily(a.phenomenon) === phFamily(g.phenomenon));
+      const covers = (a, c) => (a.departments || []).includes(c) || (a.departments || []).includes('ALL');
+      for (const a of same) {
+        const codes = g.departments.filter((c) => covers(a, c));
+        if (codes.length) mf.set(a.id, [...(mf.get(a.id) || []), { phenomenon: g.phenomenon, level: g.level, departments: codes }]);
+      }
+      const left = g.departments.filter((c) => !same.some((a) => covers(a, c)));
+      if (left.length) rest.push(left.length === g.departments.length ? g : { ...g, departments: left });
+    }
+    return { vig: rest, mf };
+  }
+
+  /** « 🇫🇷 Météo-France : [Jaune] Pluie-inondation · Gard ». */
+  function mfHtml(mf) {
+    return `🇫🇷 Météo-France : ${[...mf].sort((x, y) => y.level - x.level).map((v) => {
+      const c = VIGILANCE[v.level];
+      const ph = PHENOMENA[v.phenomenon] || PHENOMENA[0];
+      return `<span class="tag" style="background:${c.color};color:${LEVELS[v.level].text}" title="Vigilance Météo-France">${escapeHtml(c.name)}</span>${escapeHtml(ph.name)} · ${escapeHtml(M.departmentsLabel(v.departments, 3))}`;
+    }).join(' · ')}`;
   }
 
   // Filtre de la liste « Alertes en cours » : catégorie ou phénomène météo.
@@ -409,6 +445,9 @@
    */
   function vigilanceItems() {
     if (settings.vigInList === false) return [];
+    return vigilanceGroups();
+  }
+  function vigilanceGroups() {
     const p = periodData(0);
     if (!p || !p.departments) return [];
     const groups = {};
@@ -441,12 +480,14 @@
   }
 
   function renderAlerts() {
-    const vig = vigilanceItems();
+    // Vigilances Météo-France : dans l'alerte M-Alert du même phénomène, sinon sur leur propre ligne.
+    const merged = mergeVigilance(alerts, vigilanceItems());
+    const vig = merged.vig;
     const all = [...alerts, ...vig];
     const sorted = all.filter(passesFilter).sort((a, b) => (isMine(b) - isMine(a)) || (b.level - a.level) || (Boolean(a.__vig) - Boolean(b.__vig)) || (b.createdAt || '').localeCompare(a.createdAt || ''));
     $('alertCount').textContent = alertFilter ? `${sorted.length}/${all.length}` : all.length;
     $('alertList').innerHTML = sorted.length
-      ? sorted.map((a) => (a.__vig ? vigItemHtml(a) : alertItemHtml(a))).join('')
+      ? sorted.map((a) => (a.__vig ? vigItemHtml(a) : alertItemHtml(a, merged.mf.get(a.id)))).join('')
       : `<div class="empty">${alertFilter && all.length ? 'Aucune alerte de ce type en cours.' : 'Aucune alerte en cours ✅'}</div>`;
   }
 
@@ -986,6 +1027,9 @@
     if (M.pollutionSummary(alert)) quake.push(`<span>🧪 ${escapeHtml(M.pollutionSummary(alert))}</span>`);
     // Vent ou vagues-submersion automatique : version d'origine (la prévision a pu la modifier).
     if (M.forecastOriginText(alert)) quake.push(`<span class="origin">🕓 ${escapeHtml(M.forecastOriginText(alert))}</span>`);
+    // Vigilance Météo-France du même phénomène dans ses départements (fusionnée avec l'alerte).
+    const mf = alert.__vig || alert.__notice ? null : mergeVigilance([alert], vigilanceGroups()).mf.get(alert.id);
+    if (mf && mf.length) quake.push(`<span class="mf-line">${mfHtml(mf)}</span>`);
     $('ovEpi').classList.toggle('hidden', !quake.length);
     $('ovEpi').innerHTML = quake.join(' ');
     $('ovDesc').textContent = alert.description;
