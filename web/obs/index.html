@@ -111,10 +111,13 @@
     /* Bandeau affiché : la mini-carte passe en haut à gauche (sous le texte de l'écran réduit). */
     body.shindo-mini.show-banner #shindoMap { bottom: auto; top: 4vh; }
     body.shindo-mini.show-banner.reduced #shindoMap { top: 19.5vh; }
-    /* En bas à droite, à la main : « Rapport final » et « Aucun risque de tsunami ». */
+    /* À la main, séparés : « Rapport final » en haut à droite (sous le texte de l'écran réduit),
+       « Aucun risque de tsunami » en bas à droite. */
+    #quakeFinal { position: fixed; right: 3vw; top: 4vh; display: none; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; background: #d0021b; color: #fff; font-weight: 800; font-size: 4vh; line-height: 1.25; padding: .6vh 1.6vw; border: .35vh solid #fff; box-shadow: 0 0 1.2vh rgba(0,0,0,.45); letter-spacing: .04em; }
+    body.show-final #quakeFinal { display: block; }
+    body.reduced #quakeFinal { top: 19.5vh; }
     #quakeNotes { position: fixed; right: 3vw; bottom: 4vh; display: flex; flex-direction: column; align-items: flex-end; gap: 1.2vh; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     #quakeNotes > div { display: none; }
-    body.show-final #quakeNotes .qn-final { display: block; background: #d0021b; color: #fff; font-weight: 800; font-size: 4vh; line-height: 1.25; padding: .6vh 1.6vw; border: .35vh solid #fff; box-shadow: 0 0 1.2vh rgba(0,0,0,.45); letter-spacing: .04em; }
     body.show-notsunami #quakeNotes .qn-tsu { display: block; background: rgba(18,20,28,.84); color: #fff; font-weight: 700; font-size: 4.6vh; line-height: 1.25; padding: .9vh 1.8vw; border-radius: .4vh; }
     #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
     body.debug #status { opacity: .85; }
@@ -143,14 +146,15 @@
   </div>
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
-  <div id="quakeNotes"><div class="qn-final">Rapport final</div><div class="qn-tsu">Aucun risque de tsunami</div></div>
+  <div id="quakeFinal">Rapport final</div>
+  <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-11"></script>
-  <script src="../data/departements.js?v=3.0.1-11"></script>
-  <script src="../data/cotes.js?v=3.0.1-11"></script>
-  <script src="../js/common.js?v=3.0.1-11"></script>
-  <script src="../js/sound.js?v=3.0.1-11"></script>
-  <script src="../js/banner.js?v=3.0.1-11"></script>
-  <script src="obs.js?v=3.0.1-11"></script>
+  <script src="../config.js?v=3.0.1-12"></script>
+  <script src="../data/departements.js?v=3.0.1-12"></script>
+  <script src="../data/cotes.js?v=3.0.1-12"></script>
+  <script src="../js/common.js?v=3.0.1-12"></script>
+  <script src="../js/sound.js?v=3.0.1-12"></script>
+  <script src="../js/banner.js?v=3.0.1-12"></script>
+  <script src="obs.js?v=3.0.1-12"></script>
 </body>
 </html>
