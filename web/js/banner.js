@@ -806,7 +806,8 @@
    * par défaut.
    */
   // final : « Rapport final » affiché : terre brune (comme la NHK), sinon verte (premières informations).
-  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false, view = null, final = false } = {}) {
+  // epicenter = false : croix de l'épicentre masquée.
+  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false, view = null, final = false, epicenter = true } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
@@ -830,8 +831,8 @@
       ctx.fillStyle = final ? '#9b7a5a' : '#5f8f74'; ctx.fill('evenodd');
       ctx.strokeStyle = final ? '#4a3a2c' : '#2f4a3c'; ctx.lineWidth = Math.max(1, W / 900); ctx.stroke();
     }
-    // Épicentre.
-    if (a.epicenter) {
+    // Épicentre (affichable ou masquable).
+    if (a.epicenter && epicenter) {
       const [ex, ey] = P(a.epicenter.lat, a.epicenter.lon);
       const r = Math.max(8, H / 34);
       ctx.lineCap = 'round';

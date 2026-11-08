@@ -100,6 +100,7 @@
   // Choisis dans M-Alert-sender : séisme à montrer (sinon celui en cours) et vue de la carte.
   let shindoQuake = null;
   let shindoView = null;
+  let epicenterOn = true; // croix de l'épicentre sur la carte des intensités
   /** État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). */
   function applyObs(o) {
     if (!o || fondLayer || bannerLayer) return;
@@ -111,6 +112,7 @@
     }
     if (typeof o.notsunami === 'boolean') noTsunamiOn = o.notsunami;
     if (typeof o.final === 'boolean') finalOn = o.final;
+    if (typeof o.epicenter === 'boolean') epicenterOn = o.epicenter;
   }
   let missileId = null;
   let missileStart = 0;
@@ -644,9 +646,9 @@
     for (const m of ['full', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
     if (smode) {
       // Terre verte, puis brune une fois le « Rapport final » affiché (comme la NHK).
-      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}`;
+      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}:${epicenterOn}`;
       if (sk !== shindoKey) {
-        B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn });
+        B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn, epicenter: epicenterOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn, epicenter: epicenterOn });
         shindoKey = sk;
       }
     }
@@ -775,6 +777,7 @@
     }
     else if (d.cmd === 'notsunami') noTsunamiOn = !noTsunamiOn;
     else if (d.cmd === 'final') finalOn = !finalOn;
+    else if (d.cmd === 'epicenter') epicenterOn = !epicenterOn;
     else return;
     render();
   });
