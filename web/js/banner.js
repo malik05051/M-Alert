@@ -725,5 +725,142 @@
     return canvas;
   }
 
-  window.MAlertBanner = { drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  // --- Carte des intensités (comme la NHK) ---
+
+  // Couleurs des intensités sur la carte, comme à la NHK : [fond, texte, bord].
+  const NHK_SHINDO = {
+    1: ['#f2f4f8', '#333', '#7d8590'], 2: ['#a9d6ff', '#0d2a4a', '#4b7fb0'], 3: ['#fbf3a0', '#1b1b1b', '#9a8a2a'],
+    4: ['#f5a04b', '#1b1b1b', '#9a5410'], '5-': ['#c62020', '#fff', '#5c0b0b'], '5+': ['#a61414', '#fff', '#4a0606'],
+    '6-': ['#f6c3d3', '#a00d2a', '#a00d2a'], '6+': ['#f39bb8', '#7d0018', '#7d0018'], 7: ['#8c0a12', '#fff', '#ffd200'],
+  };
+  const ORDER = ['0', '1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'];
+
+  /** Point où écrire dans un département : centre de son plus grand morceau. */
+  function labelPoint(d) {
+    let best = null; let bestA = 0;
+    for (const p of d.polys) {
+      const ring = p[0];
+      let a = 0; let cx = 0; let cy = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const f = ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+        a += f; cx += (ring[j][0] + ring[i][0]) * f; cy += (ring[j][1] + ring[i][1]) * f;
+      }
+      if (Math.abs(a) > bestA) { bestA = Math.abs(a); best = [cy / (3 * a), cx / (3 * a)]; }
+    }
+    return best || [(d.box[0] + d.box[1]) / 2, (d.box[2] + d.box[3]) / 2];
+  }
+
+  /** Intensité de chaque département (corrigée par M-Alert, sinon calculée), 1 et plus. */
+  function allIntensities(a) {
+    const { deps } = geoData();
+    const out = {};
+    for (const code of Object.keys(deps)) {
+      let sh = a.intensities && a.intensities[code];
+      if (!sh && a.epicenter && typeof a.magnitude === 'number' && M && M.estimateIntensity) {
+        const km = deptKm(code, a.epicenter.lat, a.epicenter.lon);
+        if (km !== null && km < 900) sh = M.toShindo(M.estimateIntensity(a.magnitude, Number(a.depth) || 10, km));
+      }
+      if (sh && ORDER.indexOf(String(sh)) >= 1) out[code] = String(sh);
+    }
+    return out;
+  }
+
+  /** Case d'intensité : chiffre, et « − » / « + » en exposant (5⁻, 6⁺). */
+  function shindoBadge(ctx, x, y, size, sh) {
+    const [bg, fg, border] = NHK_SHINDO[sh] || NHK_SHINDO[1];
+    const h = size / 2;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - h + size * 0.06, y - h + size * 0.06, size, size);
+    ctx.fillStyle = bg; ctx.fillRect(x - h, y - h, size, size);
+    ctx.strokeStyle = border; ctx.lineWidth = Math.max(1.5, size * (sh === '7' ? 0.1 : 0.06)); ctx.strokeRect(x - h, y - h, size, size);
+    const num = String(sh)[0];
+    const sign = String(sh)[1] || '';
+    ctx.fillStyle = fg; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.font = `800 ${Math.round(size * 0.78)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+    ctx.fillText(num, x - (sign ? size * 0.1 : 0), y + size * 0.04);
+    if (sign) {
+      ctx.font = `800 ${Math.round(size * 0.46)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+      ctx.fillText(sign === '-' ? '−' : '+', x + size * 0.28, y - size * 0.22);
+    }
+  }
+
+  /**
+   * Carte des intensités d'un séisme (comme la NHK) : mer bleue, terre, intensité de chaque
+   * département dans sa case, épicentre ✕, encart « Intensité max » et heure du séisme.
+   */
+  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false } = {}) {
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const W = width; const H = height;
+    const { deps } = geoData();
+    const ints = allIntensities(a);
+    const codes = Object.keys(ints);
+    // Zone : départements d'intensité 3 et plus (sinon tous ceux qui ont ressenti), et l'épicentre.
+    const strong = codes.filter((c) => ORDER.indexOf(ints[c]) >= 3);
+    const box = focusBox((strong.length ? strong : codes).filter((c) => c !== '988'), a.epicenter || null, mini ? 2.6 : 3.2);
+    const P = projector(box, 0, 0, W, H);
+    const sea = ctx.createLinearGradient(0, 0, W, H);
+    sea.addColorStop(0, '#1d40c0'); sea.addColorStop(1, '#1638a8');
+    ctx.fillStyle = sea; ctx.fillRect(0, 0, W, H);
+    const visible = (d) => !(d.box[1] < box[0] || d.box[0] > box[1] || d.box[3] < box[2] || d.box[2] > box[3]);
+    const shown = Object.entries(deps).filter(([c, d]) => c !== '988' && visible(d));
+    for (const [, d] of shown) {
+      ctx.beginPath();
+      for (const poly of d.polys) pathPoly(ctx, poly, P);
+      ctx.fillStyle = '#9b7a5a'; ctx.fill('evenodd');
+      ctx.strokeStyle = '#4a3a2c'; ctx.lineWidth = Math.max(1, W / 900); ctx.stroke();
+    }
+    // Épicentre.
+    if (a.epicenter) {
+      const [ex, ey] = P(a.epicenter.lat, a.epicenter.lon);
+      const r = Math.max(8, H / 34);
+      ctx.lineCap = 'round';
+      for (const [col, lw] of [['#ffd400', r / 1.7], ['#d01010', r / 3]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(ex - r, ey - r); ctx.lineTo(ex + r, ey + r); ctx.moveTo(ex + r, ey - r); ctx.lineTo(ex - r, ey + r); ctx.stroke();
+      }
+    }
+    // Intensités : les plus fortes dessinées en dernier (au-dessus).
+    const size = Math.round(H * (mini ? 0.07 : 0.054));
+    const list = shown.filter(([c]) => ints[c]).sort(([x], [y]) => ORDER.indexOf(ints[x]) - ORDER.indexOf(ints[y]));
+    for (const [c, d] of list) {
+      const [la, lo] = labelPoint(d);
+      const [x, y] = P(la, lo);
+      if (x < size / 2 || y < size / 2 || x > W - size / 2 || y > H - size / 2) continue;
+      shindoBadge(ctx, x, y, size, ints[c]);
+    }
+    // Encart « Intensité max » et heure, en haut à gauche.
+    const max = a.shindo && NHK_SHINDO[a.shindo] ? String(a.shindo) : codes.sort((x, y) => ORDER.indexOf(ints[y]) - ORDER.indexOf(ints[x])).map((c) => ints[c])[0];
+    const pad = H * 0.025;
+    const bw = W * (mini ? 0.22 : 0.15); const bh = H * (mini ? 0.17 : 0.13);
+    if (max) {
+      const [bg, fg] = NHK_SHINDO[max];
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(pad + 4, pad + 4, bw, bh);
+      ctx.fillStyle = ['6-', '6+'].includes(max) ? '#f6c3d3' : max === '7' ? '#c41a1a' : bg; ctx.fillRect(pad, pad, bw, bh);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, H / 300); ctx.strokeRect(pad, pad, bw, bh);
+      const tc = ['6-', '6+'].includes(max) ? '#b00020' : max === '7' ? '#fff' : fg;
+      ctx.fillStyle = tc; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `700 ${Math.round(bh * 0.22)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+      ctx.fillText('Intensité max', pad + bw / 2, pad + bh * 0.22);
+      ctx.font = `900 ${Math.round(bh * 0.58)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+      const label = max.length > 1 ? `${max[0]}${max[1] === '-' ? '−' : '+'}` : max;
+      fitText(ctx, label, bw * 0.92, Math.round(bh * 0.58), Math.round(bh * 0.3), '900');
+      ctx.fillText(label, pad + bw / 2, pad + bh * 0.64);
+    }
+    // Heure du séisme (et magnitude).
+    const t = new Date(a.originTime || a.createdAt || Date.now());
+    const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
+    const when = `Le ${day} vers ${hourOf(t.toISOString())}${typeof a.magnitude === 'number' ? `  ·  M${frNum(a.magnitude)}` : ''}`;
+    const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
+    ctx.font = `700 ${Math.round(th * 0.62)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+    const tw = Math.min(W - tx - pad, ctx.measureText(when).width + th * 0.9);
+    const grd = ctx.createLinearGradient(0, pad, 0, pad + th);
+    grd.addColorStop(0, '#5b7fe0'); grd.addColorStop(1, '#2d4fb8');
+    ctx.fillStyle = grd; ctx.fillRect(tx, pad, tw, th);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, H / 500); ctx.strokeRect(tx, pad, tw, th);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(when, tx + th * 0.45, pad + th / 2 + 1, tw - th * 0.9);
+    return canvas;
+  }
+
+  window.MAlertBanner = { drawShindoMap, allIntensities, drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();

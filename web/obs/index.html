@@ -102,6 +102,20 @@
     body.show-missile #missileAdvice { display: flex; }
     #missileAdvice .ma-tag { background: #b3123a; color: #fff; font: 800 3.4vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .5vh .7vw; display: flex; align-items: center; }
     #missileAdvice .ma-text { color: #111; font: 800 3.4vh/1.25 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .5vh 1.2vw; text-align: center; }
+    /* Intensités d'un séisme (comme la NHK), à la main : plein écran, écran réduit (dans l'image
+       réduite) ou en mini en bas à gauche. */
+    #shindoMap { position: fixed; display: none; }
+    body.shindo-full #shindoMap { display: block; left: 0; top: 0; width: 100vw; height: 100vh; }
+    body.shindo-reduced #shindoMap { display: block; left: 10vw; top: 18.15vh; width: 80vw; height: 80vh; }
+    body.shindo-mini #shindoMap { display: block; left: 4vw; bottom: 5vh; width: 34vw; height: auto; outline: .35vh solid #fff; box-shadow: 0 0 1.6vh rgba(0,0,0,.55); }
+    /* Bandeau affiché : la mini-carte passe en haut à gauche (sous le texte de l'écran réduit). */
+    body.shindo-mini.show-banner #shindoMap { bottom: auto; top: 4vh; }
+    body.shindo-mini.show-banner.reduced #shindoMap { top: 19.5vh; }
+    /* En bas à droite, à la main : « Rapport final » et « Aucun risque de tsunami ». */
+    #quakeNotes { position: fixed; right: 3vw; bottom: 4vh; display: flex; flex-direction: column; align-items: flex-end; gap: 1.2vh; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
+    #quakeNotes > div { display: none; }
+    body.show-final #quakeNotes .qn-final { display: block; background: #d0021b; color: #fff; font-weight: 800; font-size: 4vh; line-height: 1.25; padding: .6vh 1.6vw; border: .35vh solid #fff; box-shadow: 0 0 1.2vh rgba(0,0,0,.45); letter-spacing: .04em; }
+    body.show-notsunami #quakeNotes .qn-tsu { display: block; background: rgba(18,20,28,.84); color: #fff; font-weight: 700; font-size: 4.6vh; line-height: 1.25; padding: .9vh 1.8vw; border-radius: .4vh; }
     #status { position: fixed; right: 8px; top: 6px; font: 600 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: .0; }
     body.debug #status { opacity: .85; }
   </style>
@@ -113,6 +127,7 @@
   <canvas id="miniMap"></canvas>
   <div id="coastTable"></div>
   <div id="eew"></div>
+  <canvas id="shindoMap"></canvas>
   <canvas id="banner"></canvas>
   <canvas id="info"></canvas>
   <div id="missileCard">
@@ -128,13 +143,14 @@
   </div>
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
+  <div id="quakeNotes"><div class="qn-final">Rapport final</div><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-10"></script>
-  <script src="../data/departements.js?v=3.0.1-10"></script>
-  <script src="../data/cotes.js?v=3.0.1-10"></script>
-  <script src="../js/common.js?v=3.0.1-10"></script>
-  <script src="../js/sound.js?v=3.0.1-10"></script>
-  <script src="../js/banner.js?v=3.0.1-10"></script>
-  <script src="obs.js?v=3.0.1-10"></script>
+  <script src="../config.js?v=3.0.1-11"></script>
+  <script src="../data/departements.js?v=3.0.1-11"></script>
+  <script src="../data/cotes.js?v=3.0.1-11"></script>
+  <script src="../js/common.js?v=3.0.1-11"></script>
+  <script src="../js/sound.js?v=3.0.1-11"></script>
+  <script src="../js/banner.js?v=3.0.1-11"></script>
+  <script src="obs.js?v=3.0.1-11"></script>
 </body>
 </html>

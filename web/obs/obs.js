@@ -91,6 +91,12 @@
   const cardSeconds = q.has('cardSeconds') ? Math.max(0, Number(q.get('cardSeconds')) || 0) : 20;
   let manualMissile = null;
   let manualCard = null; // écran plein du missile à la main (script OBS) : true affiché, false masqué
+  // Séisme, à la main (script OBS) : carte des intensités ('full', 'reduced', 'mini' ou null),
+  // « Aucun risque de tsunami » et « Rapport final » en bas à droite.
+  let shindoMode = null;
+  let shindoKey = '';
+  let noTsunamiOn = false;
+  let finalOn = false;
   let missileId = null;
   let missileStart = 0;
   let missileKey = '';
@@ -609,6 +615,22 @@
       : eewAuto && !bannerOn && Boolean(quakeRecent || stays(quake)) && Boolean(prevScene || phase === 2));
     document.body.classList.toggle('show-eew', eewOn);
     if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
+    // Intensités du séisme en cours (ou du dernier) : plein écran, écran réduit ou mini.
+    const smode = quakeAny ? shindoMode : null;
+    for (const m of ['full', 'reduced', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
+    if (smode) {
+      const sk = `${quakeAny.id}:${quakeAny.revision || 0}:${quakeAny.updatedAt || ''}:${smode === 'mini'}`;
+      if (sk !== shindoKey) {
+        B.drawShindoMap($('shindoMap'), quakeAny, smode === 'mini' ? { width: 1020, height: 750, mini: true } : { width: 1920, height: 1080 });
+        shindoKey = sk;
+      }
+    }
+    document.body.classList.toggle('show-notsunami', noTsunamiOn);
+    document.body.classList.toggle('show-final', finalOn);
+    // En bas à droite : au-dessus du bandeau s'il est affiché.
+    const notes = $('quakeNotes');
+    const br = bannerOn ? $('banner').getBoundingClientRect() : null;
+    notes.style.bottom = br && br.height && br.right > window.innerWidth * 0.6 ? `${Math.round(window.innerHeight - br.top + window.innerHeight * 0.015)}px` : '';
   }
 
   function arrived(a) {
@@ -627,6 +649,8 @@
     manualMissile = null;
     manualCard = null;
     manualText = null;
+    // Nouveau séisme : « Aucun risque de tsunami » et « Rapport final » à refaire à la main.
+    if (a.category === 'seisme') { noTsunamiOn = false; finalOn = false; }
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
@@ -716,6 +740,12 @@
       if (manualCard && manualMissile === false) manualMissile = null;
     }
     else if (d.cmd === 'eew') manualEew = document.body.classList.contains('show-eew') ? false : true;
+    else if (d.cmd === 'shindofull' || d.cmd === 'shindoreduced' || d.cmd === 'shindomini') {
+      const m = d.cmd.slice(6);
+      shindoMode = shindoMode === m ? null : m;
+    }
+    else if (d.cmd === 'notsunami') noTsunamiOn = !noTsunamiOn;
+    else if (d.cmd === 'final') finalOn = !finalOn;
     else return;
     render();
   });
