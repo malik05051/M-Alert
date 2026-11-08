@@ -32,7 +32,7 @@
   - **Texte en haut sans l'écran réduit** : avec l'écran réduit désactivé, seul le texte d'informations s'affiche en haut pendant chaque alerte (case « Texte en haut pendant une alerte »).
   - **Séisme** : « EEW léger » pendant le mini bandeau « Alerte de tremblement de terre », puis le son de l'alerte (aussi avec Soundux dans M-Alert-sender).
   - **Intensités d'un séisme, comme la NHK** :
-    - la carte s'affiche en plein écran, dans l'écran réduit ou en mini ;
+    - la carte s'affiche en plein écran (elle se réduit avec l'écran réduit) ou en mini ;
     - chaque département a son intensité dans une case, avec l'épicentre et l'encart « Intensité max » ;
     - la terre est verte, puis brune quand le « Rapport final » est affiché ;
     - deux encarts séparés : « Rapport final » en haut à droite, « Aucun risque de tsunami » en bas à droite ;

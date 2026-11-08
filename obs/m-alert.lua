@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.1-13"
+local PAGE_VERSION = "3.0.1-14"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -59,7 +59,8 @@ local function overlay_url(st, demo)
   if not obs.obs_data_get_bool(st, "stay") then add("stay", "0") end
   add("cardSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "card_seconds")))
   add("mapSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "map_seconds")))
-  if obs.obs_data_get_bool(st, "reduce") then add("reduce", ALERT_SCENE) end
+  if obs.obs_data_get_bool(st, "reduce") then add("reduce", ALERT_SCENE)
+  elseif obs.obs_data_get_bool(st, "text_auto") then add("textTop", "1") end -- texte en haut seul possible
   -- Délai de l'écran réduit, ou du texte en haut seul (sans écran réduit).
   add("reduceAfter", demo and "3" or tostring(obs.obs_data_get_int(st, "reduce_after")))
   if obs.obs_data_get_bool(st, "sound") then add("sound", "1") end
@@ -411,8 +412,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "eew", label = "Alerte sismique précoce à gauche : afficher / masquer" },
   { cmd = "missile", label = "Alerte missile : afficher / masquer" },
   { cmd = "missilecard", label = "Alerte missile en plein écran : afficher / masquer" },
-  { cmd = "shindofull", label = "Intensités en plein écran : afficher / masquer" },
-  { cmd = "shindoreduced", label = "Intensités dans l'écran réduit : afficher / masquer" },
+  { cmd = "shindofull", label = "Intensités en plein écran (réduites avec l'écran) : afficher / masquer" },
   { cmd = "shindomini", label = "Intensités en mini : afficher / masquer" },
   { cmd = "notsunami", label = "« Aucun risque de tsunami » : afficher / masquer" },
   { cmd = "final", label = "« Rapport final » : afficher / masquer" },

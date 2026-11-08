@@ -102,11 +102,11 @@
     body.show-missile #missileAdvice { display: flex; }
     #missileAdvice .ma-tag { background: #b3123a; color: #fff; font: 800 3.4vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .5vh .7vw; display: flex; align-items: center; }
     #missileAdvice .ma-text { color: #111; font: 800 3.4vh/1.25 "Noto Sans", "Segoe UI", Arial, sans-serif; padding: .5vh 1.2vw; text-align: center; }
-    /* Intensités d'un séisme (comme la NHK), à la main : plein écran, écran réduit (dans l'image
-       réduite) ou en mini en bas à gauche. */
+    /* Intensités d'un séisme (comme la NHK), à la main : plein écran (réduite avec l'écran, dans
+       l'image réduite) ou en mini en bas à gauche. */
     #shindoMap { position: fixed; display: none; }
     body.shindo-full #shindoMap { display: block; left: 0; top: 0; width: 100vw; height: 100vh; }
-    body.shindo-reduced #shindoMap { display: block; left: 10vw; top: 18.15vh; width: 80vw; height: 80vh; }
+    body.reduced.shindo-full #shindoMap { left: 10vw; top: 18.15vh; width: 80vw; height: 80vh; }
     body.shindo-mini #shindoMap { display: block; left: 4vw; bottom: 5vh; width: 34vw; height: auto; outline: .35vh solid #fff; box-shadow: 0 0 1.6vh rgba(0,0,0,.55); }
     /* Bandeau affiché : la mini-carte passe en haut à gauche (sous le texte de l'écran réduit). */
     body.shindo-mini.show-banner #shindoMap { bottom: auto; top: 4vh; }
@@ -115,7 +115,9 @@
        « Aucun risque de tsunami » en bas à droite. */
     #quakeFinal { position: fixed; right: 3vw; top: 4vh; display: none; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; background: #d0021b; color: #fff; font-weight: 800; font-size: 4vh; line-height: 1.25; padding: .6vh 1.6vw; border: .35vh solid #fff; box-shadow: 0 0 1.2vh rgba(0,0,0,.45); letter-spacing: .04em; }
     body.show-final #quakeFinal { display: block; }
-    body.reduced #quakeFinal { top: 19.5vh; }
+    /* Sous le texte du haut : écran réduit, ou texte en haut seul possible (textTop=1). */
+    body.reduced #quakeFinal, body.text-top #quakeFinal { top: 19.5vh; }
+    body.reduced #quakeFinal { right: 11.5vw; } /* dans l'image réduite */
     #quakeNotes { position: fixed; right: 3vw; bottom: 4vh; display: flex; flex-direction: column; align-items: flex-end; gap: 1.2vh; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     #quakeNotes > div { display: none; }
     body.show-notsunami #quakeNotes .qn-tsu { display: block; background: rgba(18,20,28,.84); color: #fff; font-weight: 700; font-size: 4.6vh; line-height: 1.25; padding: .9vh 1.8vw; border-radius: .4vh; }
@@ -149,12 +151,12 @@
   <div id="quakeFinal">Rapport final</div>
   <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-13"></script>
-  <script src="../data/departements.js?v=3.0.1-13"></script>
-  <script src="../data/cotes.js?v=3.0.1-13"></script>
-  <script src="../js/common.js?v=3.0.1-13"></script>
-  <script src="../js/sound.js?v=3.0.1-13"></script>
-  <script src="../js/banner.js?v=3.0.1-13"></script>
-  <script src="obs.js?v=3.0.1-13"></script>
+  <script src="../config.js?v=3.0.1-14"></script>
+  <script src="../data/departements.js?v=3.0.1-14"></script>
+  <script src="../data/cotes.js?v=3.0.1-14"></script>
+  <script src="../js/common.js?v=3.0.1-14"></script>
+  <script src="../js/sound.js?v=3.0.1-14"></script>
+  <script src="../js/banner.js?v=3.0.1-14"></script>
+  <script src="obs.js?v=3.0.1-14"></script>
 </body>
 </html>

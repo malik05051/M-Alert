@@ -104,7 +104,8 @@
   function applyObs(o) {
     if (!o || fondLayer || bannerLayer) return;
     if (o.shindo) {
-      shindoMode = ['full', 'reduced', 'mini'].includes(o.shindo.mode) ? o.shindo.mode : null;
+      // « reduced » (ancien choix) : plein écran, qui se réduit avec l'écran.
+      shindoMode = o.shindo.mode === 'reduced' ? 'full' : ['full', 'mini'].includes(o.shindo.mode) ? o.shindo.mode : null;
       shindoQuake = o.shindo.quake && o.shindo.quake.epicenter ? { category: 'seisme', ...o.shindo.quake } : null;
       shindoView = o.shindo.view || null;
     }
@@ -276,9 +277,16 @@
     el.innerHTML = html;
   }
   // Scène changée (aussi à la main, bouton « Écran réduit ») : positions selon l'écran réduit ou non.
+  // Aussi l'écran réduit à la main (bouton du script, même sans le réglage « Écran réduit »).
+  const REDUCED_SCENE = reduceScene || 'M-Alert (alerte)';
   window.addEventListener('obsSceneChanged', (e) => {
-    if (reduceScene && e.detail && e.detail.name) document.body.classList.toggle('reduced', e.detail.name === reduceScene);
+    if (e.detail && e.detail.name) document.body.classList.toggle('reduced', e.detail.name === REDUCED_SCENE);
   });
+  if (obsApi && obsApi.getCurrentScene) {
+    try { obsApi.getCurrentScene((sc) => { if (sc && sc.name === REDUCED_SCENE) document.body.classList.add('reduced'); }); } catch (_) { /* accès refusé */ }
+  }
+  // Texte en haut seul possible (sans l'écran réduit) : « Rapport final » placé dessous.
+  if (q.get('textTop') === '1') document.body.classList.add('text-top');
   // Magnitude et intensités d'un séisme (pour annoncer leur changement).
   let fondPrev = null;
   function quakeSig(a) {
@@ -633,7 +641,7 @@
     // Séisme choisi dans M-Alert-sender, sinon celui en cours (ou le dernier).
     const mapQuake = shindoQuake || quakeAny;
     const smode = mapQuake ? shindoMode : null;
-    for (const m of ['full', 'reduced', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
+    for (const m of ['full', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
     if (smode) {
       // Terre verte, puis brune une fois le « Rapport final » affiché (comme la NHK).
       const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}`;
@@ -762,7 +770,7 @@
     }
     else if (d.cmd === 'eew') manualEew = document.body.classList.contains('show-eew') ? false : true;
     else if (d.cmd === 'shindofull' || d.cmd === 'shindoreduced' || d.cmd === 'shindomini') {
-      const m = d.cmd.slice(6);
+      const m = d.cmd === 'shindomini' ? 'mini' : 'full'; // plein écran : réduit avec l'écran
       shindoMode = shindoMode === m ? null : m;
     }
     else if (d.cmd === 'notsunami') noTsunamiOn = !noTsunamiOn;
