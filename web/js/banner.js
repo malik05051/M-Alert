@@ -787,16 +787,37 @@
    * Carte des intensités d'un séisme (comme la NHK) : mer bleue, terre, intensité de chaque
    * département dans sa case, épicentre ✕, encart « Intensité max » et heure du séisme.
    */
-  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false } = {}) {
+  /**
+   * Vue par défaut de la carte des intensités : { lat, lon, span } (centre, et demi-hauteur en
+   * degrés de latitude), autour des départements d'intensité 3 et plus et de l'épicentre.
+   */
+  function shindoView(a, { mini = false } = {}) {
+    const ints = allIntensities(a);
+    const codes = Object.keys(ints);
+    // Les plus fortes : 3 et plus, à deux crans au plus de l'intensité maximale.
+    const top = Math.max(0, ...codes.map((c) => ORDER.indexOf(ints[c])));
+    const strong = codes.filter((c) => ORDER.indexOf(ints[c]) >= Math.max(3, top - 2));
+    const box = focusBox((strong.length ? strong : codes).filter((c) => c !== '988'), a.epicenter || null, mini ? 2.6 : 3.2);
+    return { lat: (box[0] + box[1]) / 2, lon: (box[2] + box[3]) / 2, span: (box[1] - box[0]) / 2 };
+  }
+
+  /**
+   * view : { lat, lon, span } choisie dans M-Alert-sender (carte déplacée ou zoomée) ; sinon la vue
+   * par défaut.
+   */
+  // final : « Rapport final » affiché : terre brune (comme la NHK), sinon verte (premières informations).
+  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false, view = null, final = false } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
     const { deps } = geoData();
     const ints = allIntensities(a);
     const codes = Object.keys(ints);
-    // Zone : départements d'intensité 3 et plus (sinon tous ceux qui ont ressenti), et l'épicentre.
-    const strong = codes.filter((c) => ORDER.indexOf(ints[c]) >= 3);
-    const box = focusBox((strong.length ? strong : codes).filter((c) => c !== '988'), a.epicenter || null, mini ? 2.6 : 3.2);
+    const v = view && Number.isFinite(view.lat) && Number.isFinite(view.lon) && view.span > 0 ? view : shindoView(a, { mini });
+    const kk = Math.cos((v.lat * Math.PI) / 180);
+    // Zone aux proportions de l'image (sinon les départements des côtés manquent).
+    const halfLon = (v.span * (W / H)) / kk;
+    const box = [v.lat - v.span, v.lat + v.span, v.lon - halfLon, v.lon + halfLon];
     const P = projector(box, 0, 0, W, H);
     const sea = ctx.createLinearGradient(0, 0, W, H);
     sea.addColorStop(0, '#1d40c0'); sea.addColorStop(1, '#1638a8');
@@ -806,8 +827,8 @@
     for (const [, d] of shown) {
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, P);
-      ctx.fillStyle = '#9b7a5a'; ctx.fill('evenodd');
-      ctx.strokeStyle = '#4a3a2c'; ctx.lineWidth = Math.max(1, W / 900); ctx.stroke();
+      ctx.fillStyle = final ? '#9b7a5a' : '#5f8f74'; ctx.fill('evenodd');
+      ctx.strokeStyle = final ? '#4a3a2c' : '#2f4a3c'; ctx.lineWidth = Math.max(1, W / 900); ctx.stroke();
     }
     // Épicentre.
     if (a.epicenter) {
@@ -862,5 +883,5 @@
     return canvas;
   }
 
-  window.MAlertBanner = { drawShindoMap, allIntensities, drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, shindoView, allIntensities, drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();

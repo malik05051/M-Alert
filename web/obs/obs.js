@@ -97,6 +97,20 @@
   let shindoKey = '';
   let noTsunamiOn = false;
   let finalOn = false;
+  // Choisis dans M-Alert-sender : séisme à montrer (sinon celui en cours) et vue de la carte.
+  let shindoQuake = null;
+  let shindoView = null;
+  /** État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). */
+  function applyObs(o) {
+    if (!o || fondLayer || bannerLayer) return;
+    if (o.shindo) {
+      shindoMode = ['full', 'reduced', 'mini'].includes(o.shindo.mode) ? o.shindo.mode : null;
+      shindoQuake = o.shindo.quake && o.shindo.quake.epicenter ? { category: 'seisme', ...o.shindo.quake } : null;
+      shindoView = o.shindo.view || null;
+    }
+    if (typeof o.notsunami === 'boolean') noTsunamiOn = o.notsunami;
+    if (typeof o.final === 'boolean') finalOn = o.final;
+  }
   let missileId = null;
   let missileStart = 0;
   let missileKey = '';
@@ -616,12 +630,15 @@
     document.body.classList.toggle('show-eew', eewOn);
     if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
     // Intensités du séisme en cours (ou du dernier) : plein écran, écran réduit ou mini.
-    const smode = quakeAny ? shindoMode : null;
+    // Séisme choisi dans M-Alert-sender, sinon celui en cours (ou le dernier).
+    const mapQuake = shindoQuake || quakeAny;
+    const smode = mapQuake ? shindoMode : null;
     for (const m of ['full', 'reduced', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
     if (smode) {
-      const sk = `${quakeAny.id}:${quakeAny.revision || 0}:${quakeAny.updatedAt || ''}:${smode === 'mini'}`;
+      // Terre verte, puis brune une fois le « Rapport final » affiché (comme la NHK).
+      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}`;
       if (sk !== shindoKey) {
-        B.drawShindoMap($('shindoMap'), quakeAny, smode === 'mini' ? { width: 1020, height: 750, mini: true } : { width: 1920, height: 1080 });
+        B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn });
         shindoKey = sk;
       }
     }
@@ -673,6 +690,10 @@
         alerts = (msg.alerts || []).filter(M.isActive);
         alerts.forEach(remember);
         loadLast();
+        applyObs(msg.obs);
+        break;
+      case 'obs':
+        applyObs(msg.obs);
         break;
       case 'alert':
       case 'ring':
