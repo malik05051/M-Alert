@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.0.1-9"
+local PAGE_VERSION = "3.0.1-10"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -59,10 +59,9 @@ local function overlay_url(st, demo)
   if not obs.obs_data_get_bool(st, "stay") then add("stay", "0") end
   add("cardSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "card_seconds")))
   add("mapSeconds", demo and "8" or tostring(obs.obs_data_get_int(st, "map_seconds")))
-  if obs.obs_data_get_bool(st, "reduce") then
-    add("reduce", ALERT_SCENE)
-    add("reduceAfter", demo and "3" or tostring(obs.obs_data_get_int(st, "reduce_after")))
-  end
+  if obs.obs_data_get_bool(st, "reduce") then add("reduce", ALERT_SCENE) end
+  -- Délai de l'écran réduit, ou du texte en haut seul (sans écran réduit).
+  add("reduceAfter", demo and "3" or tostring(obs.obs_data_get_int(st, "reduce_after")))
   if obs.obs_data_get_bool(st, "sound") then add("sound", "1") end
   if not obs.obs_data_get_bool(st, "tests") then add("tests", "0") end
   if not obs.obs_data_get_bool(st, "tsunami") then add("tsunami", "0") end
@@ -348,17 +347,18 @@ local function ensure_manual(st, demo)
     local old_item = obs.obs_scene_find_source(scene, OLD_BANNER_SOURCE)
     if old_item ~= nil then obs.obs_sceneitem_remove(old_item) end
   end
+  -- Sans l'écran réduit : texte en haut tout seul pendant une alerte (option).
+  local auto = not obs.obs_data_get_bool(st, "reduce") and obs.obs_data_get_bool(st, "text_auto")
   for _, m in ipairs(MANUAL) do
-    local data = browser_data(overlay_url(st, demo) .. "&layer=" .. m.key, false)
+    local data = browser_data(overlay_url(st, demo) .. "&layer=" .. m.key .. (auto and "&textAuto=1" or ""), false)
     local src = upsert_browser(m.name, data)
     obs.obs_data_release(data)
     if src ~= nil then
       if scene ~= nil and scene then
         local item = obs.obs_scene_find_source(scene, m.name)
-        if item == nil then
-          item = obs.obs_scene_add(scene, src)
-          if item ~= nil then obs.obs_sceneitem_set_visible(item, false) end
-        end
+        if item == nil then item = obs.obs_scene_add(scene, src) end
+        -- Affichée : sa page montre le texte seulement quand il le faut (alerte, ou bouton).
+        if item ~= nil and text_hidden_in == nil then obs.obs_sceneitem_set_visible(item, true) end
         if item ~= nil then obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP) end
       end
       obs.obs_source_release(src)
@@ -366,6 +366,9 @@ local function ensure_manual(st, demo)
   end
 end
 
+-- Texte en haut à la main : la source reste affichée dans la scène, et sa page montre ou cache le
+-- texte (commande « texte ») ; elle le montre aussi toute seule pendant une alerte (option).
+local send_overlay
 local function toggle_manual(m)
   local scene_name = current_program_scene()
   if scene_name == nil then return end
@@ -377,24 +380,25 @@ local function toggle_manual(m)
     item = obs.obs_scene_find_source(scene, m.name)
   end
   if item == nil then return end
-  local visible = not obs.obs_sceneitem_visible(item)
-  obs.obs_sceneitem_set_visible(item, visible)
+  if not obs.obs_sceneitem_visible(item) and text_hidden_in == nil then obs.obs_sceneitem_set_visible(item, true) end
   obs.obs_sceneitem_set_order(item, obs.OBS_ORDER_MOVE_TOP)
-  obs.script_log(obs.LOG_INFO, "M-Alert : « " .. m.name .. " » " .. (visible and "affiché" or "masqué") .. " dans « " .. scene_name .. " »")
+  send_overlay(m.key, m.name)
 end
 
--- Commande envoyée à la page de l'incrustation (événement JavaScript « malert »).
-local function send_overlay(cmd)
-  local src = overlay_name and obs.obs_get_source_by_name(overlay_name)
+-- Commande envoyée à la page d'une source navigateur (événement JavaScript « malert ») : l'incrustation
+-- par défaut, ou une autre source (texte en haut).
+function send_overlay(cmd, target)
+  local name = target or overlay_name
+  local src = name and obs.obs_get_source_by_name(name)
   if src == nil or not src then
-    obs.script_log(obs.LOG_WARNING, "M-Alert : incrustation introuvable (« Ajouter / mettre à jour l'incrustation » d'abord)")
+    obs.script_log(obs.LOG_WARNING, "M-Alert : « " .. tostring(name) .. " » introuvable (« Ajouter / mettre à jour l'incrustation » d'abord)")
     return
   end
   local cd = obs.calldata_create()
   obs.calldata_set_string(cd, "eventName", "malert")
   obs.calldata_set_string(cd, "jsonString", '{"cmd":"' .. cmd .. '"}')
   local ok = obs.proc_handler_call(obs.obs_source_get_proc_handler(src), "javascript_event", cd)
-  obs.script_log(obs.LOG_INFO, "M-Alert : commande « " .. cmd .. " » envoyée à « " .. overlay_name .. " »" ..
+  obs.script_log(obs.LOG_INFO, "M-Alert : commande « " .. cmd .. " » envoyée à « " .. name .. " »" ..
     (ok and "" or " (refusée : source navigateur trop ancienne ?)"))
   obs.calldata_destroy(cd)
   obs.obs_source_release(src)
@@ -512,6 +516,8 @@ function script_properties()
   group("grp_display", "Affichage", function(g)
     tip(obs.obs_properties_add_bool(g, "reduce", "Écran réduit pendant une alerte (comme la NHK)"),
       "L'image se réduit sur un fond bleu, avec le texte d'informations en haut et le bandeau en bas")
+    tip(obs.obs_properties_add_bool(g, "text_auto", "Texte en haut pendant une alerte (sans l'écran réduit)"),
+      "Écran réduit désactivé : seul le texte d'informations s'affiche en haut de l'image pendant une alerte, après le délai de l'écran réduit")
     tip(obs.obs_properties_add_bool(g, "stay", "Garder l'écran réduit tant qu'un séisme ou un tsunami est en cours"),
       "Seul le bandeau du bas part après sa durée ; le panneau de gauche, le texte du haut et le tableau restent")
     obs.obs_properties_add_bool(g, "tsunami", "Carte plein écran (tsunami, vagues-submersion)")
@@ -522,7 +528,7 @@ function script_properties()
 
   group("grp_times", "Durées et taille", function(g)
     tip(obs.obs_properties_add_int(g, "hold", "Bandeau (s)", 0, 3600, 5), "Durée d'affichage du bandeau du bas ; 0 : tant que l'alerte dure")
-    tip(obs.obs_properties_add_int(g, "reduce_after", "Écran réduit après (s)", 0, 600, 1), "Délai avant l'écran réduit ; 0 : tout de suite")
+    tip(obs.obs_properties_add_int(g, "reduce_after", "Écran réduit / texte en haut après (s)", 0, 600, 1), "Délai avant l'écran réduit (ou le texte en haut seul) ; 0 : tout de suite")
     tip(obs.obs_properties_add_int(g, "map_seconds", "Carte plein écran (s)", 0, 600, 1), "Tsunami et vagues-submersion : durée de la carte plein écran, puis mini-carte et tableau des mesures")
     tip(obs.obs_properties_add_int(g, "card_seconds", "Missile : écran plein (s)", 0, 600, 1), "Durée de l'écran « Informations de protection civile », puis le bloc en bas sur l'image")
     obs.obs_properties_add_int(g, "cancel_hold", "Alerte annulée (s)", 3, 3600, 1)
@@ -544,6 +550,40 @@ function script_properties()
   return p
 end
 
+-- Réglages changés : les sources déjà ajoutées sont mises à jour toutes seules (plus besoin de
+-- « Ajouter / mettre à jour »), sans en ajouter de nouvelles. Écran réduit désactivé pendant qu'il
+-- est affiché : retour à la scène d'avant.
+local loaded_at = nil
+local function refresh_sources()
+  obs.timer_remove(refresh_sources)
+  local st = settings_ref
+  if st == nil or not browser_available() then return end
+  local src = find_overlay()
+  if src == nil then return end
+  local data = browser_data(overlay_url(st, nil), true)
+  obs.obs_source_update(src, data)
+  obs.obs_data_release(data)
+  obs.obs_source_release(src)
+  local fond = obs.obs_get_source_by_name(FOND_NAME)
+  if fond ~= nil then
+    local fd = browser_data(overlay_url(st, nil) .. "&layer=fond", false)
+    obs.obs_source_update(fond, fd)
+    obs.obs_data_release(fd)
+    obs.obs_source_release(fond)
+  end
+  ensure_manual(st, nil)
+  local cur = obs.obs_frontend_get_current_scene()
+  if cur ~= nil then
+    local name = obs.obs_source_get_name(cur)
+    obs.obs_source_release(cur)
+    if name == ALERT_SCENE and not obs.obs_data_get_bool(st, "reduce") then
+      local back = program_scene and obs.obs_get_source_by_name(program_scene)
+      if back ~= nil and back then obs.obs_frontend_set_current_scene(back); obs.obs_source_release(back) end
+    end
+  end
+  obs.script_log(obs.LOG_INFO, "M-Alert : réglages appliqués aux sources")
+end
+
 function script_defaults(st)
   obs.obs_data_set_default_string(st, "server", "https://m-alert-sender.onrender.com")
   obs.obs_data_set_default_string(st, "base", DEFAULT_BASE)
@@ -558,6 +598,7 @@ function script_defaults(st)
   obs.obs_data_set_default_int(st, "width", 66)
   obs.obs_data_set_default_bool(st, "tsunami", true)
   obs.obs_data_set_default_bool(st, "reduce", true)
+  obs.obs_data_set_default_bool(st, "text_auto", true)
   obs.obs_data_set_default_int(st, "reduce_after", 10)
   obs.obs_data_set_default_bool(st, "stay", true)
   obs.obs_data_set_default_int(st, "card_seconds", 20)
@@ -568,6 +609,7 @@ end
 
 function script_load(st)
   settings_ref = st
+  loaded_at = obs.os_gettime_ns()
   obs.obs_frontend_add_event_callback(on_event)
   -- Raccourci clavier (Paramètres > Raccourcis clavier) : écran réduit à la main.
   hotkey_id = obs.obs_hotkey_register_frontend("malert_reduce", "M-Alert : écran réduit (activer / désactiver)", function(pressed)
@@ -651,6 +693,13 @@ end
 
 function script_unload()
   obs.timer_remove(anim_tick)
+  obs.timer_remove(refresh_sources)
   restore_overlay()
 end
-function script_update(st) settings_ref = st end
+function script_update(st)
+  settings_ref = st
+  -- Au chargement d'OBS (premier appel) : rien à refaire.
+  if loaded_at == nil or obs.os_gettime_ns() - loaded_at < 3e9 then return end
+  obs.timer_remove(refresh_sources)
+  obs.timer_add(refresh_sources, 800)
+end

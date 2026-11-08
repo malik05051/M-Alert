@@ -23,6 +23,7 @@
     #fond { position: fixed; inset: 0; display: none; background: linear-gradient(160deg, #0b3fae 0%, #1257d6 45%, #0a3a9e 100%); }
     body.layer-fond #fond { display: block; }
     /* Texte en haut seul (source « M-Alert (texte) », layer=texte) : bande bleue sur l'image. */
+    body.layer-texte.text-off #fond { display: none; }
     body.layer-texte #fond { display: block; bottom: auto; height: 17vh; opacity: .94; box-shadow: 0 .4vh 1.6vh rgba(0,0,0,.45); }
     #fondText { position: absolute; left: 10vw; right: 6vw; top: 2.2vh; font: 700 4.6vh/1.18 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff;
       text-shadow: 0 0 .25vh #000, .15vh .15vh 0 #000, -.15vh -.15vh 0 #000, .15vh -.15vh 0 #000, -.15vh .15vh 0 #000; }
@@ -128,12 +129,12 @@
   <div id="missileFlash"><span class="mf-tag">Alerte</span><span class="mf-text"></span></div>
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-9"></script>
-  <script src="../data/departements.js?v=3.0.1-9"></script>
-  <script src="../data/cotes.js?v=3.0.1-9"></script>
-  <script src="../js/common.js?v=3.0.1-9"></script>
-  <script src="../js/sound.js?v=3.0.1-9"></script>
-  <script src="../js/banner.js?v=3.0.1-9"></script>
-  <script src="obs.js?v=3.0.1-9"></script>
+  <script src="../config.js?v=3.0.1-10"></script>
+  <script src="../data/departements.js?v=3.0.1-10"></script>
+  <script src="../data/cotes.js?v=3.0.1-10"></script>
+  <script src="../js/common.js?v=3.0.1-10"></script>
+  <script src="../js/sound.js?v=3.0.1-10"></script>
+  <script src="../js/banner.js?v=3.0.1-10"></script>
+  <script src="obs.js?v=3.0.1-10"></script>
 </body>
 </html>

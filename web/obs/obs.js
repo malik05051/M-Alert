@@ -45,7 +45,12 @@
   const textLayer = q.get('layer') === 'texte';
   const bannerLayer = q.get('layer') === 'bandeau';
   const fondLayer = q.get('layer') === 'fond' || textLayer;
-  if (textLayer) document.body.classList.add('layer-texte');
+  if (textLayer) document.body.classList.add('layer-texte', 'text-off');
+  // Texte en haut seul (sans l'écran réduit) : affiché tout seul pendant une alerte (textAuto=1), ou à
+  // la main (commande « texte » du script OBS : true affiché, false masqué jusqu'à la prochaine alerte).
+  const textAuto = textLayer && q.get('textAuto') === '1';
+  let manualText = null;
+  let textShown = false;
   const reduceScene = q.get('reduce') || '';
   // Écran réduit quelques secondes après l'arrivée de l'alerte (le bandeau seul d'abord).
   const reduceAfter = q.has('reduceAfter') ? Math.max(0, Number(q.get('reduceAfter')) || 0) : 10;
@@ -510,7 +515,19 @@
 
   function render() {
     const a = current();
-    if (fondLayer) { renderFond(textLayer ? manualAlert() : a); return; }
+    if (textLayer) {
+      if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
+      if (a) markFirst(a.id);
+      // Comme l'écran réduit : après reduceAfter secondes, le temps du bandeau (ou tant qu'un séisme
+      // ou un tsunami est en cours), et le temps d'annoncer une annulation.
+      const autoOn = textAuto && a && (hold === 0 || Date.now() - shownAt < hold * 1000 || stays(a)) && Date.now() - firstAt >= reduceAfter * 1000;
+      const on = manualText === true ? Boolean(manualAlert()) || cancelOn() : manualText === false ? false : Boolean(autoOn) || (cancelOn() && textShown);
+      textShown = on;
+      document.body.classList.toggle('text-off', !on);
+      if (on) renderFond(manualText === true && !a ? manualAlert() : a);
+      return;
+    }
+    if (fondLayer) { renderFond(a); return; }
     if (bannerLayer) {
       // Bandeau de l'alerte en cours, tant que la source est affichée (sans durée ni écran réduit).
       document.body.classList.toggle('top', q.get('pos') === 'top');
@@ -609,11 +626,21 @@
     manualEew = null;
     manualMissile = null;
     manualCard = null;
+    manualText = null;
     if (cancelled) { cancelled = null; document.body.classList.remove('cancelling'); }
     shownId = a.id;
     shownAt = Date.now();
     markFirst(a.id);
-    if (sound && !fondLayer && !bannerLayer && window.MAlertSound) window.MAlertSound.play(a, { volume: 1, loop: false }).catch(() => {});
+    if (sound && !fondLayer && !bannerLayer && window.MAlertSound) {
+      const S = window.MAlertSound;
+      clearTimeout(arrived.soundTimer);
+      if (a.category === 'seisme') {
+        // Séisme : « EEW (léger) » pendant le mini bandeau « Alerte de tremblement de terre » (3 s),
+        // puis le son de l'alerte.
+        S.play(a, { volume: 1, loop: false, file: 'seisme-leger' }).catch(() => {});
+        if (S.soundFile(a) !== 'seisme-leger') arrived.soundTimer = setTimeout(() => S.play(a, { volume: 1, loop: false }).catch(() => {}), 3200);
+      } else S.play(a, { volume: 1, loop: false }).catch(() => {});
+    }
   }
 
   function handle(msg) {
@@ -672,6 +699,11 @@
   // le bandeau de l'alerte en cours.
   window.addEventListener('malert', (e) => {
     const d = (e && e.detail) || {};
+    if (textLayer && d.cmd === 'texte') {
+      manualText = document.body.classList.contains('text-off') ? true : false;
+      render();
+      return;
+    }
     if (fondLayer || bannerLayer) return;
     if (d.cmd === 'banner') manualBanner = document.body.classList.contains('show-banner') ? false : true;
     else if (d.cmd === 'map') manualMap = document.body.classList.contains('show-tsunami') ? false : true;

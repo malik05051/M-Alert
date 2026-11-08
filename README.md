@@ -113,7 +113,9 @@ M-Alert peut s'afficher en direct dans OBS Studio comme les alertes de la NHK : 
 Le bandeau reste en bas, puis OBS revient à la scène d'avant. On peut aussi le déclencher à la main : bouton **« Écran réduit : activer / désactiver »** du script, ou raccourci clavier (*Paramètres* > *Raccourcis clavier* > « M-Alert : écran réduit »). La source d'incrustation a pour cela l'accès « avancé » à OBS (réglé par le script).
 
 **À la main, aussi** :
-- **texte en haut seul** : bande bleue avec « Informations M-Alert » puis les informations, sans réduire l'image. C'est la source « M-Alert (texte) », cachée au départ.
+- **texte en haut seul** : bande bleue avec « Informations M-Alert » puis les informations, sans réduire l'image. C'est la source « M-Alert (texte) » : sa page n'affiche le texte que pendant une alerte ou après le bouton. **Écran réduit désactivé** : avec la case « Texte en haut pendant une alerte (sans l'écran réduit) » (cochée par défaut), le texte s'affiche tout seul pendant chaque alerte, après le délai de l'écran réduit et le temps du bandeau (tant qu'un séisme ou un tsunami est en cours avec « Garder… »).
+
+Les réglages du script s'appliquent tout seuls aux sources déjà ajoutées. Décocher « Écran réduit » pendant qu'il est affiché ramène à la scène d'avant.
 - **bandeau de l'alerte en cours** : affiché sans durée limite, ou masqué jusqu'à la prochaine alerte. La commande est envoyée à la source d'incrustation.
 - **carte du tsunami ou des vagues-submersion** : affichée ou masquée de la même façon (bouton « Carte tsunami / vagues-submersion : afficher / masquer »).
 - **mini-carte**, **tableau des mesures** et **panneau « Alerte sismique précoce » à gauche** (comme la NHK, colonnes verticales : titre rouge, lieu du séisme en jaune, départements) : affichés ou masqués de la même façon. Le panneau s'affiche tout seul quand l'écran est réduit pendant un séisme (`eewPanel=0` pour ne jamais l'afficher tout seul). Pendant la carte plein écran du tsunami, aucun bandeau n'est affiché.
@@ -137,7 +139,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `deps=13,83,988` | départements suivis (par défaut : tous) |
 | `min=3` | niveau minimum (1 information … 5 majeur) |
 | `hold=90` | secondes d'affichage du bandeau (`0` : tant que l'alerte dure) |
-| `sound=1` | joue le son de l'alerte |
+| `sound=1` | joue le son de l'alerte (séisme : « EEW léger » pendant le mini bandeau « Alerte de tremblement de terre », puis le son de l'alerte) |
 | `tests=0` | ignore les alertes de test |
 | `pos=top`, `width=66` | bandeau en haut ; largeur en % de l'écran |
 | `tsunami=0` | pas de carte plein écran des tsunamis |
@@ -150,7 +152,7 @@ et cochez *Contrôler l'audio via OBS* pour le son. Paramètres de l'adresse (to
 | `cancelHold=30` | secondes d'affichage d'une alerte annulée |
 | `reduceAfter=10` | secondes avant l'écran réduit (`0` : tout de suite) |
 | `layer=fond` | fond de l'écran réduit (bleu et texte d'informations) |
-| `layer=texte` | texte en haut seul (bande bleue) |
+| `layer=texte` | texte en haut seul (bande bleue) ; avec `textAuto=1`, affiché tout seul pendant une alerte |
 | `demo=seisme` (`missile` avec `level=2`, `4` ou `5`, `missiles` pour plusieurs niveaux, `ajout`, `tsunami`, `submersion`, `vent`, `inondation`, `annulation`, `info`) | aperçu sans serveur |
 
 ### Version web (téléphone, navigateur)
