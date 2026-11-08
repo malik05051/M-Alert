@@ -666,9 +666,12 @@
     } else {
       showNoticeBanner(n);
     }
-    // Séisme annulé : son EEW (eew.mp3, réglable dans les sons « Jaune et orange ») ; autre alerte
-    // annulée (tsunami lié) : son d'information.
-    shortSound(a.category === 'seisme' ? { level: 2, category: 'meteo', phenomenon: 0 } : { level: 1, category: 'meteo', phenomenon: 0 });
+    // Toute alerte annulée : son EEW (eew.mp3, réglable dans les sons « Jaune / orange »), jamais le
+    // son d'information (le même que « EEW léger »). Heures calmes : selon l'alerte annulée.
+    if (settings.sound && soundAllowed(a)) {
+      window.MAlertSound.play({ level: 2, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+      vibrate(2);
+    }
     systemNotification(`${a.test ? '[TEST] ' : ''}❌ Alerte annulée — ${a.title}`, a.voided.reason, { tag: `void-${a.id}`, urgent: true });
     if (native) native.alert({ level: 1, front: settings.front });
   }
