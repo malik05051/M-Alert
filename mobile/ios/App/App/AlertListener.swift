@@ -76,7 +76,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
 
     /// Démarrage (lancement de l'application, réglages, relance par iOS après un déplacement).
     func start() {
-        guard enabled, settings["department"] != nil || (settings["all"] as? Bool ?? false) else { return }
+        guard enabled, (settings["department"] as? String) != nil || (settings["all"] as? Bool ?? false) else { return }
         if !running {
             running = true
             keepAlive()
