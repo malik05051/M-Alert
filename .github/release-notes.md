@@ -14,7 +14,8 @@
 - **Notifications iOS** : **urgentes** dès l'orange (elles traversent les modes de concentration), **critiques** en rouge et majeure (elles sonnent même en mode silencieux, avec l'autorisation d'Apple).
 - **iOS : alertes application fermée**, comme l'application Clip d'AltStore : M-Alert reste actif en arrière-plan grâce à la localisation (choisir « Toujours ») et à un son silencieux. Une notification prévient si iOS l'arrête quand même.
 - **Son d'alerte mobile** pour les alertes orange, rouges et majeures (iOS et Android).
-- **Séismes en deux langues** dans les notifications, comme les alertes d'urgence japonaises : français en haut, anglais en dessous ; allemand ou espagnol au choix.
+- **Séismes en deux langues** dans les notifications, comme les alertes d'urgence japonaises : français en haut, anglais en dessous ; allemand ou espagnol au choix (« Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert) »).
+- **Alertes annulées** annoncées dans les mêmes langues (« L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert) »), aussi application fermée.
 - **Alerte séisme selon la magnitude ou l'intensité attendue chez vous** (réglage « M'alerter d'un séisme selon »).
 - **Mises à jour** : l'application cherche les nouvelles versions et propose de télécharger l'APK (Android) ou l'IPA (iOS).
 

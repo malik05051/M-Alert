@@ -224,6 +224,14 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             for a in msg["alerts"] as? [[String: Any]] ?? [] { if let id = a["id"] as? String { seen.insert(id) } }
             return
         }
+        if type == "cancel" {
+            // Alerte annulée (fausse alerte) : annoncée si elle me concernait (mêmes règles que l'alerte).
+            guard var a = msg["alert"] as? [String: Any], let v = a["voided"], !(v is NSNull),
+                  a["silent"] as? Bool != true, UIApplication.shared.applicationState != .active else { return }
+            a.removeValue(forKey: "cancelledAt")
+            if wanted(a) { AlertNotifier.notifyCancel(a, settings: settings) }
+            return
+        }
         guard type == "alert" || type == "ring", let a = msg["alert"] as? [String: Any], let id = a["id"] as? String else { return }
         if type == "alert" && seen.contains(id) { return }
         seen.insert(id)
@@ -327,6 +335,16 @@ enum AlertNotifier {
              alertSound: level >= 3)
     }
 
+    /// Alerte annulée reçue en arrière-plan.
+    static func notifyCancel(_ a: [String: Any], settings: [String: Any]) {
+        let id = "void-" + (a["id"] as? String ?? "")
+        guard claim(id) else { return }
+        let c = Quake.cancelNotification(a, settings: settings)
+        let test = a["test"] as? Bool == true ? "[TEST] " : ""
+        post(id: id, title: test + "❌ " + c.title, body: c.body, level: 2,
+             timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: false)
+    }
+
     static func text(_ key: String, settings: [String: Any]) -> String {
         let lang = (settings["notifLangs"] as? [String])?.first ?? "fr"
         switch lang {
@@ -412,35 +430,80 @@ enum Quake {
         }
     }
 
-    // [titre urgent, titre, alerte précoce, secousses fortes, secousses]
-    // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
-    private static func texts(_ l: String) -> [String] {
+    private static func title(_ l: String, strong: Bool) -> String {
         switch l {
-        case "en": return ["Emergency Alert", "Earthquake Alert", "Earthquake Early Warning",
-                           "Strong shaking is expected. Stay calm and protect yourself.", "Shaking is expected. Stay calm and protect yourself."]
-        case "de": return ["Notfallwarnung", "Erdbebenwarnung", "Erdbebenfrühwarnung",
-                           "Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.",
-                           "Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich."]
-        case "es": return ["Alerta de emergencia", "Alerta sísmica", "Alerta sísmica temprana",
-                           "Se esperan sacudidas fuertes. Mantenga la calma y protéjase.", "Se esperan sacudidas. Mantenga la calma y protéjase."]
-        default: return ["Alerte d'urgence", "Alerte sismique", "Alerte sismique précoce",
-                         "Des secousses fortes sont attendues. Restez calme et protégez-vous.",
-                         "Des secousses sont attendues. Restez calme et protégez-vous."]
+        case "en": return strong ? "Emergency Alert" : "Earthquake Alert"
+        case "de": return strong ? "Notfallwarnung" : "Erdbebenwarnung"
+        case "es": return strong ? "Alerta de emergencia" : "Alerta sísmica"
+        default: return strong ? "Alerte d'urgence" : "Alerte sismique"
         }
     }
 
+    /// Même disposition dans chaque langue (comme web/js/i18n.js).
+    private static func body(_ l: String, _ i: String) -> String {
+        let has = !i.isEmpty
+        switch l {
+        case "en": return "Earthquake Early Warning : Shaking is expected." + (has ? " Expected intensity is \(i)." : "") + " Stay calm and protect yourself. (M-Alert)"
+        case "de": return "Erdbebenfrühwarnung : Erschütterungen werden erwartet." + (has ? " Die erwartete Intensität beträgt \(i)." : "") + " Bleiben Sie ruhig und schützen Sie sich. (M-Alert)"
+        case "es": return "Alerta sísmica temprana : Se esperan sacudidas." + (has ? " La intensidad esperada es \(i)." : "") + " Mantenga la calma y protéjase. (M-Alert)"
+        default: return "Alerte sismique précoce : Des secousses sont attendues." + (has ? " Intensité attendue : \(i)." : "") + " Restez calme et protégez-vous. (M-Alert)"
+        }
+    }
+
+    static func langs(_ settings: [String: Any]) -> [String] {
+        let l = settings["notifLangs"] as? [String] ?? []
+        return l.isEmpty ? ["fr", "en"] : l
+    }
+
     /// Langue principale en haut, seconde en dessous :
-    ///   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
-    ///   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
+    ///   Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert)
+    /// Intensité : celle de mes départements, sinon l'intensité maximale de l'alerte.
     static func notification(_ a: [String: Any], settings: [String: Any]) -> (title: String, body: String) {
-        var langs = settings["notifLangs"] as? [String] ?? []
-        if langs.isEmpty { langs = ["fr", "en"] }
         let local = localIntensity(a, settings: settings)
-        let strong = Int(num(a["level"]) ?? 1) >= 4 || rank(local) >= 5
-        let titles = langs.map { strong ? texts($0)[0] : texts($0)[1] }
-        let bodies = langs.map { l -> String in
-            let t = texts(l)
-            return t[2] + " : " + (strong ? t[3] : t[4]) + " (M-Alert)"
+        let intensity = (local != nil && local != "0") ? local! : (a["shindo"] as? String ?? "")
+        let strong = Int(num(a["level"]) ?? 1) >= 4 || rank(intensity) >= 5
+        let ls = langs(settings)
+        return (ls.map { title($0, strong: strong) }.joined(separator: " · "), ls.map { body($0, intensity) }.joined(separator: "\n"))
+    }
+
+    /// Alerte annulée (toutes les alertes), deux langues :
+    ///   L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert)
+    ///   The earthquake alert triggered at 14:32 has been canceled. (M-Alert)
+    static func cancelNotification(_ a: [String: Any], settings: [String: Any]) -> (title: String, body: String) {
+        let cat = a["category"] as? String ?? "meteo"
+        let key = cat == "meteo" ? "p\(Int(num(a["phenomenon"]) ?? 0))" : cat
+        var hm = ""
+        if let s = a["createdAt"] as? String {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let d = iso.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+            if let d = d {
+                let f = DateFormatter()
+                f.locale = Locale(identifier: "en_US_POSIX")
+                f.dateFormat = "HH:mm"
+                hm = f.string(from: d)
+            }
+        }
+        let names = settings["kindNames"] as? [String: Any]
+        var titles: [String] = []
+        var bodies: [String] = []
+        for l in langs(settings) {
+            let ph = (names?[l] as? [String: Any])?[key] as? String ?? (a["title"] as? String ?? "")
+            switch l {
+            case "en":
+                titles.append("Alert canceled")
+                bodies.append("The \(ph) alert triggered at \(hm) has been canceled. (M-Alert)")
+            case "de":
+                titles.append("Warnung aufgehoben")
+                bodies.append("Die Warnung „\(ph)“ von \(hm) Uhr wurde aufgehoben. (M-Alert)")
+            case "es":
+                titles.append("Alerta cancelada")
+                bodies.append("La alerta de \(ph) emitida a las \(hm) ha sido cancelada. (M-Alert)")
+            default:
+                titles.append("Alerte annulée")
+                let vowel = ph.first.map { "aeiouyhàâéèêîïôûü".contains(Character($0.lowercased())) } ?? false
+                bodies.append("L'alerte \(vowel ? "d'" : "de ")\(ph) émise à \(hm.replacingOccurrences(of: ":", with: " h ")) a été annulée. (M-Alert)")
+            }
         }
         return (titles.joined(separator: " · "), bodies.joined(separator: "\n"))
     }

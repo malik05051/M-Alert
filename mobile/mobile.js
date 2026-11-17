@@ -74,7 +74,10 @@
     if (!s.serverUrl && window.MALERT_CONFIG) s.serverUrl = window.MALERT_CONFIG.serverUrl;
     s.quakeAreas = areas(s);
     // Langues des notifications de séisme (comme la page).
-    if (window.MAlertI18n) s.notifLangs = window.MAlertI18n.notifLangs(s).filter(Boolean);
+    if (window.MAlertI18n) {
+      s.notifLangs = window.MAlertI18n.notifLangs(s).filter(Boolean);
+      s.kindNames = window.MAlertI18n.kindNames(s); // « L'alerte de <phénomène> … a été annulée »
+    }
     target.configure({ settings: JSON.stringify(s), background: s.mobileBackground !== false }).catch(() => {});
   }
   // Réglages enregistrés par la page : le service suit.

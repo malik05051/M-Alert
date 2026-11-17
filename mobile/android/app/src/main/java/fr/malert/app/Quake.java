@@ -95,41 +95,103 @@ final class Quake {
         return magOk || shOk;
     }
 
-    // Textes : [titre urgent, titre, alerte précoce, secousses fortes, secousses]
-    // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
-    private static String[] texts(String lang) {
-        switch (lang) {
-            case "en": return new String[] { "Emergency Alert", "Earthquake Alert", "Earthquake Early Warning",
-                "Strong shaking is expected. Stay calm and protect yourself.", "Shaking is expected. Stay calm and protect yourself." };
-            case "de": return new String[] { "Notfallwarnung", "Erdbebenwarnung", "Erdbebenfrühwarnung",
-                "Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.",
-                "Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich." };
-            case "es": return new String[] { "Alerta de emergencia", "Alerta sísmica", "Alerta sísmica temprana",
-                "Se esperan sacudidas fuertes. Mantenga la calma y protéjase.", "Se esperan sacudidas. Mantenga la calma y protéjase." };
-            default: return new String[] { "Alerte d'urgence", "Alerte sismique", "Alerte sismique précoce",
-                "Des secousses fortes sont attendues. Restez calme et protégez-vous.",
-                "Des secousses sont attendues. Restez calme et protégez-vous." };
+    /** Titre (urgent ou non) d'une notification de séisme. */
+    private static String title(String l, boolean strong) {
+        switch (l) {
+            case "en": return strong ? "Emergency Alert" : "Earthquake Alert";
+            case "de": return strong ? "Notfallwarnung" : "Erdbebenwarnung";
+            case "es": return strong ? "Alerta de emergencia" : "Alerta sísmica";
+            default: return strong ? "Alerte d'urgence" : "Alerte sismique";
         }
+    }
+
+    /** Même disposition dans chaque langue (comme web/js/i18n.js). */
+    private static String body(String l, String i) {
+        boolean has = i != null && !i.isEmpty();
+        switch (l) {
+            case "en": return "Earthquake Early Warning : Shaking is expected." + (has ? " Expected intensity is " + i + "." : "")
+                + " Stay calm and protect yourself. (M-Alert)";
+            case "de": return "Erdbebenfrühwarnung : Erschütterungen werden erwartet." + (has ? " Die erwartete Intensität beträgt " + i + "." : "")
+                + " Bleiben Sie ruhig und schützen Sie sich. (M-Alert)";
+            case "es": return "Alerta sísmica temprana : Se esperan sacudidas." + (has ? " La intensidad esperada es " + i + "." : "")
+                + " Mantenga la calma y protéjase. (M-Alert)";
+            default: return "Alerte sismique précoce : Des secousses sont attendues." + (has ? " Intensité attendue : " + i + "." : "")
+                + " Restez calme et protégez-vous. (M-Alert)";
+        }
+    }
+
+    static JSONArray langs(JSONObject settings) {
+        JSONArray langs = settings.optJSONArray("notifLangs");
+        return langs == null || langs.length() == 0 ? new JSONArray().put("fr").put("en") : langs;
     }
 
     /**
      * { titre, texte } de la notification d'un séisme, langue principale en haut, seconde en dessous :
-     *   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
-     *   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
+     *   Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert)
+     * Intensité : celle de mes départements, sinon l'intensité maximale de l'alerte.
      */
     static String[] notification(JSONObject a, JSONObject settings) {
-        JSONArray langs = settings.optJSONArray("notifLangs");
-        if (langs == null || langs.length() == 0) langs = new JSONArray().put("fr").put("en");
+        JSONArray langs = langs(settings);
         String local = localIntensity(a, settings);
-        boolean strong = a.optInt("level", 1) >= 4 || (local != null && rank(local) >= 5);
-        StringBuilder title = new StringBuilder();
-        StringBuilder body = new StringBuilder();
-        for (int i = 0; i < langs.length(); i++) {
-            String[] t = texts(langs.optString(i));
-            if (i > 0) { title.append(" · "); body.append('\n'); }
-            title.append(strong ? t[0] : t[1]);
-            body.append(t[2]).append(" : ").append(strong ? t[3] : t[4]).append(" (M-Alert)");
+        String intensity = local != null && !"0".equals(local) ? local : a.optString("shindo", "");
+        boolean strong = a.optInt("level", 1) >= 4 || rank(intensity) >= 5;
+        StringBuilder t = new StringBuilder();
+        StringBuilder b = new StringBuilder();
+        for (int k = 0; k < langs.length(); k++) {
+            String l = langs.optString(k);
+            if (k > 0) { t.append(" · "); b.append('\n'); }
+            t.append(title(l, strong));
+            b.append(body(l, intensity));
         }
-        return new String[] { title.toString(), body.toString() };
+        return new String[] { t.toString(), b.toString() };
+    }
+
+    /**
+     * { titre, texte } d'une alerte annulée (toutes les alertes), deux langues :
+     *   L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert)
+     *   The earthquake alert triggered at 14:32 has been canceled. (M-Alert)
+     */
+    static String[] cancelNotification(JSONObject a, JSONObject settings) {
+        JSONArray langs = langs(settings);
+        String cat = a.optString("category", "meteo");
+        String key = "meteo".equals(cat) ? "p" + a.optInt("phenomenon", 0) : cat;
+        String hm = "";
+        try {
+            java.text.SimpleDateFormat in = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT);
+            in.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date d = in.parse(a.optString("createdAt").substring(0, 19));
+            hm = new java.text.SimpleDateFormat("HH:mm", Locale.ROOT).format(d);
+        } catch (Exception ignored) {
+            // heure inconnue
+        }
+        JSONObject names = settings.optJSONObject("kindNames");
+        StringBuilder t = new StringBuilder();
+        StringBuilder b = new StringBuilder();
+        for (int k = 0; k < langs.length(); k++) {
+            String l = langs.optString(k);
+            JSONObject n = names != null ? names.optJSONObject(l) : null;
+            String ph = n != null && n.has(key) ? n.optString(key) : a.optString("title");
+            if (k > 0) { t.append(" · "); b.append('\n'); }
+            switch (l) {
+                case "en":
+                    t.append("Alert canceled");
+                    b.append("The ").append(ph).append(" alert triggered at ").append(hm).append(" has been canceled. (M-Alert)");
+                    break;
+                case "de":
+                    t.append("Warnung aufgehoben");
+                    b.append("Die Warnung „").append(ph).append("“ von ").append(hm).append(" Uhr wurde aufgehoben. (M-Alert)");
+                    break;
+                case "es":
+                    t.append("Alerta cancelada");
+                    b.append("La alerta de ").append(ph).append(" emitida a las ").append(hm).append(" ha sido cancelada. (M-Alert)");
+                    break;
+                default:
+                    t.append("Alerte annulée");
+                    boolean vowel = !ph.isEmpty() && "aeiouyhàâéèêîïôûü".indexOf(Character.toLowerCase(ph.charAt(0))) >= 0;
+                    b.append("L'alerte ").append(vowel ? "d'" : "de ").append(ph).append(" émise à ").append(hm.replace(":", " h "))
+                        .append(" a été annulée. (M-Alert)");
+            }
+        }
+        return new String[] { t.toString(), b.toString() };
     }
 }

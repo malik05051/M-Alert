@@ -148,6 +148,15 @@ public class AlertService extends Service {
                 if (list != null) for (int i = 0; i < list.length(); i++) seen.add(list.getJSONObject(i).optString("id"));
                 return;
             }
+            if ("cancel".equals(type)) {
+                // Alerte annulée (fausse alerte) : annoncée si elle me concernait (mêmes règles que l'alerte).
+                JSONObject a = msg.getJSONObject("alert");
+                if (!a.has("voided") || a.isNull("voided") || a.optBoolean("silent") || MainActivity.visible) return;
+                JSONObject b = new JSONObject(a.toString());
+                b.remove("cancelledAt");
+                if (wanted(b)) notifyCancel(a);
+                return;
+            }
             if (!"alert".equals(type) && !"ring".equals(type)) return;
             JSONObject a = msg.getJSONObject("alert");
             String id = a.optString("id");
@@ -233,6 +242,21 @@ public class AlertService extends Service {
             .setContentIntent(openApp(a.optString("id").hashCode()));
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.notify(a.optString("id").hashCode(), b.build());
+    }
+
+    private void notifyCancel(JSONObject a) {
+        String[] c = Quake.cancelNotification(a, settings);
+        String title = (a.optBoolean("test") ? "[TEST] " : "") + "❌ " + c[0];
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_eew")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(c[1])
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(c[1]))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(("void-" + a.optString("id")).hashCode()));
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.notify(("void-" + a.optString("id")).hashCode(), b.build());
     }
 
     private PendingIntent openApp(int code) {

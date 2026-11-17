@@ -693,12 +693,9 @@
       window.MAlertSound.play({ level: 2, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
       vibrate(2);
     }
-    const quake = a.category === 'seisme' ? window.MAlertI18n.quakeNotification(a, { cancelled: true }, settings) : null;
-    systemNotification(
-      `${a.test ? '[TEST] ' : ''}❌ ${quake ? quake.title : `Alerte annulée — ${a.title}`}`,
-      quake ? `${quake.body}\n${a.voided.reason}` : a.voided.reason,
-      { tag: `void-${a.id}`, urgent: true, level: 2 },
-    );
+    // « L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert) », en deux langues.
+    const cancel = window.MAlertI18n.cancelNotification(a, kind.name, settings);
+    systemNotification(`${a.test ? '[TEST] ' : ''}❌ ${cancel.title}`, cancel.body, { tag: `void-${a.id}`, urgent: true, level: 2 });
     if (native) native.alert({ level: 1, front: settings.front });
   }
 

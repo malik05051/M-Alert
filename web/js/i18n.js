@@ -355,33 +355,43 @@
 
   // ---------- Notifications de tremblement de terre (deux langues) ----------
 
-  // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
+  // Même disposition dans chaque langue :
+  //   Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert)
   const QUAKE = {
     fr: {
-      urgent: "Alerte d'urgence", title: 'Alerte sismique', eew: 'Alerte sismique précoce',
-      strong: 'Des secousses fortes sont attendues. Restez calme et protégez-vous.',
-      weak: 'Des secousses sont attendues. Restez calme et protégez-vous.',
-      cancelled: "Alerte annulée, il s'agissait d'une fausse alerte.",
+      urgent: "Alerte d'urgence", title: 'Alerte sismique', cancelTitle: 'Alerte annulée',
+      body: (i) => `Alerte sismique précoce : Des secousses sont attendues.${i ? ` Intensité attendue : ${i}.` : ''} Restez calme et protégez-vous. (M-Alert)`,
+      cancel: (ph, at) => `L'alerte ${/^[aeiouyhàâéèêîïôûü]/i.test(ph) ? "d'" : 'de '}${ph} émise à ${at} a été annulée. (M-Alert)`,
     },
     en: {
-      urgent: 'Emergency Alert', title: 'Earthquake Alert', eew: 'Earthquake Early Warning',
-      strong: 'Strong shaking is expected. Stay calm and protect yourself.',
-      weak: 'Shaking is expected. Stay calm and protect yourself.',
-      cancelled: 'Alert cancelled, this was a false alarm.',
+      urgent: 'Emergency Alert', title: 'Earthquake Alert', cancelTitle: 'Alert canceled',
+      body: (i) => `Earthquake Early Warning : Shaking is expected.${i ? ` Expected intensity is ${i}.` : ''} Stay calm and protect yourself. (M-Alert)`,
+      cancel: (ph, at) => `The ${ph} alert triggered at ${at} has been canceled. (M-Alert)`,
     },
     de: {
-      urgent: 'Notfallwarnung', title: 'Erdbebenwarnung', eew: 'Erdbebenfrühwarnung',
-      strong: 'Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.',
-      weak: 'Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.',
-      cancelled: 'Warnung aufgehoben, es war ein Fehlalarm.',
+      urgent: 'Notfallwarnung', title: 'Erdbebenwarnung', cancelTitle: 'Warnung aufgehoben',
+      body: (i) => `Erdbebenfrühwarnung : Erschütterungen werden erwartet.${i ? ` Die erwartete Intensität beträgt ${i}.` : ''} Bleiben Sie ruhig und schützen Sie sich. (M-Alert)`,
+      cancel: (ph, at) => `Die Warnung „${ph}“ von ${at} Uhr wurde aufgehoben. (M-Alert)`,
     },
     es: {
-      urgent: 'Alerta de emergencia', title: 'Alerta sísmica', eew: 'Alerta sísmica temprana',
-      strong: 'Se esperan sacudidas fuertes. Mantenga la calma y protéjase.',
-      weak: 'Se esperan sacudidas. Mantenga la calma y protéjase.',
-      cancelled: 'Alerta anulada, se trataba de una falsa alarma.',
+      urgent: 'Alerta de emergencia', title: 'Alerta sísmica', cancelTitle: 'Alerta cancelada',
+      body: (i) => `Alerta sísmica temprana : Se esperan sacudidas.${i ? ` La intensidad esperada es ${i}.` : ''} Mantenga la calma y protéjase. (M-Alert)`,
+      cancel: (ph, at) => `La alerta de ${ph} emitida a las ${at} ha sido cancelada. (M-Alert)`,
     },
   };
+
+  /** Nom du phénomène dans une langue (en minuscules, sauf en allemand). */
+  function kindName(fr, l) {
+    const n = t(fr, l);
+    return l === 'de' ? n : n.charAt(0).toLowerCase() + n.slice(1);
+  }
+
+  /** Heure d'émission d'une alerte (fuseau choisi) : « 14 h 32 » en français, « 14:32 » sinon. */
+  function alertTime(iso, l) {
+    const M = window.MAlert;
+    const hm = M && M.formatTime ? M.formatTime(iso) : new Date(iso).toTimeString().slice(0, 5);
+    return l === 'fr' ? hm.replace(':', ' h ') : hm;
+  }
 
   /** Langues des notifications : [principale, seconde ou null]. */
   function notifLangs(settings) {
@@ -393,26 +403,49 @@
   }
 
   /**
-   * Notification d'un tremblement de terre, comme une alerte d'urgence japonaise :
-   * { title, body } avec la langue principale en haut et la seconde en dessous, par exemple
-   *   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
-   *   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
-   * Secousses fortes : alerte rouge ou majeure, ou intensité 5- et plus chez moi.
-   * info : { local (intensité chez moi), cancelled }.
+   * Notification d'un tremblement de terre, comme une alerte d'urgence japonaise : { title, body },
+   * langue principale en haut, seconde en dessous. Intensité attendue : celle de mes départements
+   * (info.local), sinon l'intensité maximale de l'alerte.
    */
   function quakeNotification(alert, info, settings) {
     const langs = notifLangs(settings).filter(Boolean);
     const shindoRank = (s) => ['0', '1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'].indexOf(String(s));
-    const strong = alert.level >= 4 || shindoRank(info.local) >= 5; // 5- et plus chez moi
-    const title = langs.map((l) => (info.cancelled ? QUAKE[l].eew : strong ? QUAKE[l].urgent : QUAKE[l].title)).join(' · ');
-    const body = langs.map((l) => {
-      const q = QUAKE[l];
-      return `${q.eew} : ${info.cancelled ? q.cancelled : strong ? q.strong : q.weak} (M-Alert)`;
-    }).join('\n');
+    const intensity = info.local && info.local !== '0' ? info.local : alert.shindo || '';
+    const strong = alert.level >= 4 || shindoRank(intensity) >= 5; // 5- et plus
+    const title = langs.map((l) => (strong ? QUAKE[l].urgent : QUAKE[l].title)).join(' · ');
+    const body = langs.map((l) => QUAKE[l].body(intensity)).join('\n');
     return { title, body };
   }
 
-  window.MAlertI18n = { lang, LANGS, t, deviceLang, notifLangs, quakeNotification, QUAKE, translateText };
+  /**
+   * Notification d'une alerte annulée (toutes les alertes) : { title, body }, deux langues.
+   *   L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert)
+   *   The earthquake alert triggered at 14:32 has been canceled. (M-Alert)
+   * kindFr : nom du phénomène en français (M.alertKind(alert).name).
+   */
+  function cancelNotification(alert, kindFr, settings) {
+    const langs = notifLangs(settings).filter(Boolean);
+    return {
+      title: langs.map((l) => QUAKE[l].cancelTitle).join(' · '),
+      body: langs.map((l) => QUAKE[l].cancel(kindName(kindFr, l), alertTime(alert.createdAt, l))).join('\n'),
+    };
+  }
+
+  /** Noms des phénomènes et catégories dans les langues des notifications (service Android, iOS). */
+  function kindNames(settings) {
+    const M = window.MAlert;
+    const out = {};
+    if (!M) return out;
+    for (const l of notifLangs(settings).filter(Boolean)) {
+      const names = {};
+      for (const [id, c] of Object.entries(M.CATEGORIES || {})) names[id] = kindName(c.name, l);
+      for (const [id, p] of Object.entries(M.PHENOMENA || {})) names[`p${id}`] = kindName(p.name, l);
+      out[l] = names;
+    }
+    return out;
+  }
+
+  window.MAlertI18n = { lang, LANGS, t, deviceLang, notifLangs, quakeNotification, cancelNotification, kindNames, QUAKE, translateText };
   if (document.body) start();
   else document.addEventListener('DOMContentLoaded', start);
 })();
