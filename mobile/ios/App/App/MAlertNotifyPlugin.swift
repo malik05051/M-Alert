@@ -20,9 +20,9 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
         CAPPluginMethod(name: "notify", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openUrl", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
     ]
-
-    private static let alertSound = "alerte-mobile.caf"
 
     override public func load() {
         UNUserNotificationCenter.current().delegate = self
@@ -68,38 +68,33 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
     }
 
     @objc func notify(_ call: CAPPluginCall) {
-        let content = UNMutableNotificationContent()
-        content.title = call.getString("title") ?? "M-Alert"
-        content.body = call.getString("body") ?? ""
-        content.threadIdentifier = "malert-alerts"
-        let level = call.getInt("level") ?? 1
-        let critical = call.getBool("critical") ?? false
-        let timeSensitive = call.getBool("timeSensitive") ?? false
-        let soundName = call.getString("sound") ?? "default"
-        let custom = soundName == "alerte-mobile"
-            && Bundle.main.url(forResource: "alerte-mobile", withExtension: "caf") != nil
-
-        if critical {
-            content.sound = custom
-                ? UNNotificationSound.criticalSoundNamed(UNNotificationSoundName(MAlertNotifyPlugin.alertSound), withAudioVolume: 1.0)
-                : UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
-        } else {
-            content.sound = custom ? UNNotificationSound(named: UNNotificationSoundName(MAlertNotifyPlugin.alertSound)) : .default
-        }
-        if #available(iOS 15.0, *) {
-            content.interruptionLevel = critical ? .critical : (timeSensitive ? .timeSensitive : .active)
-            content.relevanceScore = min(1.0, Double(level) / 5.0)
-        }
-        content.userInfo = ["id": call.getString("id") ?? ""]
-
         let id = call.getString("id") ?? UUID().uuidString
-        let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                call.reject(error.localizedDescription)
-            } else {
-                call.resolve()
-            }
+        // Déjà notifiée par la réception en arrière-plan (ou l'inverse) : pas de doublon.
+        guard AlertNotifier.claim(id) else {
+            call.resolve()
+            return
+        }
+        AlertNotifier.post(id: id, title: call.getString("title") ?? "M-Alert", body: call.getString("body") ?? "",
+                           level: call.getInt("level") ?? 1, timeSensitive: call.getBool("timeSensitive") ?? false,
+                           critical: call.getBool("critical") ?? false, alertSound: call.getString("sound") == "alerte-mobile") { error in
+            if let error = error { call.reject(error.localizedDescription) } else { call.resolve() }
+        }
+    }
+
+    /// Réglages de la page et réception des alertes en arrière-plan (AlertListener).
+    @objc func configure(_ call: CAPPluginCall) {
+        let settings = call.getString("settings") ?? "{}"
+        let background = call.getBool("background") ?? true
+        DispatchQueue.main.async {
+            AlertListener.shared.configure(settingsJson: settings, background: background)
+            call.resolve(["background": background])
+        }
+    }
+
+    @objc func status(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let l = AlertListener.shared
+            call.resolve(["running": l.running, "connected": l.connected, "location": l.locationState])
         }
     }
 

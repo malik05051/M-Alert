@@ -402,3 +402,6 @@ html.mobile-app .map-caption { top: 8px; }
 html[lang="en"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Show what to do ▾'; }
 html[lang="de"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Verhaltenshinweise anzeigen ▾'; }
 html[lang="es"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Mostrar instrucciones ▾'; }
+/* Réception en arrière-plan : texte propre à Android ou à iOS. */
+.bg-ios, html.mobile-ios .bg-android { display: none; }
+html.mobile-ios .bg-ios { display: inline; }

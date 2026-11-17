@@ -1737,6 +1737,20 @@
     // Application mobile Android : réception en arrière-plan par le service natif.
     document.querySelectorAll('.mobile-bg').forEach((el) => el.classList.toggle('hidden', !(window.MAlertMobile && window.MAlertMobile.background)));
     $('setMobileBg').checked = settings.mobileBackground !== false;
+    // iOS : état de la réception en arrière-plan (connexion, autorisation de localisation).
+    $('mobileBgState').textContent = '';
+    if (window.MAlertMobile && window.MAlertMobile.status) {
+      window.MAlertMobile.status().then((st) => {
+        const loc = {
+          always: '✅ Localisation : Toujours',
+          whenInUse: '⚠️ Localisation : « Lorsque l\'app est active » ; choisissez « Toujours » (Réglages iOS > M-Alert > Position) pour ne pas être arrêté',
+          denied: '⛔ Localisation refusée : la réception s\'arrête quand l\'application est quittée (Réglages iOS > M-Alert > Position > Toujours)',
+          notDetermined: '',
+        }[st.location] || '';
+        const conn = !st.running ? '' : st.connected ? '✅ Connecté en arrière-plan' : '⏳ Connexion en arrière-plan…';
+        $('mobileBgState').textContent = [conn, loc].filter(Boolean).map((x) => I18N.t(x)).join(' · ');
+      }).catch(() => {});
+    }
     $('setMaxSound').value = String(settings.maxSound ?? 120);
     $('setFadeIn').checked = Boolean(settings.fadeIn);
     $('setVibrate').checked = settings.vibrate !== false;

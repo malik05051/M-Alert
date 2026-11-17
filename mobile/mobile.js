@@ -6,8 +6,9 @@
  *     départements suivis (intensité d'un séisme chez soi calculée par le service).
  *   - « Recevoir les alertes en arrière-plan » (réglages) : démarre ou arrête le service.
  * iOS : notifications natives (plugin MAlertNotify de l'application) : urgentes, critiques, avec le
- *   son d'alerte mobile. La page reçoit les alertes application ouverte ; la réception application
- *   fermée demande les notifications push d'Apple (APNs, compte développeur Apple payant).
+ *   son d'alerte mobile ; réception en arrière-plan, application fermée, par une connexion native
+ *   (AlertListener.swift) qui reste active grâce à la localisation et à un son silencieux, comme
+ *   l'application Clip d'AltStore. Mêmes réglages que le service Android.
  */
 (function () {
   'use strict';
@@ -19,7 +20,7 @@
   const reg = (name) => (C.registerPlugin ? C.registerPlugin(name) : (C.Plugins || {})[name]);
   const plugin = platform === 'android' ? reg('MAlertNative') : null;
   // Version de l'application (écrite par copy-web.js) : recherche des mises à jour.
-  const mobile = { platform, version: '__MALERT_VERSION__', background: Boolean(plugin), onTap: null };
+  const mobile = { platform, version: '__MALERT_VERSION__', background: Boolean(plugin) || platform === 'ios', onTap: null };
   if (plugin) mobile.openUrl = (url) => plugin.openUrl({ url });
   window.MAlertMobile = mobile;
 
@@ -30,6 +31,8 @@
     mobile.requestPermission = () => notify.requestPermission();
     mobile.openSettings = () => notify.openSettings();
     mobile.openUrl = (url) => notify.openUrl({ url });
+    mobile.status = () => notify.status();
+    mobile.configure = (o) => notify.configure(o);
     // Notification touchée : la page (déjà ouverte par iOS) montre l'alerte.
     if (notify.addListener) {
       notify.addListener('tap', () => {
@@ -58,14 +61,15 @@
 
   const KEY = 'malert.settings';
   function push() {
-    if (!plugin) return;
+    const target = plugin || (mobile.configure ? { configure: mobile.configure } : null);
+    if (!target) return;
     let s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { s = {}; }
     if (!s.serverUrl && window.MALERT_CONFIG) s.serverUrl = window.MALERT_CONFIG.serverUrl;
     s.quakeAreas = areas(s);
     // Langues des notifications de séisme (comme la page).
     if (window.MAlertI18n) s.notifLangs = window.MAlertI18n.notifLangs(s).filter(Boolean);
-    plugin.configure({ settings: JSON.stringify(s), background: s.mobileBackground !== false }).catch(() => {});
+    target.configure({ settings: JSON.stringify(s), background: s.mobileBackground !== false }).catch(() => {});
   }
   // Réglages enregistrés par la page : le service suit.
   const setItem = Storage.prototype.setItem;
