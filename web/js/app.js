@@ -915,8 +915,9 @@
           sub = [r.rain72 > (r.rain24 || 0) + 5 ? `${Math.round(r.rain72)} mm en 72 h` : '', r.river ? `rivière ${r.q} m³/s (×${num(r.river)})` : '',
             r.aboveMf ? `Météo-France : ${r.mfLevel >= 2 ? VIGILANCE[r.mfLevel].name.toLowerCase() : 'vert'}` : ''].filter(Boolean).join(' · ');
         } else {
-          value = typeof r.hs === 'number' && r.hs > 0 ? `${num(r.hs)}<small>m</small>` : '—';
-          sub = [typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${num(Math.abs(r.water), 2)} m` : '', typeof r.setup === 'number' ? `surcote ${num(r.setup, 2)} m` : '',
+          const hp = typeof r.hs === 'number' && r.hs > 0 ? M.heightParts(r.hs) : null;
+          value = hp ? `${hp.num}<small>${hp.unit}</small>` : '—';
+          sub = [typeof r.water === 'number' ? `mer ${M.heightText(r.water, { sign: true, digits: 2 })}` : '', typeof r.setup === 'number' ? `surcote ${M.heightText(r.setup, { digits: 2 })}` : '',
             typeof r.wind === 'number' && (r.byWind || !(r.hs > 0)) ? `vent de mer ${r.wind} km/h` : '',
             r.aboveMf ? `Météo-France : ${r.mfLevel >= 2 ? VIGILANCE[r.mfLevel].name.toLowerCase() : 'vert'}` : ''].filter(Boolean).join(' · ');
           if (!(r.hs > 0) && typeof r.wind === 'number') value = `${r.wind}<small>km/h</small>`;
@@ -960,11 +961,15 @@
       if (!group.length) continue;
       html.push(`<div class="tsu-head tsu-l${level}">${name}</div>`);
       for (const r of group) {
-        const arrival = tsunamiArrivalText(r);
+        // Heure corrigée par les marégraphes (arrivée mesurée, ou temps de trajet recalé).
+        const fix = M.arrivalFix(sealevel, alert, r.department);
+        const arrival = fix
+          ? (fix.measured ? `Arrivé ${M.formatTime(fix.at)}` : new Date(fix.at).getTime() <= Date.now() ? 'Probablement arrivé' : `≈ ${M.formatTime(fix.at)}`)
+          : tsunamiArrivalText(r);
         html.push(`<div class="tsu-row${mine.includes(r.department) ? ' mine' : ''}">
           <span class="tsu-name">${mine.includes(r.department) ? '📍 ' : ''}${escapeHtml(M.departmentName(r.department).replace(/ \(\w+\)$/, ''))}</span>
           <span class="tsu-arr${arrival ? '' : ' empty'}">${escapeHtml(arrival)}</span>
-          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>` : ''}</span>
+          <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${M.heightParts(r.height).num}<small>${M.heightParts(r.height).unit}</small>` : ''}</span>
         </div>`);
         // Marégraphe de l'UNESCO : vague du tsunami mesurée dans le port.
         const obs = seaObs(r.department, 'tsunami');
@@ -973,6 +978,8 @@
     }
     const notes = [];
     if (rows.some((r) => r.estimated)) notes.push('heure d\'arrivée estimée');
+    const fixes = sealevel && sealevel.arrivals && sealevel.arrivals.alertId === alert.id ? sealevel.arrivals : null;
+    if (fixes && fixes.ratio) notes.push(`heures corrigées d'après l'arrivée mesurée par les marégraphes (${fixes.basis.map((b) => b.name).join(', ')} : trajet ×${fixes.ratio.toLocaleString('fr-FR')})`);
     if (rows.some((r) => r.heightEstimated)) notes.push('hauteur moyenne estimée (type de faille, magnitude, distance, profondeur de la mer)');
     if (notes.length) html.push(`<div class="tsu-note">≈ : ${notes.join(' ; ')}</div>`);
     el.innerHTML = html.join('');
@@ -1034,7 +1041,7 @@
     if (alert.category === 'seisme' && typeof alert.depth === 'number') quake.push(`<span>Profondeur : <b>${alert.depth} km</b></span>`);
     if (alert.epicenter) quake.push(`✕ Épicentre : ${escapeHtml(epicenterText(alert.epicenter))}`);
     // Tsunami : hauteur des vagues, seulement si elle a été indiquée.
-    if (alert.category === 'tsunami' && typeof alert.waveHeight === 'number') quake.push(`<span>🌊 Vagues attendues : <b>jusqu'à ${alert.waveHeight.toLocaleString('fr-FR')} m</b></span>`);
+    if (alert.category === 'tsunami' && typeof alert.waveHeight === 'number') quake.push(`<span>🌊 Vagues attendues : <b>jusqu'à ${M.heightText(alert.waveHeight)}</b></span>`);
     // Tornade : niveau EF et vent attendu.
     if (M.isTornado(alert)) {
       quake.push(`<span class="shindo" style="background:${lv.color};color:${lv.text}" title="Échelle de Fujita améliorée">EF${alert.ef}</span>`);

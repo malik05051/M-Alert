@@ -101,18 +101,28 @@
   let shindoQuake = null;
   let shindoView = null;
   let epicenterOn = true; // croix de l'épicentre sur la carte des intensités
-  /** État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). */
-  function applyObs(o) {
+  /**
+   * État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). changed :
+   * parties modifiées (seules appliquées ; à la connexion, tout).
+   */
+  function applyObs(o, changed = null) {
     if (!o || fondLayer || bannerLayer) return;
-    if (o.shindo) {
+    const part = (k) => !changed || changed.includes(k);
+    // Tsunami / vagues-submersion et missile : automatique (null) ou à la main (true / false).
+    const tri = (v) => (v === true || v === false ? v : null);
+    if (o.coast && part('coast')) { manualMap = tri(o.coast.map); manualMini = tri(o.coast.mini); manualTable = tri(o.coast.table); }
+    if (typeof o.gauges === 'boolean' && part('gauges')) { gaugesOn = o.gauges; tableKey = ''; }
+    if (o.missile && part('missile')) { manualMissile = tri(o.missile.show); manualCard = tri(o.missile.card); }
+    if (!part('shindo') && !part('notsunami') && !part('final') && !part('epicenter')) return;
+    if (o.shindo && part('shindo')) {
       // « reduced » (ancien choix) : plein écran, qui se réduit avec l'écran.
       shindoMode = o.shindo.mode === 'reduced' ? 'full' : ['full', 'mini'].includes(o.shindo.mode) ? o.shindo.mode : null;
       shindoQuake = o.shindo.quake && o.shindo.quake.epicenter ? { category: 'seisme', ...o.shindo.quake } : null;
       shindoView = o.shindo.view || null;
     }
-    if (typeof o.notsunami === 'boolean') noTsunamiOn = o.notsunami;
-    if (typeof o.final === 'boolean') finalOn = o.final;
-    if (typeof o.epicenter === 'boolean') epicenterOn = o.epicenter;
+    if (typeof o.notsunami === 'boolean' && part('notsunami')) noTsunamiOn = o.notsunami;
+    if (typeof o.final === 'boolean' && part('final')) finalOn = o.final;
+    if (typeof o.epicenter === 'boolean' && part('epicenter')) epicenterOn = o.epicenter;
   }
   let missileId = null;
   let missileStart = 0;
@@ -347,19 +357,23 @@
   const fr = (x, d = 1) => Number(x).toLocaleString('fr-FR', { maximumFractionDigits: d });
   // Mesures des marégraphes de l'UNESCO (envoyées par le serveur pendant ces alertes).
   let sealevel = null;
-  const seaOf = (code) => (sealevel && sealevel.departments && sealevel.departments[code]) || null;
+  let gaugesOn = true; // mesures affichées (choix de M-Alert-sender)
+  const seaOf = (code) => (gaugesOn && sealevel && sealevel.departments && sealevel.departments[code]) || null;
   function coastRows(a) {
     if (a.category === 'tsunami') {
       return (a.tsunamiTable || []).map((r) => {
+        // Heure corrigée par les marégraphes (arrivée mesurée, ou temps de trajet recalé).
+        const fix = gaugesOn ? M.arrivalFix(sealevel, a, r.department) : null;
+        if (fix && !fix.measured) r = { ...r, arrival: fix.at, estimated: true };
         // Vague mesurée dans le port : elle remplace l'estimation (« mesuré », comme la NHK).
         const o = seaOf(r.department);
         const seen = o && o.tsunami && typeof o.tsunami.height === 'number' ? o.tsunami : null;
-        if (seen) return { level: r.level, name: depName(r.department), when: `mesuré ${hourText(seen.at)}`, value: `${fr(seen.height)} m`, h: seen.height, measured: true };
+        if (seen) return { level: r.level, name: depName(r.department), when: `mesuré ${hourText(seen.at)}`, value: M.heightText(seen.height, { digits: 2 }), h: seen.height, measured: true };
         return {
           level: r.level, name: depName(r.department),
           when: r.arrival === 'arrived' ? 'Déjà arrivé' : r.arrival === 'imminent' ? 'Arrivée imminente' : r.arrival
             ? (new Date(r.arrival).getTime() <= Date.now() ? (r.estimated ? 'Probablement arrivé' : 'Déjà arrivé') : `${r.estimated ? '≈ ' : ''}${hourText(r.arrival)}`) : '—',
-          value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${fr(r.height)} m` : '',
+          value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${M.heightText(r.height)}` : '',
           h: typeof r.height === 'number' ? r.height : -1,
         };
       });
@@ -369,13 +383,13 @@
       const row = {
         level: r.level, name: depName(r.department),
         when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—',
-        value: r.hs > 0 ? `${fr(r.hs)} m` : typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${fr(Math.abs(r.water), 2)} m` : '',
+        value: r.hs > 0 ? M.heightText(r.hs) : typeof r.water === 'number' ? `mer ${M.heightText(r.water, { sign: true, digits: 2 })}` : '',
         // Tri : vagues, sinon niveau de la mer (après toutes les hauteurs de vagues).
         h: r.hs > 0 ? r.hs : typeof r.water === 'number' ? -10 + r.water : -100,
       };
       // Pleine mer mesurée par le marégraphe (par rapport aux plus hautes mers du mois), sous les vagues.
       const o = seaOf(r.department);
-      if (o && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${o.surge.above >= 0 ? '+' : '−'}${fr(Math.abs(o.surge.above), 2)} m`;
+      if (o && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${M.heightText(o.surge.above, { sign: true, digits: 2 })}`;
       return row;
     });
   }
@@ -727,7 +741,7 @@
         tableKey = ''; // tableau refait avec les mesures
         break;
       case 'obs':
-        applyObs(msg.obs);
+        applyObs(msg.obs, Array.isArray(msg.changed) ? msg.changed : null);
         break;
       case 'alert':
       case 'ring':

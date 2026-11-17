@@ -585,7 +585,7 @@
     if (a.category === 'tsunami' && Array.isArray(a.tsunamiTable) && a.tsunamiTable.length) {
       const rows = a.tsunamiTable.slice().sort((x, y) => (y.level - x.level) || ((y.height || 0) - (x.height || 0)));
       const items = rows.map((r) => {
-        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${frNum(r.height)} m` : '';
+        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${M.heightText(r.height)}` : '';
         const t = r.arrival === 'arrived' ? ' (arrivé)' : r.arrival === 'imminent' ? ' (imminent)' : r.arrival ? ` (${hourOf(r.arrival)})` : '';
         return `${shortName(r.department)}${h}${t}`;
       });
@@ -611,7 +611,7 @@
     // Autres alertes : titre, puis mesures connues ou description.
     const extra = [];
     if (typeof a.windKmh === 'number') extra.push(`vent attendu ${a.windKmh} km/h`);
-    if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${frNum(a.waveHeight)} m`);
+    if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${M.heightText(a.waveHeight)}`);
     if (M && M.pollutionSummary && M.pollutionSummary(a)) extra.push(M.pollutionSummary(a));
     const second = extra.length ? extra.join(' — ') : (a.description || where || '').replace(/\s+/g, ' ');
     return [a.title || headerOf(a), second];
@@ -652,7 +652,7 @@
       out.head.push(a.title || `Tsunami — ${at}`);
       const rows = a.tsunamiTable.slice().sort((x, y) => (y.level - x.level) || ((y.height || 0) - (x.height || 0)));
       out.lists.push({ label: 'Vagues', items: rows.map((r) => {
-        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${frNum(r.height)} m` : '';
+        const h = typeof r.height === 'number' ? ` ${r.heightEstimated ? '≈' : ''}${M.heightText(r.height)}` : '';
         const t = r.arrival === 'arrived' ? ' (arrivé)' : r.arrival === 'imminent' ? ' (imminent)' : r.arrival ? ` (${hourOf(r.arrival)})` : '';
         return `${shortName(r.department)}${h}${t}`;
       }) });
@@ -675,7 +675,7 @@
       out.head.push(a.title || headerOf(a));
       const extra = [];
       if (typeof a.windKmh === 'number') extra.push(`vent attendu ${a.windKmh} km/h`);
-      if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${frNum(a.waveHeight)} m`);
+      if (typeof a.waveHeight === 'number') extra.push(`vagues jusqu'à ${M.heightText(a.waveHeight)}`);
       if (M && M.pollutionSummary && M.pollutionSummary(a)) extra.push(M.pollutionSummary(a));
       if (extra.length) out.head.push(extra.join(' — '));
       if ((a.departments || []).includes('ALL')) out.lists.push({ label: 'Lieux', items: ['France entière'] });
