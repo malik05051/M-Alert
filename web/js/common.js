@@ -352,14 +352,24 @@
    * kind : 'tsunami' ou 'surge'.
    */
   function seaObsText(obs, kind) {
-    if (!obs || obs.error) return '';
+    if (!obs) return '';
     const hour = (t) => formatTime(t).replace(':', ' h ');
+    if (kind === 'surge') {
+      // Pleine mer mesurée par le marégraphe, vagues mesurées par la bouée du Cerema.
+      const parts = [];
+      if (!obs.error && obs.surge && typeof obs.surge.above === 'number') {
+        parts.push(`Pleine mer mesurée ${heightText(obs.surge.above, { sign: true, digits: 2 })} / plus hautes mers du mois, ${hour(obs.surge.highAt)} (${obs.name})`);
+      }
+      const b = obs.buoy;
+      if (b && typeof b.hs === 'number') {
+        parts.push(`Vagues mesurées ${heightText(b.hs)}${typeof b.hmax === 'number' ? ` (max ${heightText(b.hmax)})` : ''} à ${hour(b.at)} (bouée ${b.name})`);
+      }
+      return parts.join(' · ');
+    }
+    if (obs.error) return '';
     if (kind === 'tsunami' && obs.tsunami) {
       if (typeof obs.tsunami.height === 'number') return `Vague mesurée ${heightText(obs.tsunami.height, { digits: 2 })} à ${hour(obs.tsunami.at)} (${obs.name})`;
       if (obs.tsunami.none) return `Pas de vague mesurée (${obs.name}, ${hour(obs.at)})`;
-    }
-    if (kind === 'surge' && obs.surge && typeof obs.surge.above === 'number') {
-      return `Pleine mer mesurée ${heightText(obs.surge.above, { sign: true, digits: 2 })} / plus hautes mers du mois, ${hour(obs.surge.highAt)} (${obs.name})`;
     }
     return '';
   }

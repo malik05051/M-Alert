@@ -389,7 +389,9 @@
       };
       // Pleine mer mesurée par le marégraphe (par rapport aux plus hautes mers du mois), sous les vagues.
       const o = seaOf(r.department);
-      if (o && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${M.heightText(o.surge.above, { sign: true, digits: 2 })}`;
+      if (o && !o.error && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${M.heightText(o.surge.above, { sign: true, digits: 2 })}`;
+      // Vagues mesurées par la bouée du Cerema : elles remplacent la prévision (« mesuré »).
+      if (o && o.buoy && typeof o.buoy.hs === 'number') Object.assign(row, { when: `mesuré ${hourText(o.buoy.at)}`, value: M.heightText(o.buoy.hs), h: o.buoy.hs, measured: true });
       return row;
     });
   }
