@@ -36,6 +36,14 @@
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
+  // Incendie, ancien phénomène météo devenu une catégorie : désactivé avant, il le reste.
+  if ((settings.phenomenaOff || []).map(Number).includes(M.FIRE_PHENOMENON)) {
+    settings.phenomenaOff = settings.phenomenaOff.filter((p) => Number(p) !== M.FIRE_PHENOMENON);
+    if (!settings.categoriesOff.includes('incendie')) settings.categoriesOff = [...settings.categoriesOff, 'incendie'];
+    M.storage.set('malert.settings', settings);
+  }
+  // Phénomènes météo proposés (l'incendie est une catégorie).
+  const METEO_PHENOMENA = Object.entries(PHENOMENA).filter(([id]) => Number(id) !== M.FIRE_PHENOMENON);
   const saveSettings = () => M.storage.set('malert.settings', settings);
   window.MAlertSound.configure(settings.sounds);
 
@@ -422,7 +430,7 @@
   let alertFilter = M.storage.get('malert.alertFilter', '');
   $('alertFilter').innerHTML = '<option value="">Toutes les alertes</option>'
     + `<optgroup label="Catégorie">${Object.entries(M.CATEGORIES).map(([id, c]) => `<option value="cat:${id}">${c.icon} ${escapeHtml(c.name)}</option>`).join('')}</optgroup>`
-    + `<optgroup label="Phénomène météo">${Object.entries(PHENOMENA).map(([id, p]) => `<option value="phen:${id}">${p.icon} ${escapeHtml(p.name)}</option>`).join('')}</optgroup>`;
+    + `<optgroup label="Phénomène météo">${METEO_PHENOMENA.map(([id, p]) => `<option value="phen:${id}">${p.icon} ${escapeHtml(p.name)}</option>`).join('')}</optgroup>`;
   $('alertFilter').value = alertFilter;
   if ($('alertFilter').value !== alertFilter) alertFilter = '';
   $('alertFilter').addEventListener('change', (e) => {
@@ -1519,7 +1527,7 @@
 
   $('setCategories').innerHTML = Object.entries(M.CATEGORIES).map(([id, c]) =>
     `<label class="check"><input type="checkbox" value="${id}"> ${c.icon} ${escapeHtml(c.name)}</label>`).join('');
-  $('setPhenomena').innerHTML = Object.entries(PHENOMENA).map(([id, p]) =>
+  $('setPhenomena').innerHTML = METEO_PHENOMENA.map(([id, p]) =>
     `<label class="check"><input type="checkbox" value="${id}"> ${p.icon} ${escapeHtml(p.name)}</label>`).join('');
 
   function fillDepartmentInputs() {

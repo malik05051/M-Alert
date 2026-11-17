@@ -162,7 +162,7 @@
   function wanted(a) {
     if (!M.isActive(a) || a.pending || a.silent) return false;
     if (a.test && !tests) return false;
-    if (types.length && !types.includes(a.category || 'meteo')) return false;
+    if (types.length && !types.includes(M.categoryOf(a))) return false;
     if (Number(a.level) < minLevel) return false;
     if (deps.length && !a.departments.includes('ALL') && !a.departments.some((d) => deps.includes(d))) return false;
     return true;
@@ -352,6 +352,7 @@
         when: r.arrival === 'arrived' ? 'Déjà arrivé' : r.arrival === 'imminent' ? 'Arrivée imminente' : r.arrival
           ? (new Date(r.arrival).getTime() <= Date.now() ? (r.estimated ? 'Probablement arrivé' : 'Déjà arrivé') : `${r.estimated ? '≈ ' : ''}${hourText(r.arrival)}`) : '—',
         value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${fr(r.height)} m` : '',
+        h: typeof r.height === 'number' ? r.height : -1,
       }));
     }
     const set = new Set(a.departments || []);
@@ -359,6 +360,8 @@
       level: r.level, name: depName(r.department),
       when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—',
       value: r.hs > 0 ? `${fr(r.hs)} m` : typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${fr(Math.abs(r.water), 2)} m` : '',
+      // Tri : vagues, sinon niveau de la mer (après toutes les hauteurs de vagues).
+      h: r.hs > 0 ? r.hs : typeof r.water === 'number' ? -10 + r.water : -100,
     }));
   }
   function renderCoastTable(a) {
@@ -368,7 +371,8 @@
     if (key !== tableKey) {
       const keep = tableKey.split(':').slice(0, 2).join(':') === key.split(':').slice(0, 2).join(':');
       tableKey = key;
-      const rows = coastRows(a).sort((x, y) => y.level - x.level);
+      // Par niveau, puis hauteur des vagues décroissante (la plus haute d'abord ; sans hauteur à la fin).
+      const rows = coastRows(a).sort((x, y) => (y.level - x.level) || (y.h - x.h));
       tablePages = [];
       for (const lv of Object.keys(LV).map(Number).sort((x, y) => y - x)) {
         const group = rows.filter((r) => r.level === lv);

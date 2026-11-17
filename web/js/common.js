@@ -14,7 +14,7 @@
     8: { name: 'Avalanches', icon: '🏔️' },
     9: { name: 'Vagues-submersion', icon: '🌊' },
     10: { name: 'Tornade', icon: '🌪️' }, // M-Alert seulement (pas une vigilance Météo-France)
-    11: { name: 'Incendie', icon: '🔥' }, // M-Alert seulement : trois niveaux (avis, avertissement, avertissement majeur)
+    11: { name: 'Incendie', icon: '🔥' }, // ancien phénomène, devenu la catégorie « Incendie » (anciennes alertes)
     12: { name: 'Inondation', icon: '💧' }, // M-Alert seulement (inondation constatée, rupture de digue…)
     14: { name: 'Tempête', icon: '🌀' }, // M-Alert seulement (13 : ancien « Attentat », devenu une catégorie)
     15: { name: 'Fortes pluies-orages', icon: '⛈️' }, // vigilance de Nouvelle-Calédonie
@@ -61,6 +61,7 @@
     meteo: { name: 'Météo', icon: '🌦️' },
     seisme: { name: 'Tremblement de terre', icon: '🏚️' },
     tsunami: { name: 'Tsunami', icon: '🌊' },
+    incendie: { name: 'Incendie', icon: '🔥' }, // catégorie à part : Avis, Avertissement, Avertissement majeur, type de feu
     pollution: { name: 'Pollution', icon: '🌫️' },
     accident: { name: 'Accident industriel', icon: '🏭' },
     attentat: { name: 'Attentat', icon: '🚨' },
@@ -71,6 +72,7 @@
 
   // Consignes types inspirées des recommandations officielles (préfectures, ARS, ministère des Affaires étrangères).
   const CATEGORY_ADVICE = {
+    incendie: FIRE_ADVICE.outdoor,
     seisme: 'Pendant les secousses, abritez-vous sous un meuble solide, loin des fenêtres, et protégez votre tête ; à l\'extérieur, éloignez-vous des bâtiments et des lignes électriques. Ensuite, coupez le gaz et l\'électricité, évacuez sans prendre l\'ascenseur et attendez-vous à des répliques.',
     tsunami: 'Réagissez immédiatement sans attendre la vague : rejoignez à pied un point haut ou l\'intérieur des terres. Ne restez ni sur la plage, ni dans les ports, ni sur les digues. N\'utilisez pas votre voiture et ne revenez pas avant la fin de l\'alerte : plusieurs vagues peuvent se succéder.',
     pollution: 'Réduisez ou reportez les activités physiques et sportives intenses. Les personnes sensibles (enfants, personnes âgées, malades) doivent les limiter, y compris en intérieur, et éviter les axes à forte circulation. Respectez les mesures de restriction de circulation.',
@@ -330,7 +332,7 @@
 
   /** « Feu de forêt » pour un incendie dont le type est indiqué (vide sinon). */
   function fireSummary(alert) {
-    if (!alert || (alert.category || 'meteo') !== 'meteo' || Number(alert.phenomenon) !== FIRE_PHENOMENON) return '';
+    if (!alert || categoryOf(alert) !== 'incendie') return '';
     const t = FIRE_TYPES[alert.fireType];
     return t ? `${t.icon} ${t.name}` : '';
   }
@@ -356,6 +358,8 @@
   }
 
   function categoryOf(alert) {
+    // Ancienne alerte « météo / incendie » (phénomène 11) : catégorie Incendie.
+    if (alert && (alert.category || 'meteo') === 'meteo' && Number(alert.phenomenon) === FIRE_PHENOMENON) return 'incendie';
     return alert && CATEGORIES[alert.category] ? alert.category : 'meteo';
   }
 
@@ -373,8 +377,8 @@
     if (alert.level < 2) return '';
     const cat = categoryOf(alert);
     if (cat === 'pollution' && POLLUTION_ADVICE[alert.pollutionType]) return POLLUTION_ADVICE[alert.pollutionType];
+    if (cat === 'incendie' && FIRE_TYPES[alert.fireType]) return FIRE_ADVICE[FIRE_TYPES[alert.fireType].advice];
     if (cat !== 'meteo') return CATEGORY_ADVICE[cat] || '';
-    if (Number(alert.phenomenon) === FIRE_PHENOMENON && FIRE_TYPES[alert.fireType]) return FIRE_ADVICE[FIRE_TYPES[alert.fireType].advice];
     return ADVICE[alert.phenomenon] || '';
   }
 

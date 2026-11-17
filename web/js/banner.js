@@ -38,6 +38,7 @@
     seisme: 'Attention aux secousses fortes dans ces lieux indiqués :',
     tsunami: 'Attention au tsunami sur les côtes indiquées :',
     missile: 'Abritez-vous immédiatement dans ces lieux indiqués :',
+    incendie: 'Attention à l\'incendie dans ces lieux indiqués :',
     1: 'Attention au vent violent dans ces lieux indiqués :',
     2: 'Attention aux pluies et aux inondations dans ces lieux indiqués :',
     3: 'Attention aux orages dans ces lieux indiqués :',
