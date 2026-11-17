@@ -20,12 +20,14 @@
   const reg = (name) => (C.registerPlugin ? C.registerPlugin(name) : (C.Plugins || {})[name]);
   const plugin = platform === 'android' ? reg('MAlertNative') : null;
   // Version de l'application (écrite par copy-web.js) : recherche des mises à jour.
-  const mobile = { platform, version: '__MALERT_VERSION__', background: Boolean(plugin) || platform === 'ios', onTap: null };
+  const iosPlugin = platform === 'ios' ? reg('MAlertNotify') : null;
+  const mobile = { platform, version: '__MALERT_VERSION__', background: Boolean(plugin || iosPlugin), onTap: null };
   if (plugin) mobile.openUrl = (url) => plugin.openUrl({ url });
   window.MAlertMobile = mobile;
 
-  if (platform === 'ios') {
-    const notify = reg('MAlertNotify');
+  // Plugin absent (application iOS plus ancienne) : la page fonctionne sans notifications natives.
+  if (iosPlugin) {
+    const notify = iosPlugin;
     mobile.notify = (o) => notify.notify(o);
     mobile.permission = () => notify.permission();
     mobile.requestPermission = () => notify.requestPermission();
@@ -34,12 +36,16 @@
     mobile.status = () => notify.status();
     mobile.configure = (o) => notify.configure(o);
     // Notification touchée : la page (déjà ouverte par iOS) montre l'alerte.
-    if (notify.addListener) {
-      notify.addListener('tap', () => {
-        const fn = mobile.onTap;
-        mobile.onTap = null;
-        if (fn) fn();
-      });
+    try {
+      if (notify.addListener) {
+        Promise.resolve(notify.addListener('tap', () => {
+          const fn = mobile.onTap;
+          mobile.onTap = null;
+          if (fn) fn();
+        })).catch(() => {});
+      }
+    } catch (_) {
+      // notification touchée : simple ouverture de l'application
     }
   }
 

@@ -1216,12 +1216,12 @@
   async function systemNotification(title, body, { tag, urgent, onClick, level = 1 } = {}) {
     const mobile = window.MAlertMobile;
     if (mobile && mobile.notify) {
-      mobile.notify({
+      Promise.resolve().then(() => mobile.notify({
         id: String(tag || Date.now()), title, body, level,
         timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
         critical: settings.critical !== false && level >= 4,
         sound: level >= 3 ? 'alerte-mobile' : 'default',
-      }).catch(() => {});
+      })).catch(() => {});
       if (onClick) mobile.onTap = onClick;
       return;
     }
@@ -1656,7 +1656,8 @@
     const mobile = window.MAlertMobile;
     if (mobile && mobile.permission) {
       // iOS : autorisations des notifications, des notifications urgentes et des alertes critiques.
-      mobile.permission().then((p) => {
+      // (Promise.resolve : une erreur du pont natif n'empêche jamais d'ouvrir les réglages.)
+      Promise.resolve().then(() => mobile.permission()).then((p) => {
         const parts = [p.display === 'granted' ? '✅ Notifications autorisées' : p.display === 'denied'
           ? '⛔ Notifications bloquées (Réglages iOS > M-Alert > Notifications)' : 'Notifications non autorisées'];
         if (p.display === 'granted') {
@@ -1740,7 +1741,7 @@
     // iOS : état de la réception en arrière-plan (connexion, autorisation de localisation).
     $('mobileBgState').textContent = '';
     if (window.MAlertMobile && window.MAlertMobile.status) {
-      window.MAlertMobile.status().then((st) => {
+      Promise.resolve().then(() => window.MAlertMobile.status()).then((st) => {
         const loc = {
           always: '✅ Localisation : Toujours',
           whenInUse: '⚠️ Localisation : « Lorsque l\'app est active » ; choisissez « Toujours » (Réglages iOS > M-Alert > Position) pour ne pas être arrêté',
