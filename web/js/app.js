@@ -129,6 +129,8 @@
 
   let alerts = [];          // alertes actives
   let vigilance = null;     // dernières données de vigilance
+  let sealevel = null;      // mesures des marégraphes de l'UNESCO (tsunami, vagues-submersion)
+  const seaObs = (code, kind) => M.seaObsText(sealevel && sealevel.departments && sealevel.departments[code], kind);
   let day = 0;              // 0 = aujourd'hui, 1 = demain, 2 = après-demain (prévision M-Alert)
   let selectedCode = null;  // département cliqué sur la carte
   const seen = new Set(M.storage.get('malert.seen', []));
@@ -924,6 +926,9 @@
           <span class="tsu-arr fc-time${span ? '' : ' empty'}">${escapeHtml(span)}${peak ? `<small>${escapeHtml(peak)}</small>` : ''}</span>
           <span class="tsu-h fc-l${level}">${value}${sub ? `<span class="tsu-max">${escapeHtml(sub)}</span>` : ''}</span>
         </div>`);
+        // Vagues-submersion : pleine mer mesurée par le marégraphe de l'UNESCO.
+        const obs = !wind && !flood ? seaObs(r.department, 'surge') : '';
+        if (obs) html.push(`<div class="tsu-obs">📡 ${escapeHtml(obs)}</div>`);
       }
     }
     html.push(`<div class="tsu-note">${flood
@@ -961,6 +966,9 @@
           <span class="tsu-arr${arrival ? '' : ' empty'}">${escapeHtml(arrival)}</span>
           <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${r.height.toLocaleString('fr-FR')}<small>m</small>` : ''}</span>
         </div>`);
+        // Marégraphe de l'UNESCO : vague du tsunami mesurée dans le port.
+        const obs = seaObs(r.department, 'tsunami');
+        if (obs) html.push(`<div class="tsu-obs">📡 ${escapeHtml(obs)}</div>`);
       }
     }
     const notes = [];
@@ -1345,9 +1353,14 @@
 
   function handleMessage(msg) {
     switch (msg.type) {
+      case 'sealevel':
+        sealevel = msg.sealevel || null;
+        if (current && !current.__notice) renderTsunamiBoard(current);
+        break;
       case 'hello': {
         const old = vigilance;
         vigilance = msg.vigilance;
+        sealevel = msg.sealevel || null;
         alerts = (msg.alerts || []).filter(M.isActive);
         renderAll();
         checkVigilanceChange(old, vigilance);

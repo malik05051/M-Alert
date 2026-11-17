@@ -345,24 +345,39 @@
     return M.zonedDate(t.getTime()) === M.zonedDate() ? hm : `${t.toLocaleDateString('fr-FR', { weekday: 'short', timeZone: M.timeZone() })} ${hm}`;
   };
   const fr = (x, d = 1) => Number(x).toLocaleString('fr-FR', { maximumFractionDigits: d });
+  // Mesures des marégraphes de l'UNESCO (envoyées par le serveur pendant ces alertes).
+  let sealevel = null;
+  const seaOf = (code) => (sealevel && sealevel.departments && sealevel.departments[code]) || null;
   function coastRows(a) {
     if (a.category === 'tsunami') {
-      return (a.tsunamiTable || []).map((r) => ({
-        level: r.level, name: depName(r.department),
-        when: r.arrival === 'arrived' ? 'Déjà arrivé' : r.arrival === 'imminent' ? 'Arrivée imminente' : r.arrival
-          ? (new Date(r.arrival).getTime() <= Date.now() ? (r.estimated ? 'Probablement arrivé' : 'Déjà arrivé') : `${r.estimated ? '≈ ' : ''}${hourText(r.arrival)}`) : '—',
-        value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${fr(r.height)} m` : '',
-        h: typeof r.height === 'number' ? r.height : -1,
-      }));
+      return (a.tsunamiTable || []).map((r) => {
+        // Vague mesurée dans le port : elle remplace l'estimation (« mesuré », comme la NHK).
+        const o = seaOf(r.department);
+        const seen = o && o.tsunami && typeof o.tsunami.height === 'number' ? o.tsunami : null;
+        if (seen) return { level: r.level, name: depName(r.department), when: `mesuré ${hourText(seen.at)}`, value: `${fr(seen.height)} m`, h: seen.height, measured: true };
+        return {
+          level: r.level, name: depName(r.department),
+          when: r.arrival === 'arrived' ? 'Déjà arrivé' : r.arrival === 'imminent' ? 'Arrivée imminente' : r.arrival
+            ? (new Date(r.arrival).getTime() <= Date.now() ? (r.estimated ? 'Probablement arrivé' : 'Déjà arrivé') : `${r.estimated ? '≈ ' : ''}${hourText(r.arrival)}`) : '—',
+          value: typeof r.height === 'number' ? `${r.heightEstimated ? '≈' : ''}${fr(r.height)} m` : '',
+          h: typeof r.height === 'number' ? r.height : -1,
+        };
+      });
     }
     const set = new Set(a.departments || []);
-    return ((a.forecastTable && a.forecastTable.rows) || []).filter((r) => set.has('ALL') || set.has(r.department)).map((r) => ({
-      level: r.level, name: depName(r.department),
-      when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—',
-      value: r.hs > 0 ? `${fr(r.hs)} m` : typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${fr(Math.abs(r.water), 2)} m` : '',
-      // Tri : vagues, sinon niveau de la mer (après toutes les hauteurs de vagues).
-      h: r.hs > 0 ? r.hs : typeof r.water === 'number' ? -10 + r.water : -100,
-    }));
+    return ((a.forecastTable && a.forecastTable.rows) || []).filter((r) => set.has('ALL') || set.has(r.department)).map((r) => {
+      const row = {
+        level: r.level, name: depName(r.department),
+        when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—',
+        value: r.hs > 0 ? `${fr(r.hs)} m` : typeof r.water === 'number' ? `mer ${r.water >= 0 ? '+' : '−'}${fr(Math.abs(r.water), 2)} m` : '',
+        // Tri : vagues, sinon niveau de la mer (après toutes les hauteurs de vagues).
+        h: r.hs > 0 ? r.hs : typeof r.water === 'number' ? -10 + r.water : -100,
+      };
+      // Pleine mer mesurée par le marégraphe (par rapport aux plus hautes mers du mois), sous les vagues.
+      const o = seaOf(r.department);
+      if (o && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${o.surge.above >= 0 ? '+' : '−'}${fr(Math.abs(o.surge.above), 2)} m`;
+      return row;
+    });
   }
   function renderCoastTable(a) {
     const key = `${a.id}:${a.revision || 0}:${Math.floor(Date.now() / 60000)}`;
@@ -391,7 +406,7 @@
     const esc = M.escapeHtml;
     const html = `<div class="ct-title">${tsu ? 'Arrivée prévue du tsunami' : 'Vagues-submersion prévues'}</div>`
       + `<div class="ct-level" style="background:${bg};color:${fg}">${esc(name)}</div>`
-      + pg.rows.map((r) => `<div class="ct-row"><span class="ct-name">${esc(r.name)}</span><span class="ct-when">${esc(r.when)}</span>`
+      + pg.rows.map((r) => `<div class="ct-row${r.measured ? ' measured' : ''}"><span class="ct-name">${esc(r.name)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span><span class="ct-when">${esc(r.when)}</span>`
         + `<span class="ct-val" style="background:${bg};color:${fg}">${esc(r.value)}</span></div>`).join('')
       + (tablePages.length > 1 ? `<div class="ct-page">${tablePage + 1}/${tablePages.length}</div>` : '');
     if (el.innerHTML !== html) el.innerHTML = html;
@@ -705,6 +720,11 @@
         alerts.forEach(remember);
         loadLast();
         applyObs(msg.obs);
+        sealevel = msg.sealevel || null;
+        break;
+      case 'sealevel':
+        sealevel = msg.sealevel || null;
+        tableKey = ''; // tableau refait avec les mesures
         break;
       case 'obs':
         applyObs(msg.obs);

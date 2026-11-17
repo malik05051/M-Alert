@@ -44,6 +44,10 @@
     #coastTable .ct-level { display: inline-block; padding: .3vh 2vw; font-weight: 700; margin-bottom: .4vh; }
     #coastTable .ct-row { display: grid; grid-template-columns: 1fr 15.5vw 7.5vw; gap: .5vw; margin-bottom: .45vh; background: rgba(10,10,10,.82); align-items: stretch; }
     #coastTable .ct-name { padding: .35vh 1vw; text-align: center; white-space: nowrap; overflow: hidden; }
+    /* Mesure d'un marégraphe : bord cyan ; « mer mesurée » sous le nom. */
+    #coastTable .ct-row.measured { box-shadow: inset .5vw 0 0 #22d3ee; }
+    #coastTable .ct-row.measured .ct-when { border-color: #22d3ee; color: #a5f3fc; }
+    #coastTable .ct-name small { display: block; font-size: 2vh; font-weight: 600; color: #a5f3fc; }
     #coastTable .ct-when { margin: .35vh 0; border: .15vh solid #aaa; text-align: center; font-size: 2.5vh; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
     #coastTable .ct-val { text-align: center; font-weight: 700; font-size: 3.6vh; display: flex; align-items: center; justify-content: center; }
     #coastTable .ct-page { position: absolute; right: 0; bottom: -3.2vh; font-size: 2vh; opacity: .85; }
@@ -151,12 +155,12 @@
   <div id="quakeFinal">Rapport final</div>
   <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.0.1-16"></script>
-  <script src="../data/departements.js?v=3.0.1-16"></script>
-  <script src="../data/cotes.js?v=3.0.1-16"></script>
-  <script src="../js/common.js?v=3.0.1-16"></script>
-  <script src="../js/sound.js?v=3.0.1-16"></script>
-  <script src="../js/banner.js?v=3.0.1-16"></script>
-  <script src="obs.js?v=3.0.1-16"></script>
+  <script src="../config.js?v=3.0.1-17"></script>
+  <script src="../data/departements.js?v=3.0.1-17"></script>
+  <script src="../data/cotes.js?v=3.0.1-17"></script>
+  <script src="../js/common.js?v=3.0.1-17"></script>
+  <script src="../js/sound.js?v=3.0.1-17"></script>
+  <script src="../js/banner.js?v=3.0.1-17"></script>
+  <script src="obs.js?v=3.0.1-17"></script>
 </body>
 </html>

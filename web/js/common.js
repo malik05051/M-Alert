@@ -330,6 +330,25 @@
     return p.charAt(0).toUpperCase() + p.slice(1);
   }
 
+  /**
+   * Mesure d'un marégraphe de l'UNESCO pour un département (sealevel.departments[code]) :
+   * « Vague mesurée 0,4 m à 14 h 32 (Nice) », « Pleine mer mesurée −0,14 m (Port-de-Bouc) »… ou ''.
+   * kind : 'tsunami' ou 'surge'.
+   */
+  function seaObsText(obs, kind) {
+    if (!obs || obs.error) return '';
+    const fr = (v) => Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    const hour = (t) => formatTime(t).replace(':', ' h ');
+    if (kind === 'tsunami' && obs.tsunami) {
+      if (typeof obs.tsunami.height === 'number') return `Vague mesurée ${fr(obs.tsunami.height)} m à ${hour(obs.tsunami.at)} (${obs.name})`;
+      if (obs.tsunami.none) return `Pas de vague mesurée (${obs.name}, ${hour(obs.at)})`;
+    }
+    if (kind === 'surge' && obs.surge && typeof obs.surge.above === 'number') {
+      return `Pleine mer mesurée ${obs.surge.above >= 0 ? '+' : '−'}${fr(obs.surge.above)} m / plus hautes mers du mois, ${hour(obs.surge.highAt)} (${obs.name})`;
+    }
+    return '';
+  }
+
   /** « Feu de forêt » pour un incendie dont le type est indiqué (vide sinon). */
   function fireSummary(alert) {
     if (!alert || categoryOf(alert) !== 'incendie') return '';
@@ -576,7 +595,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, seaObsText, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
     TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,
     departmentList, departmentName, departmentsLabel, isActive,
