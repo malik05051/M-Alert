@@ -412,46 +412,35 @@ enum Quake {
         }
     }
 
-    // [titre urgent, titre, alerte précoce, fortes secousses, secousses, épicentre, intensité chez moi, en mer]
+    // [titre urgent, titre, alerte précoce, secousses fortes, secousses]
+    // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
     private static func texts(_ l: String) -> [String] {
         switch l {
         case "en": return ["Emergency Alert", "Earthquake Alert", "Earthquake Early Warning",
-                           "Strong shaking is expected soon. Stay calm and seek shelter nearby.", "Shaking may be felt. Stay calm.",
-                           "Epicentre", "Expected intensity where you are", "at sea"]
+                           "Strong shaking is expected. Stay calm and protect yourself.", "Shaking is expected. Stay calm and protect yourself."]
         case "de": return ["Notfallwarnung", "Erdbebenwarnung", "Erdbebenfrühwarnung",
-                           "Starke Erschütterungen werden in Kürze erwartet. Bleiben Sie ruhig und suchen Sie in der Nähe Schutz.",
-                           "Erschütterungen können spürbar sein. Bleiben Sie ruhig.", "Epizentrum", "Erwartete Intensität bei Ihnen", "auf See"]
+                           "Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.",
+                           "Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich."]
         case "es": return ["Alerta de emergencia", "Alerta sísmica", "Alerta sísmica temprana",
-                           "se esperan fuertes sacudidas en breve. Mantenga la calma y busque refugio cerca.", "pueden sentirse sacudidas. Mantenga la calma.",
-                           "Epicentro", "Intensidad esperada en su zona", "en el mar"]
-        default: return ["Alerte d'urgence", "Alerte sismique", "Alerte précoce séisme",
-                         "de fortes secousses sont attendues. Restez calme et mettez-vous à l'abri à proximité.",
-                         "des secousses peuvent être ressenties. Restez calme.", "Épicentre", "Intensité attendue chez vous", "en mer"]
+                           "Se esperan sacudidas fuertes. Mantenga la calma y protéjase.", "Se esperan sacudidas. Mantenga la calma y protéjase."]
+        default: return ["Alerte d'urgence", "Alerte sismique", "Alerte sismique précoce",
+                         "Des secousses fortes sont attendues. Restez calme et protégez-vous.",
+                         "Des secousses sont attendues. Restez calme et protégez-vous."]
         }
     }
 
+    /// Langue principale en haut, seconde en dessous :
+    ///   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
+    ///   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
     static func notification(_ a: [String: Any], settings: [String: Any]) -> (title: String, body: String) {
         var langs = settings["notifLangs"] as? [String] ?? []
         if langs.isEmpty { langs = ["fr", "en"] }
         let local = localIntensity(a, settings: settings)
         let strong = Int(num(a["level"]) ?? 1) >= 4 || rank(local) >= 5
-        let mag = num(a["magnitude"]).map { String(format: "M%.1f", $0) } ?? ""
-        var titles: [String] = []
-        var bodies: [String] = []
-        for l in langs {
+        let titles = langs.map { strong ? texts($0)[0] : texts($0)[1] }
+        let bodies = langs.map { l -> String in
             let t = texts(l)
-            let colon = l == "fr" ? " : " : ": "
-            var whereText = t[7]
-            if let epi = a["epicenter"] as? [String: Any], let lat = num(epi["lat"]), let lon = num(epi["lon"]) {
-                whereText = String(format: "%.2f° %@, %.2f° %@", abs(lat), lat >= 0 ? "N" : "S", abs(lon), lon >= 0 ? "E" : "W")
-            }
-            var b = t[2] + colon + (strong ? t[3] : t[4]) + " " + t[5] + colon + whereText
-            if !mag.isEmpty { b += ", " + mag }
-            b += "."
-            if let local = local, local != "0" { b += " " + t[6] + colon + local + "." }
-            b += " (M-Alert)"
-            titles.append(strong ? t[0] : t[1])
-            bodies.append(b)
+            return t[2] + " : " + (strong ? t[3] : t[4]) + " (M-Alert)"
         }
         return (titles.joined(separator: " · "), bodies.joined(separator: "\n"))
     }

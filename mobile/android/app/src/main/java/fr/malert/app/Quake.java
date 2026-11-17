@@ -95,52 +95,40 @@ final class Quake {
         return magOk || shOk;
     }
 
-    // Textes : [titre urgent, titre, alerte précoce, fortes secousses, secousses, épicentre, intensité chez moi, en mer]
+    // Textes : [titre urgent, titre, alerte précoce, secousses fortes, secousses]
+    // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
     private static String[] texts(String lang) {
         switch (lang) {
             case "en": return new String[] { "Emergency Alert", "Earthquake Alert", "Earthquake Early Warning",
-                "Strong shaking is expected soon. Stay calm and seek shelter nearby.", "Shaking may be felt. Stay calm.",
-                "Epicentre", "Expected intensity where you are", "at sea" };
+                "Strong shaking is expected. Stay calm and protect yourself.", "Shaking is expected. Stay calm and protect yourself." };
             case "de": return new String[] { "Notfallwarnung", "Erdbebenwarnung", "Erdbebenfrühwarnung",
-                "Starke Erschütterungen werden in Kürze erwartet. Bleiben Sie ruhig und suchen Sie in der Nähe Schutz.",
-                "Erschütterungen können spürbar sein. Bleiben Sie ruhig.", "Epizentrum", "Erwartete Intensität bei Ihnen", "auf See" };
+                "Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.",
+                "Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich." };
             case "es": return new String[] { "Alerta de emergencia", "Alerta sísmica", "Alerta sísmica temprana",
-                "Se esperan fuertes sacudidas en breve. Mantenga la calma y busque refugio cerca.", "Pueden sentirse sacudidas. Mantenga la calma.",
-                "Epicentro", "Intensidad esperada en su zona", "en el mar" };
-            default: return new String[] { "Alerte d'urgence", "Alerte sismique", "Alerte précoce séisme",
-                "De fortes secousses sont attendues. Restez calme et mettez-vous à l'abri à proximité.",
-                "Des secousses peuvent être ressenties. Restez calme.", "Épicentre", "Intensité attendue chez vous", "en mer" };
+                "Se esperan sacudidas fuertes. Mantenga la calma y protéjase.", "Se esperan sacudidas. Mantenga la calma y protéjase." };
+            default: return new String[] { "Alerte d'urgence", "Alerte sismique", "Alerte sismique précoce",
+                "Des secousses fortes sont attendues. Restez calme et protégez-vous.",
+                "Des secousses sont attendues. Restez calme et protégez-vous." };
         }
     }
 
-    /** { titre, texte } de la notification d'un séisme, langue principale en haut, seconde en dessous. */
+    /**
+     * { titre, texte } de la notification d'un séisme, langue principale en haut, seconde en dessous :
+     *   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
+     *   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
+     */
     static String[] notification(JSONObject a, JSONObject settings) {
         JSONArray langs = settings.optJSONArray("notifLangs");
         if (langs == null || langs.length() == 0) langs = new JSONArray().put("fr").put("en");
         String local = localIntensity(a, settings);
         boolean strong = a.optInt("level", 1) >= 4 || (local != null && rank(local) >= 5);
-        String mag = a.has("magnitude") ? String.format(Locale.ROOT, "M%.1f", a.optDouble("magnitude")) : "";
-        JSONObject epi = a.optJSONObject("epicenter");
         StringBuilder title = new StringBuilder();
         StringBuilder body = new StringBuilder();
         for (int i = 0; i < langs.length(); i++) {
-            String l = langs.optString(i);
-            String[] t = texts(l);
-            String colon = "fr".equals(l) ? " : " : ": ";
-            String where = epi != null
-                ? String.format(Locale.ROOT, "%.2f° %s, %.2f° %s", Math.abs(epi.optDouble("lat")), epi.optDouble("lat") >= 0 ? "N" : "S",
-                    Math.abs(epi.optDouble("lon")), epi.optDouble("lon") >= 0 ? "E" : "W")
-                : t[7];
+            String[] t = texts(langs.optString(i));
             if (i > 0) { title.append(" · "); body.append('\n'); }
             title.append(strong ? t[0] : t[1]);
-            String msg = strong ? t[3] : t[4];
-            // Français et espagnol : minuscule après les deux-points.
-            if ("fr".equals(l) || "es".equals(l)) msg = msg.substring(0, 1).toLowerCase(Locale.ROOT) + msg.substring(1);
-            body.append(t[2]).append(colon).append(msg).append(' ').append(t[5]).append(colon).append(where);
-            if (!mag.isEmpty()) body.append(", ").append(mag);
-            body.append('.');
-            if (local != null && !"0".equals(local)) body.append(' ').append(t[6]).append(colon).append(local).append('.');
-            body.append(" (M-Alert)");
+            body.append(t[2]).append(" : ").append(strong ? t[3] : t[4]).append(" (M-Alert)");
         }
         return new String[] { title.toString(), body.toString() };
     }

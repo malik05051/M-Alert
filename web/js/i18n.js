@@ -355,34 +355,31 @@
 
   // ---------- Notifications de tremblement de terre (deux langues) ----------
 
+  // Même disposition dans chaque langue : « Alerte sismique précoce : <message> (M-Alert) ».
   const QUAKE = {
     fr: {
-      urgent: "Alerte d'urgence", title: 'Alerte sismique', eew: 'Alerte précoce séisme',
-      strong: 'De fortes secousses sont attendues. Restez calme et mettez-vous à l\'abri à proximité.',
-      weak: 'Des secousses peuvent être ressenties. Restez calme.',
-      epi: 'Épicentre', local: 'Intensité attendue chez vous', sea: 'en mer',
-      cancelled: 'Alerte précoce séisme annulée : fausse alerte, aucun séisme ne vous concerne.',
+      urgent: "Alerte d'urgence", title: 'Alerte sismique', eew: 'Alerte sismique précoce',
+      strong: 'Des secousses fortes sont attendues. Restez calme et protégez-vous.',
+      weak: 'Des secousses sont attendues. Restez calme et protégez-vous.',
+      cancelled: "Alerte annulée, il s'agissait d'une fausse alerte.",
     },
     en: {
       urgent: 'Emergency Alert', title: 'Earthquake Alert', eew: 'Earthquake Early Warning',
-      strong: 'Strong shaking is expected soon. Stay calm and seek shelter nearby.',
-      weak: 'Shaking may be felt. Stay calm.',
-      epi: 'Epicentre', local: 'Expected intensity where you are', sea: 'at sea',
-      cancelled: 'Earthquake Early Warning cancelled: false alarm, no earthquake affects you.',
+      strong: 'Strong shaking is expected. Stay calm and protect yourself.',
+      weak: 'Shaking is expected. Stay calm and protect yourself.',
+      cancelled: 'Alert cancelled, this was a false alarm.',
     },
     de: {
       urgent: 'Notfallwarnung', title: 'Erdbebenwarnung', eew: 'Erdbebenfrühwarnung',
-      strong: 'Starke Erschütterungen werden in Kürze erwartet. Bleiben Sie ruhig und suchen Sie in der Nähe Schutz.',
-      weak: 'Erschütterungen können spürbar sein. Bleiben Sie ruhig.',
-      epi: 'Epizentrum', local: 'Erwartete Intensität bei Ihnen', sea: 'auf See',
-      cancelled: 'Erdbebenfrühwarnung aufgehoben: Fehlalarm, kein Erdbeben betrifft Sie.',
+      strong: 'Starke Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.',
+      weak: 'Erschütterungen werden erwartet. Bleiben Sie ruhig und schützen Sie sich.',
+      cancelled: 'Warnung aufgehoben, es war ein Fehlalarm.',
     },
     es: {
       urgent: 'Alerta de emergencia', title: 'Alerta sísmica', eew: 'Alerta sísmica temprana',
-      strong: 'Se esperan fuertes sacudidas en breve. Mantenga la calma y busque refugio cerca.',
-      weak: 'Pueden sentirse sacudidas. Mantenga la calma.',
-      epi: 'Epicentro', local: 'Intensidad esperada en su zona', sea: 'en el mar',
-      cancelled: 'Alerta sísmica temprana anulada: falsa alarma, ningún terremoto le afecta.',
+      strong: 'Se esperan sacudidas fuertes. Mantenga la calma y protéjase.',
+      weak: 'Se esperan sacudidas. Mantenga la calma y protéjase.',
+      cancelled: 'Alerta anulada, se trataba de una falsa alarma.',
     },
   };
 
@@ -397,24 +394,20 @@
 
   /**
    * Notification d'un tremblement de terre, comme une alerte d'urgence japonaise :
-   * { title, body } avec la langue principale en haut et la seconde en dessous.
-   * info : { place (lieu de l'épicentre, ou null s'il est en mer), local (intensité chez moi), cancelled }.
+   * { title, body } avec la langue principale en haut et la seconde en dessous, par exemple
+   *   Alerte sismique précoce : Des secousses fortes sont attendues. Restez calme et protégez-vous. (M-Alert)
+   *   Earthquake Early Warning : Strong shaking is expected. Stay calm and protect yourself. (M-Alert)
+   * Secousses fortes : alerte rouge ou majeure, ou intensité 5- et plus chez moi.
+   * info : { local (intensité chez moi), cancelled }.
    */
   function quakeNotification(alert, info, settings) {
     const langs = notifLangs(settings).filter(Boolean);
     const shindoRank = (s) => ['0', '1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'].indexOf(String(s));
     const strong = alert.level >= 4 || shindoRank(info.local) >= 5; // 5- et plus chez moi
-    const mag = typeof alert.magnitude === 'number' ? `M${alert.magnitude.toFixed(1)}` : '';
     const title = langs.map((l) => (info.cancelled ? QUAKE[l].eew : strong ? QUAKE[l].urgent : QUAKE[l].title)).join(' · ');
     const body = langs.map((l) => {
       const q = QUAKE[l];
-      const colon = l === 'fr' ? ' : ' : ': '; // espace avant les deux-points en français seulement
-      if (info.cancelled) return `${q.cancelled} (M-Alert)`;
-      const where = [info.place || q.sea, mag].filter(Boolean).join(', ');
-      const local = info.local && info.local !== '0' ? ` ${q.local}${colon}${info.local}.` : '';
-      let msg = strong ? q.strong : q.weak;
-      if (l === 'fr' || l === 'es') msg = msg[0].toLowerCase() + msg.slice(1); // minuscule après les deux-points
-      return `${q.eew}${colon}${msg} ${q.epi}${colon}${where}.${local} (M-Alert)`;
+      return `${q.eew} : ${info.cancelled ? q.cancelled : strong ? q.strong : q.weak} (M-Alert)`;
     }).join('\n');
     return { title, body };
   }
