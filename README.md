@@ -85,6 +85,14 @@ Sous Linux, l'icône de la zone de notification nécessite la prise en charge d'
 
 **iOS** : sans compte développeur Apple payant, l'`.ipa` n'est pas signé. Installez-le avec [AltStore](https://altstore.io) ou [Sideloadly](https://sideloadly.io) (signature avec votre identifiant Apple, à renouveler tous les 7 jours). L'application iOS reçoit les alertes quand elle est ouverte ; pour être prévenu application fermée sur iPhone, utilisez plutôt la version web ajoutée à l'écran d'accueil avec les notifications push (ci-dessous).
 
+**iOS : notifications** (réglages ⚙ > Notifications) : les alertes orange deviennent des notifications **urgentes** (« Time Sensitive », elles traversent les modes de concentration) ; les rouges et majeures des **alertes critiques** (elles sonnent même en mode silencieux et en Ne pas déranger) **si Apple a accordé l'autorisation** des alertes critiques à l'application signée (demande à faire sur developer.apple.com avec un compte payant, puis décommenter la clé dans `mobile/ios/App/App/App.entitlements`) ; sans elle, iOS les présente comme des notifications urgentes. Dès l'orange, le **son d'alerte mobile** est joué (aussi sur Android et dans l'application).
+
+**Séismes** : les notifications sont écrites en deux langues, comme les alertes d'urgence japonaises (français en haut, anglais en dessous par défaut ; anglais, allemand ou espagnol au choix dans les réglages). Dans « M'alerter d'un séisme selon », choisissez le niveau de l'alerte, une **magnitude minimale** ou une **intensité minimale attendue chez vous** (échelle shindo, estimée dans vos départements), ou l'une ou l'autre.
+
+**Langues** : l'application existe en français, anglais, allemand et espagnol (réglages ⚙ > Application > Langue ; par défaut celle de l'appareil). Les textes des alertes rédigés par M-Alert restent en français.
+
+**Mises à jour** (réglages ⚙ > Application > Mises à jour) : l'application mobile cherche une nouvelle version au démarrage puis toutes les 6 heures ; Android télécharge le nouvel APK (à installer par-dessus, réglages conservés), iOS ouvre la page de la version pour récupérer l'`.ipa` à réinstaller avec AltStore ou Sideloadly.
+
 Google Play n'est pas utilisé : la publication y demande un compte développeur payant.
 
 Pour construire depuis le code source (dossier `mobile/`, [Capacitor](https://capacitorjs.com)) :
