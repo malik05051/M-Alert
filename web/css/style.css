@@ -339,3 +339,69 @@ input[type="range"] { accent-color: var(--accent); }
 
 /* Encart de la Nouvelle-Calédonie sur la carte. */
 .inset-label { color: #94a3b8; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; text-shadow: 0 0 3px #000; pointer-events: none; }
+
+/* ---------- Interrupteurs (style iOS 26, « Liquid Glass ») ----------
+   Les cases à cocher des réglages deviennent des interrupteurs : piste verte une fois activés ; au
+   toucher, le bouton s'étire en une pastille de verre translucide, comme dans les réglages d'iOS. */
+.check input[type="checkbox"], .cat-checks input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative; cursor: pointer;
+  width: 51px; height: 31px; margin: 0; border-radius: 99px;
+  background: rgba(120, 120, 128, .32); transition: background .25s ease;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.check input[type="checkbox"]::before, .cat-checks input[type="checkbox"]::before {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 99px;
+  background: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 3px 1px rgba(0, 0, 0, .06);
+  transition: left .3s cubic-bezier(.3, 1.4, .5, 1), width .25s cubic-bezier(.3, 1.4, .5, 1), background .2s, box-shadow .2s, transform .2s;
+}
+.check input[type="checkbox"]:checked, .cat-checks input[type="checkbox"]:checked { background: #34c759; }
+.check input[type="checkbox"]:checked::before, .cat-checks input[type="checkbox"]:checked::before { left: 22px; }
+/* Appui : pastille de verre étirée, translucide, avec reflet. */
+.check input[type="checkbox"]:active::before, .cat-checks input[type="checkbox"]:active::before {
+  width: 38px; transform: scale(1.18, 1.28);
+  background: radial-gradient(120% 90% at 50% 15%, rgba(255, 255, 255, .5), rgba(255, 255, 255, .12) 60%, rgba(255, 255, 255, .22));
+  -webkit-backdrop-filter: blur(2px) saturate(2) brightness(1.15); backdrop-filter: blur(2px) saturate(2) brightness(1.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .75), inset 0 2px 3px rgba(255, 255, 255, .8), inset 0 -2px 4px rgba(255, 255, 255, .3), 0 6px 16px rgba(0, 0, 0, .3);
+}
+.check input[type="checkbox"]:checked:active::before, .cat-checks input[type="checkbox"]:checked:active::before { left: 11px; }
+.check input[type="checkbox"]:focus-visible, .cat-checks input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check input[type="checkbox"]:disabled { opacity: .45; cursor: default; }
+.check { align-items: center; gap: 12px; min-height: 34px; }
+.cat-checks .check { min-height: 34px; }
+
+/* ---------- Application mobile ---------- */
+/* Pas de zoom au double appui ni à la mise au point d'un champ (iOS zoome sous 16 px). */
+html.mobile-app, html.mobile-app body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html.mobile-app body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+html.mobile-app input, html.mobile-app select, html.mobile-app textarea { font-size: 16px !important; -webkit-user-select: text; user-select: text; }
+html.mobile-app .alert-banner, html.mobile-app .alert-list, html.mobile-app .card p { -webkit-user-select: text; user-select: text; }
+/* Encoche, Dynamic Island et barre d'accueil : le contenu reste dans la zone sûre. */
+html.mobile-app .topbar {
+  padding-top: calc(env(safe-area-inset-top) + 6px);
+  padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
+}
+html.mobile-app .layout { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+html.mobile-app .panel { padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+html.mobile-app .alert-overlay {
+  padding-top: calc(env(safe-area-inset-top) + 10px); padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+  padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
+}
+html.mobile-app .alert-overlay.compact { padding-top: calc(env(safe-area-inset-top) + 6px); }
+html.mobile-app .alert-banner { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px); }
+html.mobile-app .toasts { bottom: calc(env(safe-area-inset-bottom) + 12px); right: max(12px, env(safe-area-inset-right)); }
+html.mobile-app .update-bar { bottom: calc(env(safe-area-inset-bottom) + 12px); left: max(12px, env(safe-area-inset-left)); }
+html.mobile-app .sound-hint { bottom: calc(env(safe-area-inset-bottom) + 14px); }
+html.mobile-app dialog.settings {
+  margin-top: calc(env(safe-area-inset-top) + 8px);
+  max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+}
+html.mobile-app dialog.settings form { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px); }
+html.mobile-app dialog.settings footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+html.mobile-app .map-caption { top: 8px; }
+/* « Afficher les consignes » (texte de la feuille de style) dans les autres langues. */
+html[lang="en"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Show what to do ▾'; }
+html[lang="de"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Verhaltenshinweise anzeigen ▾'; }
+html[lang="es"] .alert-overlay.compact .alert-body:not(.expanded)::after { content: 'Mostrar instrucciones ▾'; }
+/* Réception en arrière-plan : texte propre à Android ou à iOS. */
+.bg-ios, html.mobile-ios .bg-android { display: none; }
+html.mobile-ios .bg-ios { display: inline; }

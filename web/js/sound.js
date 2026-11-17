@@ -8,6 +8,7 @@
  *   rouge.mp3        rouge
  *   majeur.mp3       alertes majeures (même tsunami, crues…), sauf tremblement de terre
  *   tsunami.mp3      crues, pluie-inondation, tsunami et vagues-submersion (sauf en majeure)
+ *   alerte-mobile.mp3 application mobile : alertes orange, rouges et majeures (sauf tremblement de terre)
  * Si un fichier manque ou ne peut pas être lu, une sirène synthétique est jouée.
  * Chaque son peut être remplacé par un autre et avoir son propre volume (réglages, configure()).
  */
@@ -90,7 +91,7 @@
       s.connect(c.destination);
       s.start(0);
       // Sons préchargés pour qu'une alerte sonne immédiatement.
-      if (WEB) ['information', 'eew', 'rouge', 'majeur', 'tsunami', 'countdown', ...Object.values(QUAKE_SOUNDS)].forEach((n) => loadBuffer(n).catch(() => {}));
+      if (WEB) ['information', 'eew', 'rouge', 'majeur', 'tsunami', ...(MOBILE ? ['alerte-mobile'] : []), 'countdown', ...Object.values(QUAKE_SOUNDS)].forEach((n) => loadBuffer(n).catch(() => {}));
     }
   }
 
@@ -110,7 +111,9 @@
   // tsunami, seisme (les trois sons de séisme), countdown. file vide : son par défaut ;
   // volume : de 0 à 1, multiplie le volume général.
   let custom = {};
-  const SOUND_FILES = ['information', 'eew', 'rouge', 'majeur', 'tsunami', 'seisme-eew', 'seisme-eew2', 'seisme-leger', 'countdown'];
+  const SOUND_FILES = ['information', 'eew', 'rouge', 'majeur', 'tsunami', 'alerte-mobile', 'seisme-eew', 'seisme-eew2', 'seisme-leger', 'countdown'];
+  // Application mobile (Android, iOS) : son d'alerte mobile pour l'orange, le rouge et le majeur.
+  const MOBILE = /\bmobile-app\b/.test(document.documentElement.className) || Boolean(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
   function configure(map) {
     custom = map && typeof map === 'object' ? map : {};
@@ -134,6 +137,7 @@
     const category = alert.category || 'meteo';
     // Séisme : son choisi (EEW par défaut), quel que soit le niveau.
     if (category === 'seisme') return QUAKE_SOUNDS[alert.quakeSound] || QUAKE_SOUNDS.eew;
+    if (MOBILE && level >= 3) return 'alerte-mobile';
     // Missile : son de la vigilance rouge, quel que soit le niveau.
     if (category === 'missile') return 'rouge';
     if (level >= 5) return 'majeur';

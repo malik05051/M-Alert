@@ -64,6 +64,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>M-Alert utilise la localisation pour rester actif en arrière-plan et recevoir les alertes application fermée. Votre position n'est ni enregistrée ni envoyée.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Choisissez « Toujours » : M-Alert reste actif en arrière-plan pour recevoir les alertes (séismes, tsunamis, vigilances) même application fermée. Votre position n'est ni enregistrée ni envoyée.</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>

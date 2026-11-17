@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Notifications urgentes (Time Sensitive) : capacité disponible avec un compte développeur Apple. -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+	<!-- Alertes critiques (sonnent même en mode silencieux) : à décommenter une fois l'autorisation
+	     accordée par Apple (https://developer.apple.com/contact/request/notifications-critical-alerts-entitlement/),
+	     sinon la signature échoue.
+	<key>com.apple.developer.usernotifications.critical-alerts</key>
+	<true/>
+	-->
+</dict>
+</plist>
