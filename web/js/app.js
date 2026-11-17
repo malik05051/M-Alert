@@ -33,6 +33,14 @@
     quietTo: '07:00',
     quietMin: 4, // pendant les heures calmes : sonne dès ce niveau (9 : séismes et tsunamis seulement)
     tiles: false,
+    lang: '', // langue de l'interface ('' : celle de l'appareil)
+    notifLang1: '', // langues des notifications de séisme ('' : celle de l'interface)
+    notifLang2: 'auto', // seconde langue ('auto' : anglais, ou français si la première est l'anglais ; 'none' : aucune)
+    quakeMode: 'level', // séismes : 'level' (niveau de l'alerte), 'magnitude', 'intensity' (chez moi) ou 'either'
+    quakeMag: 4, // magnitude minimale
+    quakeShindo: '3', // intensité minimale chez moi (shindo)
+    timeSensitive: true, // iOS : notifications urgentes
+    critical: true, // iOS : alertes critiques (avec l'autorisation d'Apple)
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
@@ -55,6 +63,8 @@
     ['rouge', 'Rouge'],
     ['majeur', 'Majeure'],
     ['tsunami', 'Crues, inondations, tsunamis'],
+    // Application mobile : son d'alerte mobile pour l'orange, le rouge et le majeur.
+    ...(document.documentElement.classList.contains('mobile-app') ? [['alerte-mobile', 'Orange, rouge et majeure (application mobile)']] : []),
     ['seisme', 'Tremblement de terre'],
     ['countdown', 'Bip du compte à rebours (séismes)'],
   ];
@@ -64,6 +74,7 @@
     rouge: 'Rouge',
     majeur: 'Majeure',
     tsunami: 'Crues et tsunami',
+    'alerte-mobile': 'Alerte mobile',
     'seisme-eew': 'Séisme EEW',
     'seisme-eew2': 'Séisme EEW 2',
     'seisme-leger': 'Séisme EEW léger',
@@ -682,7 +693,12 @@
       window.MAlertSound.play({ level: 2, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
       vibrate(2);
     }
-    systemNotification(`${a.test ? '[TEST] ' : ''}❌ Alerte annulée — ${a.title}`, a.voided.reason, { tag: `void-${a.id}`, urgent: true });
+    const quake = a.category === 'seisme' ? window.MAlertI18n.quakeNotification(a, { cancelled: true }, settings) : null;
+    systemNotification(
+      `${a.test ? '[TEST] ' : ''}❌ ${quake ? quake.title : `Alerte annulée — ${a.title}`}`,
+      quake ? `${quake.body}\n${a.voided.reason}` : a.voided.reason,
+      { tag: `void-${a.id}`, urgent: true, level: 2 },
+    );
     if (native) native.alert({ level: 1, front: settings.front });
   }
 
@@ -773,11 +789,47 @@
     return !(cat === 'meteo' && (settings.phenomenaOff || []).includes(Number(alert.phenomenon) || 0));
   }
 
+  /** Intensité (shindo) la plus forte attendue dans mes départements pour un séisme, ou null. */
+  function myQuakeIntensity(alert) {
+    let best = null;
+    for (const code of myDepartments()) {
+      const s = deptIntensity(alert, code);
+      if (s !== null && (best === null || M.SHINDO_ORDER.indexOf(String(s)) > M.SHINDO_ORDER.indexOf(String(best)))) best = s;
+    }
+    return best;
+  }
+
+  /**
+   * Séisme selon le réglage « M'alerter d'un séisme selon » : magnitude minimale (séismes qui
+   * concernent mes départements) ou intensité attendue chez moi. null : règle habituelle (niveau).
+   */
+  function quakeWanted(alert) {
+    const mode = settings.quakeMode || 'level';
+    if (alert.category !== 'seisme' || mode === 'level') return null;
+    const magOk = typeof alert.magnitude === 'number' && alert.magnitude >= Number(settings.quakeMag || 4) - 1e-9
+      && (settings.all || isMine(alert));
+    const local = myQuakeIntensity(alert);
+    const shOk = local !== null && M.SHINDO_ORDER.indexOf(String(local)) >= M.SHINDO_ORDER.indexOf(String(settings.quakeShindo || '3'));
+    return mode === 'magnitude' ? magOk : mode === 'intensity' ? shOk : magOk || shOk;
+  }
+
   function matchesMe(alert) {
-    if (alert.level < settings.minLevel) return false;
     if (!wantsCategory(alert)) return false;
+    const quake = quakeWanted(alert);
+    if (quake !== null) return quake;
+    if (alert.level < settings.minLevel) return false;
     if (settings.all) return true;
     return isMine(alert);
+  }
+
+  /** Lieu de l'épicentre pour les notifications : « Alpes-Maritimes (06) », ou ses coordonnées. */
+  function quakePlace(a) {
+    const e = a.epicenter;
+    if (!e) return null;
+    const code = map.departmentAt(e.lat, e.lon);
+    return code
+      ? M.departmentName(code) // « Alpes-Maritimes (06) »
+      : `${Math.abs(e.lat).toFixed(2)}° ${e.lat >= 0 ? 'N' : 'S'}, ${Math.abs(e.lon).toFixed(2)}° ${e.lon >= 0 ? 'E' : 'W'}`;
   }
 
   /** Lieu de l'épicentre : département, ou coordonnées s'il est en mer ou hors de France. */
@@ -1156,7 +1208,23 @@
     if (e.key === 'Escape' && current && !$('settings').open) acknowledge();
   });
 
-  async function systemNotification(title, body, { tag, urgent, onClick } = {}) {
+  /**
+   * Notification du système. Application iOS : notification native, « urgente » (Time Sensitive)
+   * dès l'orange, « critique » (sonne même en silencieux, autorisation d'Apple) en rouge et majeure,
+   * avec le son d'alerte mobile dès l'orange.
+   */
+  async function systemNotification(title, body, { tag, urgent, onClick, level = 1 } = {}) {
+    const mobile = window.MAlertMobile;
+    if (mobile && mobile.notify) {
+      mobile.notify({
+        id: String(tag || Date.now()), title, body, level,
+        timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
+        critical: settings.critical !== false && level >= 4,
+        sound: level >= 3 ? 'alerte-mobile' : 'default',
+      }).catch(() => {});
+      if (onClick) mobile.onTap = onClick;
+      return;
+    }
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const options = { body, tag, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', requireInteraction: Boolean(urgent), renotify: true };
     try {
@@ -1215,12 +1283,15 @@
         }
       }, 1000);
     }
-    const lv = LEVELS[alert.level];
     const prefix = (alert.test ? '[TEST] ' : '') + (ring ? 'RAPPEL · ' : updated ? 'MISE À JOUR · ' : '');
+    // Tremblement de terre : notification en deux langues, comme une alerte d'urgence japonaise.
+    const quake = alert.category === 'seisme'
+      ? window.MAlertI18n.quakeNotification(alert, { place: quakePlace(alert), local: myQuakeIntensity(alert) }, settings)
+      : null;
     systemNotification(
-      `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alert.title}`,
-      `${M.departmentsLabel(alert.departments, 3)}\n${alert.description}`,
-      { tag: alert.id, urgent: alert.level >= 3 },
+      quake ? `${prefix}${quake.title}` : `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alert.title}`,
+      quake ? quake.body : `${M.departmentsLabel(alert.departments, 3)}\n${alert.description}`,
+      { tag: alert.id, urgent: alert.level >= 3, level: alert.level },
     );
     if (native) native.alert({ level: alert.level, front: settings.front });
     // L'identifiant est mémorisé à l'acquittement ; on le note aussi ici pour ne pas
@@ -1550,6 +1621,21 @@
   $('setPhenomena').innerHTML = METEO_PHENOMENA.map(([id, p]) =>
     `<label class="check"><input type="checkbox" value="${id}"> ${p.icon} ${escapeHtml(p.name)}</label>`).join('');
 
+  // Langues, notifications de séisme et seuils des séismes.
+  const I18N = window.MAlertI18n;
+  const langOptions = (first) => first + Object.entries(I18N.LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  $('setLang').innerHTML = langOptions(`<option value="">${escapeHtml(I18N.t("Langue de l'appareil"))} (${I18N.LANGS[I18N.deviceLang()]})</option>`);
+  $('setNotifLang1').innerHTML = langOptions(`<option value="">${escapeHtml(I18N.t("Langue de l'application"))}</option>`);
+  $('setNotifLang2').innerHTML = langOptions('<option value="none">Aucune</option><option value="auto">Auto (English / Français)</option>');
+  $('setQuakeMag').innerHTML = [2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8].map((m) => `<option value="${m}">M${m.toFixed(1)}</option>`).join('');
+  $('setQuakeShindo').innerHTML = M.SHINDO_ORDER.filter((x) => x !== '0').map((x) => `<option value="${x}">${x}</option>`).join('');
+  function showQuakeFields() {
+    const mode = $('setQuakeMode').value;
+    document.querySelectorAll('.quake-mag').forEach((el) => el.classList.toggle('hidden', !['magnitude', 'either'].includes(mode)));
+    document.querySelectorAll('.quake-shindo').forEach((el) => el.classList.toggle('hidden', !['intensity', 'either'].includes(mode)));
+  }
+  $('setQuakeMode').addEventListener('change', showQuakeFields);
+
   function fillDepartmentInputs() {
     $('setDep').innerHTML = '<option value="">— Choisir —</option>' +
       departments.map((d) => `<option value="${d.code}">${d.code} — ${escapeHtml(d.nom)}</option>`).join('');
@@ -1567,6 +1653,23 @@
   function updateNotifState() {
     const el = $('notifState');
     const btn = $('btnNotif');
+    const mobile = window.MAlertMobile;
+    if (mobile && mobile.permission) {
+      // iOS : autorisations des notifications, des notifications urgentes et des alertes critiques.
+      mobile.permission().then((p) => {
+        const parts = [p.display === 'granted' ? '✅ Notifications autorisées' : p.display === 'denied'
+          ? '⛔ Notifications bloquées (Réglages iOS > M-Alert > Notifications)' : 'Notifications non autorisées'];
+        if (p.display === 'granted') {
+          parts.push(p.timeSensitive === 'enabled' ? '✅ urgentes' : '⚠️ urgentes désactivées');
+          parts.push(p.critical === 'enabled' ? '✅ critiques' : '⚠️ critiques non autorisées (autorisation d\'Apple)');
+        }
+        el.textContent = parts.map((x) => I18N.t(x)).join(' · ');
+        btn.classList.toggle('hidden', p.display === 'granted');
+        btn.textContent = p.display === 'denied' ? 'Ouvrir les réglages' : 'Autoriser les notifications';
+        btn.dataset.mode = p.display === 'denied' ? 'settings' : 'ask';
+      }).catch(() => { el.textContent = ''; });
+      return;
+    }
     if (!('Notification' in window)) {
       el.textContent = 'Notifications non prises en charge sur cet appareil.';
       btn.classList.add('hidden');
@@ -1580,6 +1683,13 @@
   }
 
   $('btnNotif').addEventListener('click', async () => {
+    const mobile = window.MAlertMobile;
+    if (mobile && mobile.permission) {
+      if ($('btnNotif').dataset.mode === 'settings') mobile.openSettings();
+      else await mobile.requestPermission().catch(() => {});
+      updateNotifState();
+      return;
+    }
     await Notification.requestPermission();
     updateNotifState();
   });
@@ -1608,6 +1718,16 @@
     $('setExtra').querySelectorAll('label').forEach((l) => l.classList.remove('hidden'));
     $('setAll').checked = settings.all;
     $('setMinLevel').value = String(settings.minLevel);
+    $('setQuakeMode').value = settings.quakeMode || 'level';
+    $('setQuakeMag').value = String(Number(settings.quakeMag || 4));
+    $('setQuakeShindo').value = String(settings.quakeShindo || '3');
+    showQuakeFields();
+    $('setLang').value = settings.lang || '';
+    $('setNotifLang1').value = settings.notifLang1 || '';
+    $('setNotifLang2').value = settings.notifLang2 || 'auto';
+    $('setTimeSensitive').checked = settings.timeSensitive !== false;
+    $('setCritical').checked = settings.critical !== false;
+    document.querySelectorAll('.ios-only').forEach((el) => el.classList.toggle('hidden', !(window.MAlertMobile && window.MAlertMobile.platform === 'ios')));
     $('setCategories').querySelectorAll('input').forEach((i) => { i.checked = !settings.categoriesOff.includes(i.value); });
     $('setPhenomena').querySelectorAll('input').forEach((i) => { i.checked = !(settings.phenomenaOff || []).includes(Number(i.value)); });
     $('setSound').checked = settings.sound;
@@ -1634,6 +1754,12 @@
     $('setVigList').checked = settings.vigInList !== false;
     $('setServer').value = settings.serverUrl;
     document.querySelectorAll('.native-only').forEach((el) => el.classList.toggle('hidden', !native));
+    // Application mobile : mises à jour (recherche dans les Releases GitHub).
+    if (mobileUpdates) {
+      document.querySelector('.update-box').classList.remove('hidden');
+      $('setAutoUpdate').checked = settings.mobileAutoUpdate !== false;
+      if (!lastUpdate) renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'idle' });
+    }
     document.querySelectorAll('.push-only').forEach((el) => el.classList.toggle('hidden', !pushSupported));
     if (native) {
       const ns = await native.getSettings();
@@ -1670,6 +1796,15 @@
       extra: [...$('setExtra').querySelectorAll('input:checked')].map((i) => i.value).filter((c) => c !== dep),
       all: $('setAll').checked,
       minLevel: Number($('setMinLevel').value),
+      quakeMode: $('setQuakeMode').value,
+      quakeMag: Number($('setQuakeMag').value),
+      quakeShindo: $('setQuakeShindo').value,
+      lang: $('setLang').value,
+      notifLang1: $('setNotifLang1').value,
+      notifLang2: $('setNotifLang2').value,
+      timeSensitive: $('setTimeSensitive').checked,
+      critical: $('setCritical').checked,
+      mobileAutoUpdate: window.MAlertMobile && !native ? $('setAutoUpdate').checked : settings.mobileAutoUpdate,
       categoriesOff: [...$('setCategories').querySelectorAll('input:not(:checked)')].map((i) => i.value),
       phenomenaOff: [...$('setPhenomena').querySelectorAll('input:not(:checked)')].map((i) => Number(i.value)),
       sound: $('setSound').checked,
@@ -1707,7 +1842,14 @@
     if (tzChanged) renderAll(); // heures affichées dans le nouveau fuseau
     const wasWelcome = Boolean(dlg.dataset.welcome);
     dlg.close();
-    if (wasWelcome && 'Notification' in window && Notification.permission === 'default') {
+    // Nouvelle langue : la page est rechargée pour être traduite entièrement.
+    if ((settings.lang || I18N.deviceLang()) !== I18N.lang) {
+      location.reload();
+      return;
+    }
+    if (wasWelcome && window.MAlertMobile && window.MAlertMobile.requestPermission) {
+      window.MAlertMobile.requestPermission().catch(() => {});
+    } else if (wasWelcome && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().then(updateNotifState);
     }
     onSettingsChanged(oldServer !== settings.serverUrl);
@@ -1734,7 +1876,7 @@
     if (current) acknowledge();
     showOverlay(test);
     if ($('setSound').checked) window.MAlertSound.play(test, { volume: Number($('setVolume').value), loop: false });
-    systemNotification('[TEST] Alerte M-Alert', test.description, { tag: test.id });
+    systemNotification('[TEST] Alerte M-Alert', test.description, { tag: test.id, level });
     if (native) native.alert({ level, front: false });
   });
 
@@ -1759,6 +1901,7 @@
     $('updVersion').textContent = `version ${s.current}`;
     const auto = s.mode === 'auto';
     $('updAutoRow').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
+    if (s.mode === 'android' || s.mode === 'ios') $('btnUpdCheck').disabled = s.state === 'checking';
     $('btnUpdCheck').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
     $('btnUpdCheck').disabled = s.state === 'checking' || s.state === 'downloading';
     const text = {
@@ -1770,7 +1913,11 @@
       none: 'M-Alert est à jour.',
       downloading: `Téléchargement de la version ${s.version || ''}… ${s.percent ? s.percent + ' %' : ''}`,
       ready: `La version ${s.version} est prête : elle s'installera au prochain redémarrage de M-Alert.`,
-      available: `La version ${s.version} est disponible${auto ? '' : ' (à télécharger et installer)'}.`,
+      available: s.mode === 'android'
+        ? `La version ${s.version} est disponible : téléchargez le fichier .apk et installez-le par-dessus (vos réglages sont conservés).`
+        : s.mode === 'ios'
+          ? `La version ${s.version} est disponible : téléchargez le fichier .ipa et réinstallez-le avec AltStore ou Sideloadly.`
+          : `La version ${s.version} est disponible${auto ? '' : ' (à télécharger et installer)'}.`,
       error: `Impossible de vérifier les mises à jour : ${s.error || 'erreur inconnue'}`,
     }[s.state] || '';
     $('updState').textContent = text;
@@ -1803,6 +1950,58 @@
       retry = 0;
       connect();
     });
+  }
+
+  // ---------- Application mobile : mises à jour ----------
+  // Nouvelle version cherchée dans les Releases GitHub de M-Alert (au démarrage, puis toutes les
+  // 6 heures si « automatiquement » est coché). Android : téléchargement du nouvel .apk, à installer
+  // par-dessus (réglages conservés). iOS : page de la version, avec l'.ipa à réinstaller par AltStore
+  // ou Sideloadly.
+  const mobileApp = window.MAlertMobile;
+  const mobileUpdates = Boolean(!native && mobileApp && mobileApp.openUrl && /^\d+\.\d+/.test(mobileApp.version || ''));
+  const RELEASES = 'https://api.github.com/repos/malik05051/M-Alert/releases/latest';
+  const newer = (a, b) => {
+    const x = String(a).replace(/^v/, '').split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+    const y = String(b).replace(/^v/, '').split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    return false;
+  };
+  let mobileRelease = null;
+
+  async function checkMobileUpdate() {
+    renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'checking' });
+    try {
+      const r = await fetch(RELEASES, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const rel = await r.json();
+      const version = String(rel.tag_name || '').replace(/^v/, '');
+      const ext = mobileApp.platform === 'android' ? '.apk' : '.ipa';
+      const asset = (rel.assets || []).find((a) => a.name.toLowerCase().endsWith(ext));
+      if (!version || !newer(version, mobileApp.version) || !asset) {
+        mobileRelease = null;
+        renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'none' });
+        return;
+      }
+      mobileRelease = { version, url: mobileApp.platform === 'android' ? asset.browser_download_url : rel.html_url };
+      renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'available', version });
+    } catch (err) {
+      renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'error', error: err.message });
+    }
+  }
+
+  if (mobileUpdates) {
+    $('btnUpdCheck').addEventListener('click', checkMobileUpdate);
+    $('updateBarAction').addEventListener('click', () => {
+      if (mobileRelease) mobileApp.openUrl(mobileRelease.url).catch(() => {});
+      $('updateBar').classList.add('hidden');
+    });
+    $('updateBarLater').addEventListener('click', () => {
+      dismissedUpdate = mobileRelease && mobileRelease.version;
+      $('updateBar').classList.add('hidden');
+    });
+    const auto = () => { if (settings.mobileAutoUpdate !== false) checkMobileUpdate(); };
+    setTimeout(auto, 8000);
+    setInterval(auto, 6 * 3600000);
   }
 
   window.addEventListener('online', () => {

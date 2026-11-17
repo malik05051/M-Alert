@@ -70,7 +70,10 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      - run: node copy-web.js && npx cap sync android
+      # Version écrite dans l'application (recherche des mises à jour) : celle publiée, sinon package.json.
+      - run: |
+          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}"
+          node copy-web.js && npx cap sync android
       - name: APK
         run: |
           V="${V#v}"; [ "$V" = 0.0.0 ] && V="$(node -p "require('../package.json').version")"
@@ -97,7 +100,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: node copy-web.js && npx cap sync ios
+      # Version écrite dans l'application (recherche des mises à jour) : celle publiée, sinon package.json.
+      - run: |
+          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}"
+          node copy-web.js && npx cap sync ios
       - name: IPA non signé
         run: |
           V="${V#v}"; [ "$V" = 0.0.0 ] && V="$(node -p "require('../package.json').version")"

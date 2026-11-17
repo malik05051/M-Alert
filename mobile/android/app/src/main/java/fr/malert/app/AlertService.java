@@ -44,6 +44,7 @@ public class AlertService extends Service {
         { "information", "Information" }, { "eew", "Alerte jaune et orange" }, { "rouge", "Alerte rouge" },
         { "majeur", "Alerte majeure" }, { "tsunami", "Tsunami, crues, inondations" }, { "seisme_eew", "Séisme (EEW)" },
         { "seisme_eew2", "Séisme (EEW 2)" }, { "seisme_leger", "Séisme (EEW léger)" },
+        { "alerte_mobile", "Alerte orange, rouge et majeure" },
     };
     private static final int[] WATER = { 2, 4, 9, 12, 16 };
 
@@ -163,13 +164,21 @@ public class AlertService extends Service {
     private boolean wanted(JSONObject a) throws Exception {
         if (a.optBoolean("silent") || a.optBoolean("pending") || !a.isNull("cancelledAt") && a.has("cancelledAt")) return false;
         int level = a.optInt("level", 1);
-        if (level < settings.optInt("minLevel", 1)) return false;
         String cat = a.optString("category", "meteo");
         JSONArray off = settings.optJSONArray("categoriesOff");
         if (off != null) for (int i = 0; i < off.length(); i++) if (cat.equals(off.optString(i))) return false;
+        // Séisme : magnitude ou intensité chez moi, si choisies dans les réglages.
+        Boolean quake = Quake.wanted(a, settings, settings.optBoolean("all") || concernsMe(a));
+        if (quake != null) return quake;
+        if (level < settings.optInt("minLevel", 1)) return false;
         JSONArray phOff = settings.optJSONArray("phenomenaOff");
         if (phOff != null && "meteo".equals(cat)) for (int i = 0; i < phOff.length(); i++) if (a.optInt("phenomenon") == phOff.optInt(i)) return false;
         if (settings.optBoolean("all")) return true;
+        return concernsMe(a);
+    }
+
+    /** L'alerte concerne mon département ou un département suivi. */
+    private boolean concernsMe(JSONObject a) {
         Set<String> mine = new HashSet<>();
         if (!settings.isNull("department") && settings.has("department")) mine.add(settings.optString("department"));
         JSONArray extra = settings.optJSONArray("extra");
@@ -191,6 +200,7 @@ public class AlertService extends Service {
             String s = a.optString("quakeSound", "eew");
             return "eew2".equals(s) ? "seisme_eew2" : "leger".equals(s) ? "seisme_leger" : "seisme_eew";
         }
+        if (level >= 3) return "alerte_mobile"; // son d'alerte mobile : orange, rouge et majeure
         if ("missile".equals(cat)) return "rouge"; // missile : son de la vigilance rouge
         if (level >= 5) return "majeur";
         boolean water = "tsunami".equals(cat);
@@ -205,11 +215,18 @@ public class AlertService extends Service {
         String sound = soundOf(a);
         int level = a.optInt("level", 1);
         String title = (a.optBoolean("test") ? "[TEST] " : "") + a.optString("levelName", "Alerte") + " — " + a.optString("title");
+        String text = a.optString("description");
+        // Séisme : en deux langues, comme une alerte d'urgence japonaise.
+        if ("seisme".equals(a.optString("category"))) {
+            String[] q = Quake.notification(a, settings);
+            title = (a.optBoolean("test") ? "[TEST] " : "") + q[0];
+            text = q[1];
+        }
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_" + sound)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText(a.optString("description"))
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(a.optString("description")))
+            .setContentText(text)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(level >= 4 ? NotificationCompat.PRIORITY_MAX : NotificationCompat.PRIORITY_HIGH)
             .setCategory(level >= 4 ? NotificationCompat.CATEGORY_ALARM : NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
@@ -236,7 +253,7 @@ public class AlertService extends Service {
             if (res != 0) ch.setSound(Uri.parse("android.resource://" + getPackageName() + "/" + res), attrs);
             ch.enableVibration(true);
             ch.setVibrationPattern(new long[] { 0, 800, 200, 800, 200, 800 });
-            ch.setBypassDnd(s[0].startsWith("seisme") || "majeur".equals(s[0]) || "tsunami".equals(s[0]));
+            ch.setBypassDnd(s[0].startsWith("seisme") || "majeur".equals(s[0]) || "tsunami".equals(s[0]) || "alerte_mobile".equals(s[0]));
             nm.createNotificationChannel(ch);
         }
     }

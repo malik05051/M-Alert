@@ -52,6 +52,19 @@ public class MAlertPlugin extends Plugin {
         call.resolve();
     }
 
+    /** Ouvre une adresse dans le navigateur (mise à jour : téléchargement du nouvel .apk). */
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        String url = call.getString("url", "");
+        if (!url.startsWith("https://")) {
+            call.reject("adresse refusée");
+            return;
+        }
+        Intent i = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        call.resolve();
+    }
+
     @PluginMethod
     public void status(PluginCall call) {
         JSObject ret = new JSObject();

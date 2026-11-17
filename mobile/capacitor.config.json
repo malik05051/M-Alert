@@ -2,7 +2,16 @@
   "appId": "fr.malert.app",
   "appName": "M-Alert",
   "webDir": "www",
-  "android": { "allowMixedContent": false },
-  "ios": { "contentInset": "never" },
-  "server": { "androidScheme": "https" }
+  "android": {
+    "allowMixedContent": false,
+    "zoomEnabled": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "zoomEnabled": false,
+    "backgroundColor": "#0b1220"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

@@ -145,6 +145,25 @@
             <option value="5">Majeure uniquement</option>
           </select>
         </label>
+        <div class="field">Séismes chez moi
+          <label class="field">M'alerter d'un séisme selon
+            <select id="setQuakeMode">
+              <option value="level">Le niveau de l'alerte (réglage ci-dessus)</option>
+              <option value="magnitude">La magnitude</option>
+              <option value="intensity">L'intensité attendue chez moi</option>
+              <option value="either">La magnitude ou l'intensité chez moi</option>
+            </select>
+          </label>
+          <div class="row2">
+            <label class="field quake-mag">Magnitude minimale
+              <select id="setQuakeMag"></select>
+            </label>
+            <label class="field quake-shindo">Intensité minimale chez moi (shindo)
+              <select id="setQuakeShindo"></select>
+            </label>
+          </div>
+          <span class="muted small">Intensité : estimée dans vos départements à partir de la magnitude, de la profondeur et de la distance (ou corrigée par M-Alert). Magnitude : séismes qui concernent vos départements.</span>
+        </div>
         <label class="field">Fuseau horaire
           <span class="muted small">Toutes les heures affichées (alertes, tableaux, horloge) suivent ce fuseau. Les textes rédigés par M-Alert-sender gardent leurs propres heures.</span>
           <select id="setTimeZone"></select>
@@ -185,12 +204,25 @@
           <button type="button" class="btn small" id="btnNotif">Autoriser les notifications</button>
         </div>
         <label class="check"><input type="checkbox" id="setNotices"> Recevoir les notifications de M-Alert (messages d'information, sans alerte)</label>
+        <label class="check ios-only hidden"><input type="checkbox" id="setTimeSensitive"> Notifications urgentes (iOS : « Urgentes », traversent les modes de concentration)</label>
+        <label class="check ios-only hidden"><input type="checkbox" id="setCritical"> Alertes critiques (iOS : sonnent même en mode silencieux ; autorisation spéciale d'Apple)</label>
+        <div class="field">Langues des notifications de séisme
+          <span class="muted small">Comme les alertes d'urgence japonaises : la première langue en haut, la seconde en dessous.</span>
+          <div class="row2">
+            <label class="field">Première langue <select id="setNotifLang1"></select></label>
+            <label class="field">Seconde langue <select id="setNotifLang2"></select></label>
+          </div>
+        </div>
         <label class="check push-only hidden"><input type="checkbox" id="setPush"> Recevoir les alertes même quand l'application est fermée (push)</label>
         <p class="muted small push-only hidden" id="pushState"></p>
       </fieldset>
 
       <fieldset>
         <legend>Application</legend>
+        <label class="field">Langue de l'application
+          <select id="setLang" data-no-i18n></select>
+          <span class="muted small">Les textes des alertes rédigés par M-Alert restent en français.</span>
+        </label>
         <label class="check"><input type="checkbox" id="setTiles"> Fond de carte détaillé (villes, routes)</label>
         <label class="check"><input type="checkbox" id="setVigList"> Afficher les vigilances Météo-France (jaune, orange, rouge) dans « Alertes en cours »</label>
         <label class="check"><input type="checkbox" id="setIntensity"> Afficher sur la carte l'intensité estimée dans chaque département pendant un séisme (échelle japonaise shindo)</label>
@@ -222,6 +254,7 @@
   <script src="data/departements.js"></script>
   <script src="data/cotes.js"></script>
   <script src="js/common.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/map.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/app.js"></script>
