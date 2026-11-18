@@ -1218,7 +1218,7 @@
     if (mobile && mobile.notify) {
       Promise.resolve().then(() => mobile.notify({
         id: String(tag || Date.now()), title, body, level,
-        // iOS : une notification par langue (le texte d'une bannière est coupé après 4 lignes).
+        // iOS : la première langue seulement (le texte d'une bannière est coupé après 4 lignes).
         parts: parts || undefined,
         timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
         critical: settings.critical !== false && level >= 4,

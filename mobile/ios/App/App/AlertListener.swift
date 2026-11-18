@@ -318,26 +318,12 @@ enum AlertNotifier {
         UNUserNotificationCenter.current().add(request) { error in completion?(error) }
     }
 
-    /// Notification en plusieurs langues : une notification par langue, car iOS coupe le texte d'une
-    /// bannière après 4 lignes environ. La seconde langue part d'abord, sans son ; la première ensuite,
-    /// avec le son : elle s'affiche au-dessus (écran verrouillé et centre de notifications).
+    /// Notification d'une alerte écrite en plusieurs langues : sur iOS, la première langue seulement
+    /// (iOS coupe le texte d'une bannière après 4 lignes environ, deux langues n'y tiennent pas).
     static func postParts(id: String, parts: [(title: String, body: String)], level: Int, timeSensitive: Bool, critical: Bool,
                           alertSound: Bool, completion: ((Error?) -> Void)? = nil) {
-        guard parts.count > 1 else {
-            post(id: id, title: parts.first?.title ?? "M-Alert", body: parts.first?.body ?? "", level: level,
-                 timeSensitive: timeSensitive, critical: critical, alertSound: alertSound, completion: completion)
-            return
-        }
-        var delay = 0.0
-        for (i, p) in parts.enumerated().reversed() {
-            let primary = i == 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                post(id: primary ? id : "\(id)#\(i)", title: p.title, body: p.body, level: level, timeSensitive: timeSensitive,
-                     critical: critical, alertSound: alertSound, silent: !primary, thread: "malert-lang\(i)",
-                     completion: primary ? completion : nil)
-            }
-            delay += 0.6
-        }
+        post(id: id, title: parts.first?.title ?? "M-Alert", body: parts.first?.body ?? "", level: level,
+             timeSensitive: timeSensitive, critical: critical, alertSound: alertSound, completion: completion)
     }
 
     /// Alerte reçue en arrière-plan : mêmes textes et niveaux que la page.

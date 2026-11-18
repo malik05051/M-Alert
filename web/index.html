@@ -208,10 +208,11 @@
         <label class="check ios-only hidden"><input type="checkbox" id="setTimeSensitive"> Notifications urgentes (iOS : « Urgentes », traversent les modes de concentration)</label>
         <label class="check ios-only hidden"><input type="checkbox" id="setCritical"> Alertes critiques (iOS : sonnent même en mode silencieux ; autorisation spéciale d'Apple)</label>
         <div class="field">Langues des notifications de séisme
-          <span class="muted small">Comme les alertes d'urgence japonaises : la première langue en haut, la seconde en dessous.</span>
+          <span class="muted small not-ios">Comme les alertes d'urgence japonaises : la première langue en haut, la seconde en dessous.</span>
+          <span class="muted small ios-only-text">Sur iPhone, les notifications sont écrites dans la première langue seulement.</span>
           <div class="row2">
             <label class="field">Première langue <select id="setNotifLang1"></select></label>
-            <label class="field">Seconde langue <select id="setNotifLang2"></select></label>
+            <label class="field not-ios">Seconde langue <select id="setNotifLang2"></select></label>
           </div>
         </div>
         <label class="check push-only hidden"><input type="checkbox" id="setPush"> Recevoir les alertes même quand l'application est fermée (push)</label>
