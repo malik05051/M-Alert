@@ -188,7 +188,7 @@ final class Quake {
                 default:
                     t.append("Alerte annulée");
                     boolean vowel = !ph.isEmpty() && "aeiouyhàâéèêîïôûü".indexOf(Character.toLowerCase(ph.charAt(0))) >= 0;
-                    b.append("L'alerte ").append(vowel ? "d'" : "de ").append(ph).append(" émise à ").append(hm.replace(":", " h "))
+                    b.append("L'alerte ").append(vowel ? "d'" : "de ").append(ph).append(" émise à ").append(hm.replaceFirst("^0(\\d)", "$1").replace(":", " h "))
                         .append(" a été annulée. (M-Alert)");
             }
         }

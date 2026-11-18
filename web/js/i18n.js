@@ -390,7 +390,7 @@
   function alertTime(iso, l) {
     const M = window.MAlert;
     const hm = M && M.formatTime ? M.formatTime(iso) : new Date(iso).toTimeString().slice(0, 5);
-    return l === 'fr' ? hm.replace(':', ' h ') : hm;
+    return l === 'fr' ? hm.replace(/^0(\d)/, '$1').replace(':', ' h ') : hm; // « 9 h 01 »
   }
 
   /** Langues des notifications : [principale, seconde ou null]. */
@@ -412,9 +412,9 @@
     const shindoRank = (s) => ['0', '1', '2', '3', '4', '5-', '5+', '6-', '6+', '7'].indexOf(String(s));
     const intensity = info.local && info.local !== '0' ? info.local : alert.shindo || '';
     const strong = alert.level >= 4 || shindoRank(intensity) >= 5; // 5- et plus
-    const title = langs.map((l) => (strong ? QUAKE[l].urgent : QUAKE[l].title)).join(' · ');
-    const body = langs.map((l) => QUAKE[l].body(intensity)).join('\n');
-    return { title, body };
+    // parts : une notification par langue (iOS coupe le texte d'une bannière après 4 lignes).
+    const parts = langs.map((l) => ({ title: strong ? QUAKE[l].urgent : QUAKE[l].title, body: QUAKE[l].body(intensity) }));
+    return { title: parts.map((p) => p.title).join(' · '), body: parts.map((p) => p.body).join('\n'), parts };
   }
 
   /**
@@ -425,10 +425,8 @@
    */
   function cancelNotification(alert, kindFr, settings) {
     const langs = notifLangs(settings).filter(Boolean);
-    return {
-      title: langs.map((l) => QUAKE[l].cancelTitle).join(' · '),
-      body: langs.map((l) => QUAKE[l].cancel(kindName(kindFr, l), alertTime(alert.createdAt, l))).join('\n'),
-    };
+    const parts = langs.map((l) => ({ title: QUAKE[l].cancelTitle, body: QUAKE[l].cancel(kindName(kindFr, l), alertTime(alert.createdAt, l)) }));
+    return { title: parts.map((p) => p.title).join(' · '), body: parts.map((p) => p.body).join('\n'), parts };
   }
 
   /** Noms des phénomènes et catégories dans les langues des notifications (service Android, iOS). */

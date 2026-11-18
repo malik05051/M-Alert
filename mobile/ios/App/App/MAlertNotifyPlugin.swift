@@ -74,9 +74,15 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
             call.resolve()
             return
         }
-        AlertNotifier.post(id: id, title: call.getString("title") ?? "M-Alert", body: call.getString("body") ?? "",
-                           level: call.getInt("level") ?? 1, timeSensitive: call.getBool("timeSensitive") ?? false,
-                           critical: call.getBool("critical") ?? false, alertSound: call.getString("sound") == "alerte-mobile") { error in
+        // Une notification par langue (parts), sinon une seule.
+        var parts = (call.getArray("parts") ?? []).compactMap { v -> (title: String, body: String)? in
+            guard let o = v as? JSObject, let t = o["title"] as? String, let b = o["body"] as? String else { return nil }
+            return (title: t, body: b)
+        }
+        if parts.isEmpty { parts = [(title: call.getString("title") ?? "M-Alert", body: call.getString("body") ?? "")] }
+        AlertNotifier.postParts(id: id, parts: parts,
+                                level: call.getInt("level") ?? 1, timeSensitive: call.getBool("timeSensitive") ?? false,
+                                critical: call.getBool("critical") ?? false, alertSound: call.getString("sound") == "alerte-mobile") { error in
             if let error = error { call.reject(error.localizedDescription) } else { call.resolve() }
         }
     }

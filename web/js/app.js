@@ -695,7 +695,10 @@
     }
     // « L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert) », en deux langues.
     const cancel = window.MAlertI18n.cancelNotification(a, kind.name, settings);
-    systemNotification(`${a.test ? '[TEST] ' : ''}❌ ${cancel.title}`, cancel.body, { tag: `void-${a.id}`, urgent: true, level: 2 });
+    const pre = `${a.test ? '[TEST] ' : ''}❌ `;
+    systemNotification(`${pre}${cancel.title}`, cancel.body, {
+      tag: `void-${a.id}`, urgent: true, level: 2, parts: cancel.parts.map((p) => ({ title: pre + p.title, body: p.body })),
+    });
     if (native) native.alert({ level: 1, front: settings.front });
   }
 
@@ -1210,11 +1213,13 @@
    * dès l'orange, « critique » (sonne même en silencieux, autorisation d'Apple) en rouge et majeure,
    * avec le son d'alerte mobile dès l'orange.
    */
-  async function systemNotification(title, body, { tag, urgent, onClick, level = 1 } = {}) {
+  async function systemNotification(title, body, { tag, urgent, onClick, level = 1, parts = null } = {}) {
     const mobile = window.MAlertMobile;
     if (mobile && mobile.notify) {
       Promise.resolve().then(() => mobile.notify({
         id: String(tag || Date.now()), title, body, level,
+        // iOS : une notification par langue (le texte d'une bannière est coupé après 4 lignes).
+        parts: parts || undefined,
         timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
         critical: settings.critical !== false && level >= 4,
         sound: level >= 3 ? 'alerte-mobile' : 'default',
@@ -1288,7 +1293,10 @@
     systemNotification(
       quake ? `${prefix}${quake.title}` : `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alert.title}`,
       quake ? quake.body : `${M.departmentsLabel(alert.departments, 3)}\n${alert.description}`,
-      { tag: alert.id, urgent: alert.level >= 3, level: alert.level },
+      {
+        tag: alert.id, urgent: alert.level >= 3, level: alert.level,
+        parts: quake && quake.parts.map((p) => ({ title: `${prefix}${p.title}`, body: p.body })),
+      },
     );
     if (native) native.alert({ level: alert.level, front: settings.front });
     // L'identifiant est mémorisé à l'acquittement ; on le note aussi ici pour ne pas

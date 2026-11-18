@@ -294,14 +294,16 @@ enum AlertNotifier {
     }
 
     static func post(id: String, title: String, body: String, level: Int, timeSensitive: Bool, critical: Bool, alertSound: Bool,
-                     completion: ((Error?) -> Void)? = nil) {
+                     silent: Bool = false, thread: String = "malert-alerts", completion: ((Error?) -> Void)? = nil) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.threadIdentifier = "malert-alerts"
+        content.threadIdentifier = thread
         let custom = alertSound && Bundle.main.url(forResource: "alerte-mobile", withExtension: "caf") != nil
         let name = UNNotificationSoundName("alerte-mobile.caf")
-        if critical {
+        if silent {
+            content.sound = nil
+        } else if critical {
             content.sound = custom ? UNNotificationSound.criticalSoundNamed(name, withAudioVolume: 1.0)
                                    : UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
         } else {
@@ -316,33 +318,53 @@ enum AlertNotifier {
         UNUserNotificationCenter.current().add(request) { error in completion?(error) }
     }
 
+    /// Notification en plusieurs langues : une notification par langue, car iOS coupe le texte d'une
+    /// bannière après 4 lignes environ. La seconde langue part d'abord, sans son ; la première ensuite,
+    /// avec le son : elle s'affiche au-dessus (écran verrouillé et centre de notifications).
+    static func postParts(id: String, parts: [(title: String, body: String)], level: Int, timeSensitive: Bool, critical: Bool,
+                          alertSound: Bool, completion: ((Error?) -> Void)? = nil) {
+        guard parts.count > 1 else {
+            post(id: id, title: parts.first?.title ?? "M-Alert", body: parts.first?.body ?? "", level: level,
+                 timeSensitive: timeSensitive, critical: critical, alertSound: alertSound, completion: completion)
+            return
+        }
+        var delay = 0.0
+        for (i, p) in parts.enumerated().reversed() {
+            let primary = i == 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                post(id: primary ? id : "\(id)#\(i)", title: p.title, body: p.body, level: level, timeSensitive: timeSensitive,
+                     critical: critical, alertSound: alertSound, silent: !primary, thread: "malert-lang\(i)",
+                     completion: primary ? completion : nil)
+            }
+            delay += 0.6
+        }
+    }
+
     /// Alerte reçue en arrière-plan : mêmes textes et niveaux que la page.
     static func notifyAlert(_ a: [String: Any], settings: [String: Any]) {
         let id = a["id"] as? String ?? ""
         guard claim(id) else { return }
         let level = Int(num(a["level"]) ?? 1)
         let test = a["test"] as? Bool == true ? "[TEST] " : ""
-        var title = "\(test)\(a["levelName"] as? String ?? "Alerte") — \(a["title"] as? String ?? "")"
-        var body = a["description"] as? String ?? ""
+        var parts = [(title: "\(test)\(a["levelName"] as? String ?? "Alerte") — \(a["title"] as? String ?? "")",
+                      body: a["description"] as? String ?? "")]
         if a["category"] as? String == "seisme" {
-            let q = Quake.notification(a, settings: settings)
-            title = test + q.title
-            body = q.body
+            parts = Quake.notificationParts(a, settings: settings).map { (title: test + $0.title, body: $0.body) }
         }
-        post(id: id, title: title, body: body, level: level,
-             timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && level >= 3,
-             critical: (settings["critical"] as? Bool ?? true) && level >= 4,
-             alertSound: level >= 3)
+        postParts(id: id, parts: parts, level: level,
+                  timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && level >= 3,
+                  critical: (settings["critical"] as? Bool ?? true) && level >= 4,
+                  alertSound: level >= 3)
     }
 
     /// Alerte annulée reçue en arrière-plan.
     static func notifyCancel(_ a: [String: Any], settings: [String: Any]) {
         let id = "void-" + (a["id"] as? String ?? "")
         guard claim(id) else { return }
-        let c = Quake.cancelNotification(a, settings: settings)
         let test = a["test"] as? Bool == true ? "[TEST] " : ""
-        post(id: id, title: test + "❌ " + c.title, body: c.body, level: 2,
-             timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: false)
+        let parts = Quake.cancelNotificationParts(a, settings: settings).map { (title: test + "❌ " + $0.title, body: $0.body) }
+        postParts(id: id, parts: parts, level: 2,
+                  timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: false)
     }
 
     static func text(_ key: String, settings: [String: Any]) -> String {
@@ -458,18 +480,17 @@ enum Quake {
     /// Langue principale en haut, seconde en dessous :
     ///   Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert)
     /// Intensité : celle de mes départements, sinon l'intensité maximale de l'alerte.
-    static func notification(_ a: [String: Any], settings: [String: Any]) -> (title: String, body: String) {
+    static func notificationParts(_ a: [String: Any], settings: [String: Any]) -> [(title: String, body: String)] {
         let local = localIntensity(a, settings: settings)
         let intensity = (local != nil && local != "0") ? local! : (a["shindo"] as? String ?? "")
         let strong = Int(num(a["level"]) ?? 1) >= 4 || rank(intensity) >= 5
-        let ls = langs(settings)
-        return (ls.map { title($0, strong: strong) }.joined(separator: " · "), ls.map { body($0, intensity) }.joined(separator: "\n"))
+        return langs(settings).map { (title: title($0, strong: strong), body: body($0, intensity)) }
     }
 
     /// Alerte annulée (toutes les alertes), deux langues :
     ///   L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert)
     ///   The earthquake alert triggered at 14:32 has been canceled. (M-Alert)
-    static func cancelNotification(_ a: [String: Any], settings: [String: Any]) -> (title: String, body: String) {
+    static func cancelNotificationParts(_ a: [String: Any], settings: [String: Any]) -> [(title: String, body: String)] {
         let cat = a["category"] as? String ?? "meteo"
         let key = cat == "meteo" ? "p\(Int(num(a["phenomenon"]) ?? 0))" : cat
         var hm = ""
@@ -502,9 +523,9 @@ enum Quake {
             default:
                 titles.append("Alerte annulée")
                 let vowel = ph.first.map { "aeiouyhàâéèêîïôûü".contains(Character($0.lowercased())) } ?? false
-                bodies.append("L'alerte \(vowel ? "d'" : "de ")\(ph) émise à \(hm.replacingOccurrences(of: ":", with: " h ")) a été annulée. (M-Alert)")
+                bodies.append("L'alerte \(vowel ? "d'" : "de ")\(ph) émise à \((hm.hasPrefix("0") ? String(hm.dropFirst()) : hm).replacingOccurrences(of: ":", with: " h ")) a été annulée. (M-Alert)")
             }
         }
-        return (titles.joined(separator: " · "), bodies.joined(separator: "\n"))
+        return Array(zip(titles, bodies)).map { (title: $0.0, body: $0.1) }
     }
 }
