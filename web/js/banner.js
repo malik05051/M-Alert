@@ -329,7 +329,11 @@
    * métropole, la Corse et l'encart de la Nouvelle-Calédonie, côtes colorées par niveau
    * (clignotantes : on = allumées), légende à droite.
    */
-  function drawTsunamiMap(canvas, alert, on = true, { width = 1920, height = 1080 } = {}) {
+  /**
+   * Carte des côtes en alerte (tsunami, vagues-submersion). zoom : null (France entière), 'fit'
+   * (cadrée sur les côtes en alerte) ou 2 à 4 (zoom centré sur elles).
+   */
+  function drawTsunamiMap(canvas, alert, on = true, { width = 1920, height = 1080, zoom = null } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
@@ -353,7 +357,30 @@
     const nc = Boolean(levels['988']);
     // Métropole (et Corse) : à gauche ; encart Nouvelle-Calédonie en bas à gauche.
     const inset = { x: W * 0.02, y: H * 0.68, w: W * 0.2, h: H * 0.28 };
-    const P = projector([41.2, 51.2, -5.4, 9.8], inset.x + inset.w, H * 0.04, W - legendW - inset.w - W * 0.05, H * 0.92);
+    // Zoom : sur les côtes en alerte de la métropole (et de la Corse).
+    let box = [41.2, 51.2, -5.4, 9.8];
+    const zoomed = Boolean(zoom) && Object.keys(levels).some((c) => c !== '988' && (coasts[c] || []).length);
+    if (zoomed) {
+      let s = 90; let n = -90; let we = 180; let e = -180;
+      for (const c of Object.keys(levels)) {
+        if (c === '988') continue;
+        for (const line of coasts[c] || []) for (const [la, lo] of line) { s = Math.min(s, la); n = Math.max(n, la); we = Math.min(we, lo); e = Math.max(e, lo); }
+      }
+      const cla = (s + n) / 2; const clo = (we + e) / 2;
+      if (zoom === 'fit') {
+        const pad = Math.max(0.5, (n - s) * 0.15);
+        box = [s - pad, n + pad, we - pad * 1.4, e + pad * 1.4];
+      } else {
+        const f = Math.max(1, Math.min(4, Number(zoom) || 1));
+        const hla = 5 / f; const hlo = 7.6 / f;
+        box = [cla - hla, cla + hla, clo - hlo, clo + hlo];
+      }
+    }
+    const mapX = zoomed ? 0 : inset.x + inset.w;
+    const P = projector(box, mapX, H * 0.04, W - legendW - mapX - W * 0.03, H * 0.92);
+    // Carte zoomée : rien ne déborde sur la légende.
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W - legendW, H); ctx.clip();
     const PN = projector([-22.9, -19.5, 163.4, 168.3], inset.x + 8, inset.y + 30, inset.w - 16, inset.h - 38);
     const draw = (code, Pr) => {
       const d = deps[code];
@@ -363,15 +390,11 @@
       ctx.fillStyle = '#b8c8e6'; ctx.fill('evenodd');
     };
     for (const code of Object.keys(deps)) if (code !== '988') draw(code, P);
-    // Encart.
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(inset.x, inset.y); ctx.lineTo(inset.x + inset.w, inset.y); ctx.lineTo(inset.x + inset.w, inset.y + inset.h); ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.round(H * 0.032)}px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    ctx.fillText('Nouvelle-Calédonie', inset.x + 6, inset.y + 6);
-    draw('988', PN);
-    // Côtes en alerte (clignotantes).
-    if (on) {
+    // Côtes en alerte de la métropole (encart ensuite, par-dessus).
+    const strokeCoasts = (only) => {
+      if (!on) return;
       for (const [code, lv] of Object.entries(levels)) {
+        if ((code === '988') !== only) continue;
         ctx.strokeStyle = colors[lv] || colors[2];
         ctx.lineWidth = Math.max(6, W / 220); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         const Pr = code === '988' ? PN : P;
@@ -381,6 +404,19 @@
           ctx.stroke();
         }
       }
+    };
+    strokeCoasts(false);
+    // Encart de la Nouvelle-Calédonie : masqué sur une carte zoomée, sauf si elle est en alerte (fond
+    // opaque : la métropole passe dessous).
+    const showInset = !zoomed || nc;
+    if (zoomed && nc) { ctx.fillStyle = '#16328c'; ctx.fillRect(inset.x, inset.y, inset.w, inset.h); }
+    if (showInset) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(inset.x, inset.y); ctx.lineTo(inset.x + inset.w, inset.y); ctx.lineTo(inset.x + inset.w, inset.y + inset.h); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.round(H * 0.032)}px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillText('Nouvelle-Calédonie', inset.x + 6, inset.y + 6);
+    draw('988', PN);
+    strokeCoasts(true);
     }
     if (alert && alert.epicenter && !nc) {
       const [ex, ey] = P(alert.epicenter.lat, alert.epicenter.lon);
@@ -392,6 +428,7 @@
         }
       }
     }
+    ctx.restore();
     // Légende : bande bleue à droite, niveaux en alerte (comme les étiquettes verticales de la NHK).
     const lx = W - legendW;
     ctx.fillStyle = 'rgba(16, 44, 200, 0.85)';

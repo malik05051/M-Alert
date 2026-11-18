@@ -413,3 +413,8 @@ html[lang="es"] .alert-overlay.compact .alert-body:not(.expanded)::after { conte
 /* Réception en arrière-plan : texte propre à Android ou à iOS. */
 .bg-ios, html.mobile-ios .bg-android { display: none; }
 html.mobile-ios .bg-ios { display: inline; }
+
+/* Mode streamer : mon département caché à l'écran, flouté dans les réglages (visible au survol). */
+html.streamer #myDepCard { display: none !important; }
+html.streamer #setDep, html.streamer #setExtra, html.streamer #extraFilter { filter: blur(7px); transition: filter .2s; }
+html.streamer #setDep:hover, html.streamer #setDep:focus, html.streamer #setExtra:hover, html.streamer #extraFilter:focus { filter: none; }

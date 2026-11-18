@@ -37,6 +37,26 @@
     #miniMap { position: fixed; right: 1vw; bottom: 1.5vh; width: 30vw; height: auto; display: none; opacity: .93; border: .2vh solid rgba(255,255,255,.35); }
     #coastTable { position: fixed; left: 1.5vw; bottom: 4vh; width: 46vw; display: none; font: 600 3.3vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; color: #fff; }
     body.show-mini #miniMap, body.show-table #coastTable { display: block; }
+    /* Mesures en plein écran (comme la NHK) : fond bleu à bandes, titre en haut à droite, étiquettes
+       des niveaux, nom du département, heure en jaune, hauteur ; « mesuré » en cyan. */
+    #coastBoard { position: fixed; inset: 0; display: none; z-index: 5; color: #fff; font: 700 6vh/1.15 "Noto Sans", "Segoe UI", Arial, sans-serif;
+      background: repeating-linear-gradient(180deg, rgba(255,255,255,0) 0 9.6vh, rgba(255,255,255,.07) 9.6vh 10vh), linear-gradient(180deg, #3d73d6 0%, #2457b9 55%, #1d4aa6 100%);
+      text-shadow: .25vh .25vh 0 rgba(0,0,0,.55); }
+    body.show-board #coastBoard { display: block; }
+    #coastBoard .cb-title { position: absolute; right: 0; top: 5.5vh; width: 66vw; padding: 1.4vh 2vw; font-size: 5.4vh; white-space: nowrap;
+      background: linear-gradient(180deg, #c9d6ee, #8ea6d6); color: #fff; border-radius: .6vh 0 0 .6vh; box-shadow: 0 .4vh 1vh rgba(0,0,0,.25); }
+    #coastBoard .cb-body { position: absolute; left: 11vw; right: 10vw; top: 21vh; }
+    #coastBoard .cb-level { height: 10vh; display: flex; align-items: center; }
+    #coastBoard .cb-level span { padding: .4vh 1.2vw; font-size: 6vh; box-shadow: .3vh .3vh 0 rgba(0,0,0,.35); text-shadow: none; }
+    #coastBoard .cb-row { height: 10vh; display: grid; grid-template-columns: 1fr 25vw 13vw; align-items: center; gap: 1.5vw; }
+    #coastBoard .cb-name { padding-left: 2vw; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #coastBoard .cb-name small { display: block; font-size: 2.4vh; letter-spacing: 0; color: #a5f3fc; }
+    #coastBoard .cb-when { color: #f6f15a; font-size: 6.4vh; white-space: nowrap; }
+    #coastBoard .cb-when small { font-size: 3.4vh; margin-right: .8vw; }
+    #coastBoard .cb-val { text-align: right; font-size: 7.5vh; white-space: nowrap; }
+    #coastBoard .cb-val small { font-size: 5vh; margin-left: .2vw; }
+    #coastBoard .cb-row.measured .cb-when, #coastBoard .cb-row.measured .cb-val { color: #7fe9ff; }
+    #coastBoard .cb-foot { position: absolute; right: 2.5vw; bottom: 1.2vh; display: flex; gap: 7vw; font-size: 3.2vh; font-weight: 600; }
     /* Écran réduit : dans l'image réduite (à droite du panneau de gauche). */
     body.reduced #miniMap { right: 10.6vw; }
     body.reduced #coastTable { left: 11vw; }
@@ -135,6 +155,7 @@
   <canvas id="tsunami"></canvas>
   <canvas id="miniMap"></canvas>
   <div id="coastTable"></div>
+  <div id="coastBoard"></div>
   <div id="eew"></div>
   <canvas id="shindoMap"></canvas>
   <canvas id="banner"></canvas>
@@ -155,12 +176,12 @@
   <div id="quakeFinal">Rapport final</div>
   <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.1.0-1"></script>
-  <script src="../data/departements.js?v=3.1.0-1"></script>
-  <script src="../data/cotes.js?v=3.1.0-1"></script>
-  <script src="../js/common.js?v=3.1.0-1"></script>
-  <script src="../js/sound.js?v=3.1.0-1"></script>
-  <script src="../js/banner.js?v=3.1.0-1"></script>
-  <script src="obs.js?v=3.1.0-1"></script>
+  <script src="../config.js?v=3.1.1-1"></script>
+  <script src="../data/departements.js?v=3.1.1-1"></script>
+  <script src="../data/cotes.js?v=3.1.1-1"></script>
+  <script src="../js/common.js?v=3.1.1-1"></script>
+  <script src="../js/sound.js?v=3.1.1-1"></script>
+  <script src="../js/banner.js?v=3.1.1-1"></script>
+  <script src="obs.js?v=3.1.1-1"></script>
 </body>
 </html>

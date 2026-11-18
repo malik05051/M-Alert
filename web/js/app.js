@@ -40,6 +40,7 @@
     quakeMag: 4, // magnitude minimale
     quakeShindo: '3', // intensité minimale chez moi (shindo)
     timeSensitive: true, // iOS : notifications urgentes
+    streamer: false, // mode streamer : mon département n'apparaît nulle part à l'écran
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
@@ -128,6 +129,15 @@
     window.MAlertSound.unlock();
     window.MAlertSound.play(1, { file, volume, loop: false });
   });
+
+  /**
+   * Mode streamer : mon département (et les départements suivis) n'apparaît pas à l'écran (contour
+   * sur la carte, carte « Mon département », 📍, intensité « chez vous », carte centrée dessus…) ;
+   * les alertes et les notifications restent les mêmes.
+   */
+  const streamer = () => Boolean(settings.streamer);
+  const shownMine = () => (streamer() ? [] : myDepartments());
+  document.documentElement.classList.toggle('streamer', streamer());
 
   function myDepartments() {
     const list = settings.department ? [settings.department] : [];
@@ -295,7 +305,7 @@
     const p = periodData();
     map.setVigilance(p ? p.departments : {}, M.periodDate(p, day));
     map.setAlerts(alerts);
-    map.setHighlighted(myDepartments());
+    map.setHighlighted(shownMine());
     renderIntensities();
   }
 
@@ -395,7 +405,7 @@
   function alertItemHtml(a, mf = null) {
     const lv = LEVELS[a.level];
     const ph = M.alertKind(a);
-    return `<div class="alert-item ${isMine(a) ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
+    return `<div class="alert-item ${isMine(a) && !streamer() ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
       <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
       <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.pollutionSummary(a) ? ` · ${escapeHtml(M.pollutionSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${M.sourceShort(a) ? ` · ${escapeHtml(M.sourceShort(a))}` : ''}</div>
@@ -492,7 +502,7 @@
     const v = VIGILANCE[g.level];
     const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
     const when = g.begin && new Date(g.begin) > Date.now() ? `de ${M.formatTime(g.begin)} à ${M.formatTime(g.end)}` : `jusqu'à ${M.formatTime(g.end)}`;
-    return `<div class="alert-item vig-item ${isMine(g) ? 'mine' : ''}" data-vig="${g.id}" style="border-left-color:${v.color}">
+    return `<div class="alert-item vig-item ${isMine(g) && !streamer() ? 'mine' : ''}" data-vig="${g.id}" style="border-left-color:${v.color}">
       <div class="t"><span class="tag" style="background:${v.color};color:${LEVELS[g.level].text}" title="Vigilance Météo-France">${escapeHtml(v.name)}</span>${ph.icon} ${escapeHtml(ph.name)}</div>
       <div class="m">🇫🇷 Météo-France${g.manual ? ' (corrigée par M-Alert)' : ''} · ${escapeHtml(M.departmentsLabel(g.departments, 3))}</div>
       <div class="m">${escapeHtml(when)}</div>
@@ -504,7 +514,7 @@
     const merged = mergeVigilance(alerts, vigilanceItems());
     const vig = merged.vig;
     const all = [...alerts, ...vig];
-    const sorted = all.filter(passesFilter).sort((a, b) => (isMine(b) - isMine(a)) || (b.level - a.level) || (Boolean(a.__vig) - Boolean(b.__vig)) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const sorted = all.filter(passesFilter).sort((a, b) => (streamer() ? 0 : isMine(b) - isMine(a)) || (b.level - a.level) || (Boolean(a.__vig) - Boolean(b.__vig)) || (b.createdAt || '').localeCompare(a.createdAt || ''));
     $('alertCount').textContent = alertFilter ? `${sorted.length}/${all.length}` : all.length;
     $('alertList').innerHTML = sorted.length
       ? sorted.map((a) => (a.__vig ? vigItemHtml(a) : alertItemHtml(a, merged.mf.get(a.id)))).join('')
@@ -899,7 +909,8 @@
           if (settings.sound && !waveMuted) window.MAlertSound.oneShot('countdown', settings.volume);
         }
       }
-      const html = `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · ${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
+      // Mode streamer : sans la distance (elle situerait le domicile), seulement les ondes.
+      const html = `${streamer() ? '' : `📍 ${Math.round(arrival.km)} km de ${escapeHtml(M.departmentName(settings.department))} · `}${wave('P', 'wave-p', arrival.p, t)} · ${wave('S', 'wave-s', arrival.s, t)}`;
       if (html !== lastHtml) { el.innerHTML = html; lastHtml = html; } // le DOM ne change qu'une fois par seconde
       // Onde S arrivée : plus de bips, le bouton « Couper aussi le son du compte à rebours » disparaît.
       if (t >= arrival.s && $('ovMute').dataset.stage === 'countdown') $('ovMute').classList.add('hidden');
@@ -942,7 +953,7 @@
     const deps = new Set(alert.departments || []);
     const rows = t.rows.filter((r) => deps.has('ALL') || deps.has(r.department));
     if (!rows.length) return false;
-    const mine = myDepartments();
+    const mine = shownMine();
     const flood = t.kind === 'inondation';
     const wind = t.kind === 'vent' || t.kind === 'tempete';
     const titles = { vent: 'Rafales prévues par département', tempete: 'Tempête : rafales prévues par département', submersion: 'Vagues et niveau de la mer prévus', inondation: 'Pluie et crues prévues par département' };
@@ -1008,7 +1019,7 @@
       el.innerHTML = '';
       return;
     }
-    const mine = myDepartments();
+    const mine = shownMine();
     const html = ['<div class="tsu-title">Arrivée prévue du tsunami</div>'];
     for (const [level, name] of TSUNAMI_GROUPS) {
       const group = rows.filter((r) => r.level === level);
@@ -1089,7 +1100,7 @@
       quake.push(`<span class="int-pair">${badge(alert.shindo, 'Intensité maximale (échelle shindo)')}<small>max</small></span>`);
     }
     // Intensité attendue dans mon département (estimée d'après magnitude, profondeur et distance).
-    const local = localIntensity(alert);
+    const local = streamer() ? null : localIntensity(alert);
     if (local) quake.push(`<span class="int-pair">${badge(local, 'Intensité attendue dans votre département (estimation)')}<small>chez vous</small></span>`);
     if (alert.category === 'seisme' && typeof alert.magnitude === 'number') quake.push(`<b>M${alert.magnitude.toFixed(1)}</b>`);
     if (alert.category === 'seisme' && typeof alert.depth === 'number') quake.push(`<span>Profondeur : <b>${alert.depth} km</b></span>`);
@@ -1365,7 +1376,8 @@
       if (after > before && after >= 2) {
         const v = VIGILANCE[after];
         const phen = (newVig.periods[0].departments[code].phenomena || []).map((p) => (PHENOMENA[p.id] || PHENOMENA[0]).name).join(', ');
-        toast(`Vigilance ${v.name.toLowerCase()} — ${M.departmentName(code)}`, phen, v.color, () => map.focus([code]));
+        const name = streamer() ? 'votre département' : M.departmentName(code);
+        toast(`Vigilance ${v.name.toLowerCase()} — ${name}`, phen, v.color, () => { if (!streamer()) map.focus([code]); });
         systemNotification(`Vigilance ${v.name.toLowerCase()} — ${M.departmentName(code)}`, phen || 'Nouvelle vigilance Météo-France', { tag: `vig-${code}` });
       }
     }
@@ -1776,6 +1788,7 @@
     $('setPush').checked = settings.push;
     $('setNotices').checked = settings.notices !== false;
     $('setTiles').checked = settings.tiles;
+    $('setStreamer').checked = streamer();
     $('setIntensity').checked = settings.intensityMap !== false;
     $('setVigList').checked = settings.vigInList !== false;
     $('setServer').value = settings.serverUrl;
@@ -1850,6 +1863,7 @@
       push: $('setPush').checked,
       notices: $('setNotices').checked,
       tiles: $('setTiles').checked,
+      streamer: $('setStreamer').checked,
       intensityMap: $('setIntensity').checked,
       vigInList: $('setVigList').checked,
       serverUrl: M.normalizeServerUrl($('setServer').value) || DEFAULTS.serverUrl,
@@ -1878,7 +1892,7 @@
       Notification.requestPermission().then(updateNotifState);
     }
     onSettingsChanged(oldServer !== settings.serverUrl);
-    if (wasWelcome) map.focus(myDepartments());
+    if (wasWelcome && !streamer()) map.focus(myDepartments());
   });
 
   $('btnTest').addEventListener('click', () => {
@@ -1906,6 +1920,8 @@
   });
 
   function onSettingsChanged(serverChanged) {
+    document.documentElement.classList.toggle('streamer', streamer());
+    if (!streamer() && settings.department) map.focus(myDepartments());
     window.MAlertSound.configure(settings.sounds);
     map.setTiles(settings.tiles);
     renderAll();
@@ -2064,5 +2080,5 @@
     setInterval(refreshWorker, 3600 * 1000);
   }
   if (!settings.department) openSettings({ welcome: true });
-  else setTimeout(() => map.focus(myDepartments()), 300);
+  else if (!streamer()) setTimeout(() => map.focus(myDepartments()), 300);
 })();

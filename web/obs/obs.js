@@ -85,6 +85,12 @@
   // À la main (script OBS) : mini-carte, tableau des mesures, panneau « Alerte sismique précoce » à gauche.
   let manualMini = null;
   let manualTable = null;
+  // Mesures en plein écran (comme la NHK : « arrivée prévue de la 1re vague, hauteur prévue »),
+  // pages de départements qui défilent ; zoom de la mini-carte. Commandés depuis M-Alert-sender.
+  let manualBoard = null;
+  let miniZoom = null;
+  let boardCycle = 8; // secondes par page (0 : page fixe, boardPageWanted)
+  let boardPageWanted = 0;
   let manualEew = null;
   // Alerte missile (comme la NHK) : écran plein pendant cardSeconds (à chaque mise à jour aussi), puis
   // bloc en bas sur l'image, tant que l'alerte est en cours.
@@ -110,7 +116,12 @@
     const part = (k) => !changed || changed.includes(k);
     // Tsunami / vagues-submersion et missile : automatique (null) ou à la main (true / false).
     const tri = (v) => (v === true || v === false ? v : null);
-    if (o.coast && part('coast')) { manualMap = tri(o.coast.map); manualMini = tri(o.coast.mini); manualTable = tri(o.coast.table); }
+    if (o.coast && part('coast')) {
+      manualMap = tri(o.coast.map); manualMini = tri(o.coast.mini); manualTable = tri(o.coast.table); manualBoard = tri(o.coast.board);
+      miniZoom = o.coast.zoom === 'fit' || [2, 3, 4].includes(Number(o.coast.zoom)) ? o.coast.zoom : null;
+      boardCycle = [0, 5, 8, 12].includes(Number(o.coast.cycle)) ? Number(o.coast.cycle) : 8;
+      boardPageWanted = Math.max(0, Number(o.coast.page) || 0);
+    }
     if (typeof o.gauges === 'boolean' && part('gauges')) { gaugesOn = o.gauges; tableKey = ''; }
     if (o.missile && part('missile')) { manualMissile = tri(o.missile.show); manualCard = tri(o.missile.card); }
     if (!part('shindo') && !part('notsunami') && !part('final') && !part('epicenter')) return;
@@ -429,6 +440,59 @@
   }
 
 
+  // Mesures en plein écran, comme la NHK (« 第1波到達予想時刻・予想高さ ») : titre en haut à droite,
+  // niveaux en étiquettes, une ligne par département (nom, heure en jaune, hauteur), « mesuré » en
+  // cyan ; pages de BOARD_LINES lignes (étiquettes comprises) qui défilent, « 1 / 5 » et l'heure.
+  const BOARD_LINES = 6;
+  function boardPages(a) {
+    const tsu = a.category === 'tsunami';
+    const LV = tsu ? TSU_LEVELS : SURGE_LEVELS;
+    const rows = coastRows(a).sort((x, y) => (y.level - x.level) || (y.h - x.h));
+    const pages = [];
+    let page = null;
+    for (const lv of Object.keys(LV).map(Number).sort((x, y) => y - x)) {
+      const group = rows.filter((r) => r.level === lv);
+      group.forEach((r, i) => {
+        // Nouvelle page : page pleine, ou étiquette du niveau sans place pour une ligne dessous.
+        const lines = page ? page.reduce((n, b) => n + 1 + b.rows.length, 0) : BOARD_LINES;
+        if (lines + (i === 0 ? 2 : 1) > BOARD_LINES) { page = []; pages.push(page); }
+        let block = page[page.length - 1];
+        if (!block || block.level !== lv) { block = { level: lv, rows: [] }; page.push(block); }
+        block.rows.push(r);
+      });
+    }
+    return pages;
+  }
+  let boardKey = '';
+  let boardPage = 0;
+  let boardUntil = 0;
+  function renderBoard(a) {
+    const pages = boardPages(a);
+    const id = `${a.id}:${a.revision || 0}`;
+    if (boardKey.split('|')[0] !== id) { boardPage = 0; boardUntil = Date.now() + boardCycle * 1000; }
+    if (boardCycle === 0) boardPage = pages.length ? boardPageWanted % pages.length : 0;
+    else if (Date.now() >= boardUntil) { boardPage = pages.length ? (boardPage + 1) % pages.length : 0; boardUntil = Date.now() + boardCycle * 1000; }
+    boardPage = Math.min(boardPage, Math.max(0, pages.length - 1));
+    const tsu = a.category === 'tsunami';
+    const LV = tsu ? TSU_LEVELS : SURGE_LEVELS;
+    const esc = M.escapeHtml;
+    const pg = pages[boardPage] || [];
+    const clock = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: M.timeZone ? M.timeZone() : undefined });
+    const html = `<div class="cb-title">${tsu ? 'Arrivée de la 1<sup>re</sup> vague · hauteur prévue' : 'Vagues-submersion · vagues prévues'}</div>`
+      + `<div class="cb-body">`
+      + pg.map((b) => {
+        const [name, bg, fg] = LV[b.level] || ['', '#e60012', '#fff'];
+        return `<div class="cb-level"><span style="background:${bg};color:${fg}">${esc(name)}</span></div>`
+          + b.rows.map((r) => `<div class="cb-row${r.measured ? ' measured' : ''}"><span class="cb-name">${esc(r.name)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span>`
+            + `<span class="cb-when">${esc(r.when).replace(/^mesuré /, '<small>mesuré</small>')}</span><span class="cb-val">${esc(r.value).replace(/(\d)\s?(m|cm)$/, '$1<small>$2</small>')}</span></div>`).join('');
+      }).join('')
+      + `</div><div class="cb-foot">${pages.length > 1 ? `<span>${boardPage + 1} / ${pages.length}</span>` : ''}<span>${esc(clock)}</span></div>`;
+    boardKey = `${id}|${html}`;
+    const el = $('coastBoard');
+    if (el.innerHTML !== html) el.innerHTML = html;
+    return pages.length;
+  }
+
   // Panneau « Alerte sismique précoce » à gauche (comme la NHK, en colonne étroite) : titre rouge, lieu
   // du séisme en jaune, départements en blanc, un par ligne, texte horizontal.
   let eewKey = '';
@@ -628,17 +692,24 @@
     if (mPhase) renderMissile(missileList, mPhase); else missileShown = null;
     // Phase 1 : carte plein écran (le bandeau d'une autre alerte, le séisme, réduit en haut à gauche).
     // Phase 2 : mini-carte et tableau des mesures sur l'image, jusqu'à la fin de « hold ».
+    // Phase 3 (automatique) : mesures en plein écran après la carte, le temps d'un tour des pages.
     let phase = 0;
     if (tsu) {
-      if (manualMap === true || Date.now() - coastStart < mapSeconds * 1000) phase = 1;
+      const boardSec = manualBoard === false ? 0 : Math.min(60, Math.max(8, boardPages(tsu).length * (boardCycle || 15)));
+      const t = Date.now() - coastStart;
+      if (manualMap === true || t < mapSeconds * 1000) phase = 1;
+      else if (manualBoard !== false && boardPages(tsu).length && t < (mapSeconds + boardSec) * 1000) phase = 3;
       else if (hold === 0 || Date.now() - coastShownAt < hold * 1000 || stays(tsu)) phase = 2;
     }
-    const mapOn = phase === 1;
+    // Mesures plein écran : en phase 3, ou à la main (au-dessus de tout, sauf la carte à la main).
+    const boardAlert = manualBoard === true && manualMap !== true ? tsu || coastList[0] || lastCoast : phase === 3 ? tsu : null;
+    const boardOn = Boolean(boardAlert);
+    const mapOn = phase === 1 && !boardOn;
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
     const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
     // Carte plein écran ou tableau : pas de bandeau (le séisme est dans le panneau à gauche).
-    const ba = phase > 0 || mPhase > 0 || (a && a.category === 'missile') ? null : a;
+    const ba = phase > 0 || boardOn || mPhase > 0 || (a && a.category === 'missile') ? null : a;
     const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
@@ -655,13 +726,15 @@
     reduce(Boolean(((autoOn || phase > 0 || stayOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
     if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
+    document.body.classList.toggle('show-board', boardOn);
+    if (boardOn) renderBoard(boardAlert);
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
     const coastAny = tsu || coastList[0] || lastCoast;
-    const miniOn = !mapOn && (manualMini === true ? Boolean(coastAny) : manualMini === false ? false : phase === 2);
-    const tableOn = !mapOn && (manualTable === true ? Boolean(coastAny) : manualTable === false ? false : phase === 2);
+    const miniOn = !mapOn && !boardOn && (manualMini === true ? Boolean(coastAny) : manualMini === false ? false : phase === 2);
+    const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(coastAny) : manualTable === false ? false : phase === 2);
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
-    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540 });
+    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540, zoom: miniZoom });
     if (tableOn) renderCoastTable(coastAny);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
     const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')
@@ -670,7 +743,7 @@
     const quakeAny = quake || (lastAlert && lastAlert.category === 'seisme' ? lastAlert : null);
     const quakeRecent = quake && (hold === 0 || Date.now() - Date.parse(quake.updatedAt || quake.createdAt) < hold * 1000 || phase > 0);
     // Pas en même temps que le bandeau du bas (même alerte deux fois).
-    const eewOn = !mapOn && !cancelOn() && (manualEew === true ? Boolean(quakeAny) : manualEew === false ? false
+    const eewOn = !mapOn && !boardOn && !cancelOn() && (manualEew === true ? Boolean(quakeAny) : manualEew === false ? false
       : eewAuto && !bannerOn && Boolean(quakeRecent || stays(quake)) && Boolean(prevScene || phase === 2));
     document.body.classList.toggle('show-eew', eewOn);
     if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
