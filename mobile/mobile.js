@@ -21,7 +21,8 @@
   const plugin = platform === 'android' ? reg('MAlertNative') : null;
   // Version de l'application (écrite par copy-web.js) : recherche des mises à jour.
   const iosPlugin = platform === 'ios' ? reg('MAlertNotify') : null;
-  const mobile = { platform, version: '__MALERT_VERSION__', background: Boolean(plugin || iosPlugin), onTap: null };
+  // build : commit de la Release (version remplacée = même numéro, autre commit).
+  const mobile = { platform, version: '__MALERT_VERSION__', build: '__MALERT_BUILD__', background: Boolean(plugin || iosPlugin), onTap: null };
   if (plugin) mobile.openUrl = (url) => plugin.openUrl({ url });
   window.MAlertMobile = mobile;
 

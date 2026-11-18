@@ -38,7 +38,12 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npx electron-builder --publish never
+      # Publication : commit de la Release inscrit dans l'application (version remplacée reconnue).
+      - shell: bash
+        run: |
+          B=""
+          if [ -n "${{ inputs.version }}" ] || [[ "$GITHUB_REF" == refs/tags/v* ]]; then B="-c.extraMetadata.malertBuild=$GITHUB_SHA"; fi
+          npx electron-builder --publish never $B
       - uses: actions/upload-artifact@v7
         with:
           name: M-Alert-${{ matrix.os }}
@@ -72,7 +77,7 @@ jobs:
       - run: npm ci
       # Version écrite dans l'application (recherche des mises à jour) : celle publiée, sinon package.json.
       - run: |
-          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}"
+          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}" MALERT_BUILD="$GITHUB_SHA"
           node copy-web.js && npx cap sync android
       - name: APK
         run: |
@@ -102,7 +107,7 @@ jobs:
       - run: npm ci
       # Version écrite dans l'application (recherche des mises à jour) : celle publiée, sinon package.json.
       - run: |
-          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}"
+          [ "$V" != 0.0.0 ] && export MALERT_VERSION="${V#v}" MALERT_BUILD="$GITHUB_SHA"
           node copy-web.js && npx cap sync ios
       - name: IPA non signé
         run: |

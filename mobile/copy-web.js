@@ -17,5 +17,9 @@ if (!page.includes('js/mobile.js')) throw new Error('index.html : emplacement de
 fs.writeFileSync(html, page);
 // Version de l'application (mises à jour) : celle de M-Alert (package.json), ou MALERT_VERSION.
 const version = String(process.env.MALERT_VERSION || require('../package.json').version).replace(/^v/, '');
-fs.writeFileSync(path.join(dst, 'js', 'mobile.js'), fs.readFileSync(path.join(__dirname, 'mobile.js'), 'utf8').replace('__MALERT_VERSION__', version));
+// Commit de la Release (MALERT_BUILD, donné par la CI pour une publication) : une version remplacée
+// (même numéro, autre commit) est reconnue par la recherche des mises à jour.
+const build = /^[0-9a-f]{40}$/.test(process.env.MALERT_BUILD || '') ? process.env.MALERT_BUILD : '';
+fs.writeFileSync(path.join(dst, 'js', 'mobile.js'), fs.readFileSync(path.join(__dirname, 'mobile.js'), 'utf8')
+  .replace('__MALERT_VERSION__', version).replace('__MALERT_BUILD__', build));
 console.log('web -> www copié');

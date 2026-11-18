@@ -11,7 +11,7 @@
 
 ### Application mobile
 - **iOS refait** : plus de zoom accidentel au toucher, interface sous l'encoche et la Dynamic Island corrigée.
-- **Notifications iOS** : **urgentes** dès l'orange (elles traversent les modes de concentration), **critiques** en rouge et majeure (elles sonnent même en mode silencieux, avec l'autorisation d'Apple).
+- **Notifications iOS urgentes** dès l'orange : elles traversent les modes de concentration. Séismes et alertes annulées : une notification par langue (texte complet).
 - **iOS : alertes application fermée**, comme l'application Clip d'AltStore : M-Alert reste actif en arrière-plan grâce à la localisation (choisir « Toujours ») et à un son silencieux. Une notification prévient si iOS l'arrête quand même.
 - **Son d'alerte mobile** pour les alertes orange, rouges et majeures (iOS et Android).
 - **Séismes en deux langues** dans les notifications, comme les alertes d'urgence japonaises : français en haut, anglais en dessous ; allemand ou espagnol au choix (« Alerte sismique précoce : Des secousses sont attendues. Intensité attendue : 4. Restez calme et protégez-vous. (M-Alert) »).
