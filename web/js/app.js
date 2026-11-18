@@ -1915,6 +1915,10 @@
     $('updVersion').textContent = `version ${s.current}`;
     const auto = s.mode === 'auto';
     $('updAutoRow').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
+    // Installation automatique : seulement l'installateur Windows et l'AppImage (mode « auto ») ;
+    // ailleurs (mobile, portable, .deb), la recherche seule.
+    $('updAutoInstall').classList.toggle('hidden', s.mode !== 'auto');
+    $('updAutoCheck').classList.toggle('hidden', s.mode === 'auto');
     if (s.mode === 'android' || s.mode === 'ios') $('btnUpdCheck').disabled = s.state === 'checking';
     $('btnUpdCheck').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
     $('btnUpdCheck').disabled = s.state === 'checking' || s.state === 'downloading';

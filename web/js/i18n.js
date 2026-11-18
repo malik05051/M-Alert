@@ -210,6 +210,7 @@
     "Lancer M-Alert au démarrage de l'ordinateur (en arrière-plan)": ['Start M-Alert when the computer starts (in the background)', 'M-Alert beim Systemstart starten (im Hintergrund)', 'Iniciar M-Alert al encender el ordenador (en segundo plano)'],
     'Mises à jour': ['Updates', 'Aktualisierungen', 'Actualizaciones'],
     'Rechercher maintenant': ['Check now', 'Jetzt suchen', 'Buscar ahora'],
+    'Rechercher les mises à jour automatiquement': ['Check for updates automatically', 'Automatisch nach Aktualisierungen suchen', 'Buscar actualizaciones automáticamente'],
     'Rechercher et installer les mises à jour automatiquement': ['Check for and install updates automatically', 'Aktualisierungen automatisch suchen und installieren', 'Buscar e instalar actualizaciones automáticamente'],
     "Recherche d'une nouvelle version…": ['Checking for a new version…', 'Suche nach einer neuen Version…', 'Buscando una nueva versión…'],
     'M-Alert est à jour.': ['M-Alert is up to date.', 'M-Alert ist aktuell.', 'M-Alert está actualizado.'],
