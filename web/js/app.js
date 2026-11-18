@@ -40,7 +40,6 @@
     quakeMag: 4, // magnitude minimale
     quakeShindo: '3', // intensité minimale chez moi (shindo)
     timeSensitive: true, // iOS : notifications urgentes
-    critical: true, // iOS : alertes critiques (avec l'autorisation d'Apple)
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
@@ -1210,8 +1209,7 @@
 
   /**
    * Notification du système. Application iOS : notification native, « urgente » (Time Sensitive)
-   * dès l'orange, « critique » (sonne même en silencieux, autorisation d'Apple) en rouge et majeure,
-   * avec le son d'alerte mobile dès l'orange.
+   * dès l'orange, avec le son d'alerte mobile.
    */
   async function systemNotification(title, body, { tag, urgent, onClick, level = 1, parts = null } = {}) {
     const mobile = window.MAlertMobile;
@@ -1221,7 +1219,7 @@
         // iOS : une notification par langue (le texte d'une bannière est coupé après 4 lignes).
         parts: parts || undefined,
         timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
-        critical: settings.critical !== false && level >= 4,
+        critical: false,
         sound: level >= 3 ? 'alerte-mobile' : 'default',
       })).catch(() => {});
       if (onClick) mobile.onTap = onClick;
@@ -1665,10 +1663,6 @@
       Promise.resolve().then(() => mobile.permission()).then((p) => {
         const parts = [p.display === 'granted' ? '✅ Notifications autorisées' : p.display === 'denied'
           ? '⛔ Notifications bloquées (Réglages iOS > M-Alert > Notifications)' : 'Notifications non autorisées'];
-        if (p.display === 'granted') {
-          parts.push(p.timeSensitive === 'enabled' ? '✅ urgentes' : '⚠️ urgentes désactivées');
-          parts.push(p.critical === 'enabled' ? '✅ critiques' : '⚠️ critiques non autorisées (autorisation d\'Apple)');
-        }
         el.textContent = parts.map((x) => I18N.t(x)).join(' · ');
         btn.classList.toggle('hidden', p.display === 'granted');
         btn.textContent = p.display === 'denied' ? 'Ouvrir les réglages' : 'Autoriser les notifications';
@@ -1732,7 +1726,6 @@
     $('setNotifLang1').value = settings.notifLang1 || '';
     $('setNotifLang2').value = settings.notifLang2 || 'auto';
     $('setTimeSensitive').checked = settings.timeSensitive !== false;
-    $('setCritical').checked = settings.critical !== false;
     document.querySelectorAll('.ios-only').forEach((el) => el.classList.toggle('hidden', !(window.MAlertMobile && window.MAlertMobile.platform === 'ios')));
     $('setCategories').querySelectorAll('input').forEach((i) => { i.checked = !settings.categoriesOff.includes(i.value); });
     $('setPhenomena').querySelectorAll('input').forEach((i) => { i.checked = !(settings.phenomenaOff || []).includes(Number(i.value)); });
@@ -1823,7 +1816,6 @@
       notifLang1: $('setNotifLang1').value,
       notifLang2: $('setNotifLang2').value,
       timeSensitive: $('setTimeSensitive').checked,
-      critical: $('setCritical').checked,
       mobileAutoUpdate: window.MAlertMobile && !native ? $('setAutoUpdate').checked : settings.mobileAutoUpdate,
       categoriesOff: [...$('setCategories').querySelectorAll('input:not(:checked)')].map((i) => i.value),
       phenomenaOff: [...$('setPhenomena').querySelectorAll('input:not(:checked)')].map((i) => Number(i.value)),
@@ -1914,6 +1906,8 @@
 
   let lastUpdate = null;
   let dismissedUpdate = null;
+  // « Plus tard » : vaut pour cette version (et pour cette version remplacée).
+  const updateKey = (s) => (s ? (s.replaced ? `${s.version}+remplacée` : s.version) : null);
 
   function renderUpdate(s) {
     if (!s) return;
@@ -1921,6 +1915,10 @@
     $('updVersion').textContent = `version ${s.current}`;
     const auto = s.mode === 'auto';
     $('updAutoRow').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
+    // Installation automatique : seulement l'installateur Windows et l'AppImage (mode « auto ») ;
+    // ailleurs (mobile, portable, .deb), la recherche seule.
+    $('updAutoInstall').classList.toggle('hidden', s.mode !== 'auto');
+    $('updAutoCheck').classList.toggle('hidden', s.mode === 'auto');
     if (s.mode === 'android' || s.mode === 'ios') $('btnUpdCheck').disabled = s.state === 'checking';
     $('btnUpdCheck').classList.toggle('hidden', s.mode === 'pacman' || s.mode === 'dev');
     $('btnUpdCheck').disabled = s.state === 'checking' || s.state === 'downloading';
@@ -1934,20 +1932,23 @@
       downloading: `Téléchargement de la version ${s.version || ''}… ${s.percent ? s.percent + ' %' : ''}`,
       ready: `La version ${s.version} est prête : elle s'installera au prochain redémarrage de M-Alert.`,
       available: s.mode === 'android'
-        ? `La version ${s.version} est disponible : téléchargez le fichier .apk et installez-le par-dessus (vos réglages sont conservés).`
+        ? `${s.replaced ? `La version ${s.version} a été remplacée par une version corrigée` : `La version ${s.version} est disponible`} : téléchargez le fichier .apk et installez-le par-dessus (vos réglages sont conservés).`
         : s.mode === 'ios'
-          ? `La version ${s.version} est disponible : téléchargez le fichier .ipa et réinstallez-le avec AltStore ou Sideloadly.`
-          : `La version ${s.version} est disponible${auto ? '' : ' (à télécharger et installer)'}.`,
+          ? `${s.replaced ? `La version ${s.version} a été remplacée par une version corrigée` : `La version ${s.version} est disponible`} : téléchargez le fichier .ipa et réinstallez-le avec AltStore ou Sideloadly.`
+          : s.replaced
+            ? `La version ${s.version} a été remplacée par une version corrigée (à télécharger et installer).`
+            : `La version ${s.version} est disponible${auto ? '' : ' (à télécharger et installer)'}.`,
       error: `Impossible de vérifier les mises à jour : ${s.error || 'erreur inconnue'}`,
     }[s.state] || '';
     $('updState').textContent = text;
 
-    const showBar = (s.state === 'ready' || s.state === 'available') && dismissedUpdate !== s.version;
+    const showBar = (s.state === 'ready' || s.state === 'available') && dismissedUpdate !== updateKey(s);
     $('updateBar').classList.toggle('hidden', !showBar);
     if (showBar) {
       $('updateBarText').textContent = s.state === 'ready'
         ? `🔄 La mise à jour ${s.version} de M-Alert est prête.`
-        : `🔔 Une nouvelle version de M-Alert (${s.version}) est disponible.`;
+        : s.replaced ? `🔔 La version ${s.version} de M-Alert a été remplacée par une version corrigée.`
+          : `🔔 Une nouvelle version de M-Alert (${s.version}) est disponible.`;
       $('updateBarAction').textContent = s.state === 'ready' ? 'Redémarrer et installer' : 'Télécharger';
     }
   }
@@ -1962,7 +1963,7 @@
     $('btnUpdCheck').addEventListener('click', () => native.checkForUpdates());
     $('updateBarAction').addEventListener('click', () => native.installUpdate());
     $('updateBarLater').addEventListener('click', () => {
-      dismissedUpdate = lastUpdate && lastUpdate.version;
+      dismissedUpdate = updateKey(lastUpdate);
       $('updateBar').classList.add('hidden');
     });
     // Retour de veille : on se reconnecte tout de suite pour ne rater aucune alerte.
@@ -1997,13 +1998,16 @@
       const version = String(rel.tag_name || '').replace(/^v/, '');
       const ext = mobileApp.platform === 'android' ? '.apk' : '.ipa';
       const asset = (rel.assets || []).find((a) => a.name.toLowerCase().endsWith(ext));
-      if (!version || !newer(version, mobileApp.version) || !asset) {
+      // Version remplacée : même numéro, Release reconstruite depuis un autre commit.
+      const sha = (x) => /^[0-9a-f]{40}$/.test(String(x || ''));
+      const replaced = version === mobileApp.version && sha(mobileApp.build) && sha(rel.target_commitish) && rel.target_commitish !== mobileApp.build;
+      if (!version || !(newer(version, mobileApp.version) || replaced) || !asset) {
         mobileRelease = null;
         renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'none' });
         return;
       }
       mobileRelease = { version, url: mobileApp.platform === 'android' ? asset.browser_download_url : rel.html_url };
-      renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'available', version });
+      renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'available', version, replaced });
     } catch (err) {
       renderUpdate({ current: mobileApp.version, mode: mobileApp.platform, state: 'error', error: err.message });
     }
@@ -2016,7 +2020,7 @@
       $('updateBar').classList.add('hidden');
     });
     $('updateBarLater').addEventListener('click', () => {
-      dismissedUpdate = mobileRelease && mobileRelease.version;
+      dismissedUpdate = updateKey(lastUpdate);
       $('updateBar').classList.add('hidden');
     });
     const auto = () => { if (settings.mobileAutoUpdate !== false) checkMobileUpdate(); };

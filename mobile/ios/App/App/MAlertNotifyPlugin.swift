@@ -5,10 +5,7 @@ import UserNotifications
 /// Notifications d'alerte M-Alert sur iOS (appelées par la page, voir mobile/mobile.js).
 ///
 /// - Niveau d'interruption : « urgente » (Time Sensitive, traverse les modes de concentration) dès
-///   l'orange, « critique » (sonne même en mode silencieux et en Ne pas déranger) en rouge et majeure.
-///   Les alertes critiques demandent l'autorisation d'Apple (droit
-///   com.apple.developer.usernotifications.critical-alerts dans le profil de signature) ; sans elle,
-///   iOS les présente comme des notifications urgentes ou normales.
+///   l'orange.
 /// - Son : alerte-mobile.caf (dans l'application) dès l'orange, son par défaut sinon.
 @objc(MAlertNotifyPlugin)
 public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotificationCenterDelegate {
@@ -58,8 +55,7 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
     }
 
     @objc func requestPermission(_ call: CAPPluginCall) {
-        // .criticalAlert : la demande n'apparaît que si l'application a le droit d'Apple.
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .criticalAlert]
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
         UNUserNotificationCenter.current().requestAuthorization(options: options) { _, _ in
             UNUserNotificationCenter.current().getNotificationSettings { s in
                 call.resolve(self.describe(s))

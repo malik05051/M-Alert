@@ -206,7 +206,6 @@
         </div>
         <label class="check"><input type="checkbox" id="setNotices"> Recevoir les notifications de M-Alert (messages d'information, sans alerte)</label>
         <label class="check ios-only hidden"><input type="checkbox" id="setTimeSensitive"> Notifications urgentes (iOS : « Urgentes », traversent les modes de concentration)</label>
-        <label class="check ios-only hidden"><input type="checkbox" id="setCritical"> Alertes critiques (iOS : sonnent même en mode silencieux ; autorisation spéciale d'Apple)</label>
         <div class="field">Langues des notifications de séisme
           <span class="muted small">Comme les alertes d'urgence japonaises : la première langue en haut, la seconde en dessous.</span>
           <div class="row2">
@@ -235,7 +234,7 @@
             <button type="button" class="btn small" id="btnUpdCheck">Rechercher maintenant</button>
           </div>
           <p class="small muted" id="updState"></p>
-          <label class="check" id="updAutoRow"><input type="checkbox" id="setAutoUpdate"> Rechercher et installer les mises à jour automatiquement</label>
+          <label class="check" id="updAutoRow"><input type="checkbox" id="setAutoUpdate"> <span id="updAutoInstall">Rechercher et installer les mises à jour automatiquement</span><span id="updAutoCheck" class="hidden">Rechercher les mises à jour automatiquement</span></label>
         </div>
         <label class="field">Adresse du serveur M-Alert
           <input type="url" id="setServer" placeholder="https://mon-serveur-malert.onrender.com" autocomplete="off">

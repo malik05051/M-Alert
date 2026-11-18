@@ -353,7 +353,7 @@ enum AlertNotifier {
         }
         postParts(id: id, parts: parts, level: level,
                   timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && level >= 3,
-                  critical: (settings["critical"] as? Bool ?? true) && level >= 4,
+                  critical: false,
                   alertSound: level >= 3)
     }
 
