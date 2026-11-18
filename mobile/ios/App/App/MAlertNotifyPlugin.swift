@@ -74,7 +74,7 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
             call.resolve()
             return
         }
-        // Texte en plusieurs langues (parts) : la première langue seulement (voir postParts).
+        // Une notification par langue (parts), sinon une seule.
         var parts = (call.getArray("parts") ?? []).compactMap { v -> (title: String, body: String)? in
             guard let o = v as? JSObject, let t = o["title"] as? String, let b = o["body"] as? String else { return nil }
             return (title: t, body: b)

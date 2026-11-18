@@ -223,7 +223,6 @@
     'Les textes des alertes rédigés par M-Alert restent en français.': ['Alert texts written by M-Alert stay in French.', 'Die von M-Alert verfassten Warntexte bleiben auf Französisch.', 'Los textos de las alertas redactados por M-Alert permanecen en francés.'],
     'Langues des notifications de séisme': ['Earthquake notification languages', 'Sprachen der Erdbebenbenachrichtigungen', 'Idiomas de las notificaciones de terremoto'],
     'Comme les alertes d\'urgence japonaises : la première langue en haut, la seconde en dessous.': ['Like Japanese emergency alerts: the first language on top, the second below.', 'Wie japanische Notfallwarnungen: die erste Sprache oben, die zweite darunter.', 'Como las alertas de emergencia japonesas: el primer idioma arriba, el segundo debajo.'],
-    'Sur iPhone, les notifications sont écrites dans la première langue seulement.': ['On iPhone, notifications are written in the first language only.', 'Auf dem iPhone werden Mitteilungen nur in der ersten Sprache geschrieben.', 'En iPhone, las notificaciones se escriben solo en el primer idioma.'],
     'Première langue': ['First language', 'Erste Sprache', 'Primer idioma'],
     'Seconde langue': ['Second language', 'Zweite Sprache', 'Segundo idioma'],
     '⛔ Notifications bloquées (Réglages iOS > M-Alert > Notifications)': ['⛔ Notifications blocked (iOS Settings > M-Alert > Notifications)', '⛔ Mitteilungen blockiert (iOS-Einstellungen > M-Alert > Mitteilungen)', '⛔ Notificaciones bloqueadas (Ajustes de iOS > M-Alert > Notificaciones)'],

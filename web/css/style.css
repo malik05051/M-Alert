@@ -405,6 +405,3 @@ html[lang="es"] .alert-overlay.compact .alert-body:not(.expanded)::after { conte
 /* Réception en arrière-plan : texte propre à Android ou à iOS. */
 .bg-ios, html.mobile-ios .bg-android { display: none; }
 html.mobile-ios .bg-ios { display: inline; }
-/* iOS : notifications dans une seule langue (seconde langue masquée). */
-html.mobile-ios .not-ios, .ios-only-text { display: none; }
-html.mobile-ios .ios-only-text { display: inline; }
