@@ -364,7 +364,7 @@ enum AlertNotifier {
         let test = a["test"] as? Bool == true ? "[TEST] " : ""
         let parts = Quake.cancelNotificationParts(a, settings: settings).map { (title: test + "❌ " + $0.title, body: $0.body) }
         postParts(id: id, parts: parts, level: 2,
-                  timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: false)
+                  timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: true)
     }
 
     static func text(_ key: String, settings: [String: Any]) -> String {

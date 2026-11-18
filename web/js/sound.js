@@ -133,6 +133,7 @@
 
   /** Fichier son d'une alerte (ou d'un simple niveau). */
   function soundFile(alert) {
+    if (alert.sound && SOUND_FILES.includes(alert.sound)) return alert.sound; // son imposé (alerte annulée)
     const level = alert.level;
     const category = alert.category || 'meteo';
     // Séisme : son choisi (EEW par défaut), quel que soit le niveau.

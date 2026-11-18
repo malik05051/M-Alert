@@ -247,7 +247,8 @@ public class AlertService extends Service {
     private void notifyCancel(JSONObject a) {
         String[] c = Quake.cancelNotification(a, settings);
         String title = (a.optBoolean("test") ? "[TEST] " : "") + "❌ " + c[0];
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_eew")
+        // Alerte annulée : son d'alerte mobile.
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_alerte_mobile")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(c[1])

@@ -687,16 +687,19 @@
       showNoticeBanner(n);
     }
     // Toute alerte annulée : son EEW (eew.mp3, réglable dans les sons « Jaune / orange »), jamais le
-    // son d'information (le même que « EEW léger »). Heures calmes : selon l'alerte annulée.
+    // son d'information (le même que « EEW léger ») ; application mobile : son d'alerte mobile.
+    // Heures calmes : selon l'alerte annulée.
+    const isMobile = document.documentElement.classList.contains('mobile-app');
     if (settings.sound && soundAllowed(a)) {
-      window.MAlertSound.play({ level: 2, category: 'meteo', phenomenon: 0 }, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+      window.MAlertSound.play({ level: 2, category: 'meteo', phenomenon: 0, sound: isMobile ? 'alerte-mobile' : undefined },
+        { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
       vibrate(2);
     }
     // « L'alerte de tremblement de terre émise à 14 h 32 a été annulée. (M-Alert) », en deux langues.
     const cancel = window.MAlertI18n.cancelNotification(a, kind.name, settings);
     const pre = `${a.test ? '[TEST] ' : ''}❌ `;
     systemNotification(`${pre}${cancel.title}`, cancel.body, {
-      tag: `void-${a.id}`, urgent: true, level: 2, parts: cancel.parts.map((p) => ({ title: pre + p.title, body: p.body })),
+      tag: `void-${a.id}`, urgent: true, level: 2, sound: 'alerte-mobile', parts: cancel.parts.map((p) => ({ title: pre + p.title, body: p.body })),
     });
     if (native) native.alert({ level: 1, front: settings.front });
   }
@@ -1211,7 +1214,7 @@
    * Notification du système. Application iOS : notification native, « urgente » (Time Sensitive)
    * dès l'orange, avec le son d'alerte mobile.
    */
-  async function systemNotification(title, body, { tag, urgent, onClick, level = 1, parts = null } = {}) {
+  async function systemNotification(title, body, { tag, urgent, onClick, level = 1, parts = null, sound = null } = {}) {
     const mobile = window.MAlertMobile;
     if (mobile && mobile.notify) {
       Promise.resolve().then(() => mobile.notify({
@@ -1220,7 +1223,7 @@
         parts: parts || undefined,
         timeSensitive: settings.timeSensitive !== false && (urgent || level >= 3),
         critical: false,
-        sound: level >= 3 ? 'alerte-mobile' : 'default',
+        sound: sound || (level >= 3 ? 'alerte-mobile' : 'default'),
       })).catch(() => {});
       if (onClick) mobile.onTap = onClick;
       return;
