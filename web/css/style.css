@@ -185,7 +185,14 @@ html.app-hidden *, html.app-hidden *::before, html.app-hidden *::after { animati
 .alert-overlay.compact .alert-foot { margin-top: 8px; }
 /* Bandeau compact : texte déjà raccourci, pas de barre de défilement (sauf texte déplié). */
 .alert-overlay.compact .alert-banner { overflow: hidden; max-height: none; }
-.alert-overlay.compact .alert-banner:has(.alert-body.expanded) { max-height: 70vh; overflow: auto; }
+.alert-overlay.compact .alert-banner:has(.alert-body.expanded) { max-height: calc(100vh - 16px); overflow: auto; }
+/* Consignes affichées : le tableau garde sa place (plus bas, avec son propre défilement) et les
+   consignes s'affichent dessous, sans réduire le bandeau. */
+.alert-overlay.compact .alert-banner:has(.alert-body.expanded) .tsu-board { max-height: 24vh; }
+.alert-overlay.compact .alert-body.expanded::after { content: 'Masquer les consignes ▴'; display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+html[lang="en"] .alert-overlay.compact .alert-body.expanded::after { content: 'Hide what to do ▴'; }
+html[lang="de"] .alert-overlay.compact .alert-body.expanded::after { content: 'Verhaltenshinweise ausblenden ▴'; }
+html[lang="es"] .alert-overlay.compact .alert-body.expanded::after { content: 'Ocultar instrucciones ▴'; }
 /* Tsunami : tableau des côtes limité en hauteur dans la bannière (défilement). */
 .alert-overlay.compact .tsu-board { max-height: 32vh; overflow: auto; }
 /* Ondes P et S : compte à rebours (séisme). */
@@ -388,6 +395,7 @@ html.mobile-app .alert-overlay {
 }
 html.mobile-app .alert-overlay.compact { padding-top: calc(env(safe-area-inset-top) + 6px); }
 html.mobile-app .alert-banner { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px); }
+html.mobile-app .alert-overlay.compact .alert-banner:has(.alert-body.expanded) { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px); }
 html.mobile-app .toasts { bottom: calc(env(safe-area-inset-bottom) + 12px); right: max(12px, env(safe-area-inset-right)); }
 html.mobile-app .update-bar { bottom: calc(env(safe-area-inset-bottom) + 12px); left: max(12px, env(safe-area-inset-left)); }
 html.mobile-app .sound-hint { bottom: calc(env(safe-area-inset-bottom) + 14px); }

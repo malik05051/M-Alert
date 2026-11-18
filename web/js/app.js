@@ -1186,7 +1186,17 @@
 
   $('ovAck').addEventListener('click', acknowledge);
   // Bannière : un clic sur le texte l'affiche en entier (description et consignes).
-  document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => e.currentTarget.classList.toggle('expanded'));
+  // Consignes : affichées sous la description, le bandeau défile jusqu'à elles (le tableau reste visible).
+  document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => {
+    const body = e.currentTarget;
+    body.classList.toggle('expanded');
+    if (body.classList.contains('expanded')) {
+      requestAnimationFrame(() => {
+        const target = $('ovAdviceWrap').classList.contains('hidden') || !$('ovAdviceWrap').offsetHeight ? body : $('ovAdviceWrap');
+        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  });
   // « Couper le son » coupe le son d'alerte ; si le compte à rebours de l'onde S doit encore sonner,
   // le bouton devient « Couper aussi le son du compte à rebours ».
   $('ovMute').addEventListener('click', () => {
