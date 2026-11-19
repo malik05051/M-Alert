@@ -89,6 +89,8 @@
   // pages de départements qui défilent ; zoom de la mini-carte. Commandés depuis M-Alert-sender.
   let manualBoard = null;
   let miniZoom = null;
+  let miniView = null; // vue de la mini-carte déplacée ou zoomée dans M-Alert-sender ({ lat, lon, span })
+  let coastPinned = null; // alerte côtière choisie dans M-Alert-sender (id), sinon la plus grave
   let boardCycle = 8; // secondes par page (0 : page fixe, boardPageWanted)
   let boardPageWanted = 0;
   let manualEew = null;
@@ -118,7 +120,12 @@
     const tri = (v) => (v === true || v === false ? v : null);
     if (o.coast && part('coast')) {
       manualMap = tri(o.coast.map); manualMini = tri(o.coast.mini); manualTable = tri(o.coast.table); manualBoard = tri(o.coast.board);
+      // Tableau des mesures « Afficher (plein écran) » : mesures en plein écran.
+      if (o.coast.table === 'full') { manualTable = null; manualBoard = true; }
       miniZoom = o.coast.zoom === 'fit' || [2, 3, 4].includes(Number(o.coast.zoom)) ? o.coast.zoom : null;
+      const v = o.coast.view;
+      miniView = v && Number.isFinite(v.lat) && Number.isFinite(v.lon) && v.span > 0 ? { lat: v.lat, lon: v.lon, span: v.span } : null;
+      coastPinned = typeof o.coast.alert === 'string' && o.coast.alert ? o.coast.alert : null;
       boardCycle = [0, 5, 8, 12].includes(Number(o.coast.cycle)) ? Number(o.coast.cycle) : 8;
       boardPageWanted = Math.max(0, Number(o.coast.page) || 0);
     }
@@ -668,8 +675,12 @@
       return;
     }
     // Carte plein écran : tsunami, ou vagues-submersion / forte houle (automatique, ou à la main).
+    // Alerte choisie dans M-Alert-sender, sinon tsunami, puis la plus grave (niveau le plus haut d'une
+    // côte : la vigilance orange passe avant les alertes jaunes plus récentes), puis la plus récente.
+    const coastTop = (x) => Math.max(x.level || 0, ...Object.values(B.coastLevelsOf ? B.coastLevelsOf(x) : {}));
     const coastList = alerts.filter(wanted).filter(isCoast)
-      .sort((x, y) => ((y.category === 'tsunami') - (x.category === 'tsunami')) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+      .sort((x, y) => ((y.id === coastPinned) - (x.id === coastPinned)) || ((y.category === 'tsunami') - (x.category === 'tsunami'))
+        || (coastTop(y) - coastTop(x)) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     const lastCoast = isCoast(lastAlert) ? lastAlert : null;
     const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
@@ -734,7 +745,7 @@
     const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(coastAny) : manualTable === false ? false : phase === 2);
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
-    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540, zoom: miniZoom });
+    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540, zoom: miniZoom, view: miniView });
     if (tableOn) renderCoastTable(coastAny);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
     const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')

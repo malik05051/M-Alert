@@ -333,31 +333,34 @@
    * Carte des côtes en alerte (tsunami, vagues-submersion). zoom : null (France entière), 'fit'
    * (cadrée sur les côtes en alerte) ou 2 à 4 (zoom centré sur elles).
    */
-  function drawTsunamiMap(canvas, alert, on = true, { width = 1920, height = 1080, zoom = null } = {}) {
-    canvas.width = width; canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    const W = width; const H = height;
-    ctx.clearRect(0, 0, W, H);
-    // Fond opaque (comme la NHK) : la carte masque tout ce qu'il y a derrière.
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#1c3fa8'); bg.addColorStop(1, '#16328c');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
-    const legendW = Math.round(W * 0.2);
-    const { deps, coasts } = geoData();
-    // Tsunami, ou vagues-submersion / forte houle (mêmes côtes, couleurs des niveaux météo).
+  /** Niveau de chaque côte en alerte (tableau du tsunami ou des vagues), sinon le niveau de l'alerte. */
+  function coastLevelsOf(alert) {
     const surge = Boolean(alert && alert.category !== 'tsunami');
-    const colors = surge ? LEVEL_FILL : TSU_COLORS;
-    const names = surge ? { 5: 'Majeure', 4: 'Rouge', 3: 'Orange', 2: 'Jaune' } : TSU_NAMES;
     const levels = {};
     const rows = (alert && (alert.tsunamiTable || (alert.forecastTable && alert.forecastTable.rows))) || [];
     const set = new Set((alert && alert.departments) || []);
     for (const r of rows) if (!surge || set.has(r.department) || set.has('ALL')) levels[r.department] = Math.max(levels[r.department] || 0, r.level);
     if (alert && !Object.keys(levels).length) for (const c of alert.departments || []) levels[c] = alert.level;
-    const nc = Boolean(levels['988']);
-    // Métropole (et Corse) : à gauche ; encart Nouvelle-Calédonie en bas à gauche.
+    return levels;
+  }
+
+  /**
+   * Cadre de la carte des côtes : vue choisie dans M-Alert-sender ({ lat, lon, span }, carte déplacée
+   * ou zoomée), zoom ('fit' : côtes en alerte ; 2 à 4 : centré sur elles), sinon la France entière.
+   */
+  function coastFrame(alert, { width = 1920, height = 1080, zoom = null, view = null } = {}) {
+    const W = width; const H = height;
+    const legendW = Math.round(W * 0.2);
+    const { coasts } = geoData();
+    const levels = coastLevelsOf(alert);
     const inset = { x: W * 0.02, y: H * 0.68, w: W * 0.2, h: H * 0.28 };
-    // Zoom : sur les côtes en alerte de la métropole (et de la Corse).
+    const mapH = H * 0.92;
+    const fullW = W - legendW - W * 0.03;
+    if (view && Number.isFinite(view.lat) && Number.isFinite(view.lon) && view.span > 0) {
+      const k = Math.cos((view.lat * Math.PI) / 180);
+      const hlo = (view.span * (fullW / mapH)) / k;
+      return { box: [view.lat - view.span, view.lat + view.span, view.lon - hlo, view.lon + hlo], zoomed: true, mapX: 0, legendW, inset, levels };
+    }
     let box = [41.2, 51.2, -5.4, 9.8];
     const zoomed = Boolean(zoom) && Object.keys(levels).some((c) => c !== '988' && (coasts[c] || []).length);
     if (zoomed) {
@@ -376,7 +379,38 @@
         box = [cla - hla, cla + hla, clo - hlo, clo + hlo];
       }
     }
-    const mapX = zoomed ? 0 : inset.x + inset.w;
+    return { box, zoomed, mapX: zoomed ? 0 : inset.x + inset.w, legendW, inset, levels };
+  }
+
+  /** Vue { lat, lon, span } de la carte des côtes telle qu'elle est dessinée (point de départ d'un glissement). */
+  function coastView(alert, opts = {}) {
+    const W = opts.width || 1920; const H = opts.height || 1080;
+    const f = coastFrame(alert, opts);
+    const [s, n, we, e] = f.box;
+    const k = Math.cos((((s + n) / 2) * Math.PI) / 180);
+    const w = W - f.legendW - f.mapX - W * 0.03; const h = H * 0.92;
+    const scale = Math.min(w / ((e - we) * k), h / (n - s));
+    return { lat: (s + n) / 2, lon: (we + e) / 2, span: h / scale / 2 };
+  }
+
+  function drawTsunamiMap(canvas, alert, on = true, { width = 1920, height = 1080, zoom = null, view = null } = {}) {
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const W = width; const H = height;
+    ctx.clearRect(0, 0, W, H);
+    // Fond opaque (comme la NHK) : la carte masque tout ce qu'il y a derrière.
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1c3fa8'); bg.addColorStop(1, '#16328c');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    const { deps, coasts } = geoData();
+    // Tsunami, ou vagues-submersion / forte houle (mêmes côtes, couleurs des niveaux météo).
+    const surge = Boolean(alert && alert.category !== 'tsunami');
+    const colors = surge ? LEVEL_FILL : TSU_COLORS;
+    const names = surge ? { 5: 'Majeure', 4: 'Rouge', 3: 'Orange', 2: 'Jaune' } : TSU_NAMES;
+    // Métropole (et Corse) : à gauche ; encart Nouvelle-Calédonie en bas à gauche.
+    const { box, zoomed, mapX, legendW, inset, levels } = coastFrame(alert, { width, height, zoom, view });
+    const nc = Boolean(levels['988']);
     const P = projector(box, mapX, H * 0.04, W - legendW - mapX - W * 0.03, H * 0.92);
     // Carte zoomée : rien ne déborde sur la légende.
     ctx.save();
@@ -922,5 +956,5 @@
     return canvas;
   }
 
-  window.MAlertBanner = { drawShindoMap, shindoView, allIntensities, drawBanner, drawTsunamiMap, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
