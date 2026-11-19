@@ -940,19 +940,46 @@
       fitText(ctx, label, bw * 0.92, Math.round(bh * 0.58), Math.round(bh * 0.3), '900');
       ctx.fillText(label, pad + bw / 2, pad + bh * 0.64);
     }
-    // Heure du séisme (et magnitude).
+    // Heure du séisme et magnitude, comme la NHK (« 1日16時06分ごろ | M5.7 ») : deux cases côte à côte
+    // sur un bandeau bleu, l'heure en blanc, la magnitude en jaune (« M » plus petit).
     const t = new Date(a.originTime || a.createdAt || Date.now());
     const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
-    const when = `Le ${day} vers ${hourOf(t.toISOString())}${typeof a.magnitude === 'number' ? `  ·  M${frNum(a.magnitude)}` : ''}`;
+    const when = `Le ${day} vers ${hourOf(t.toISOString())}`;
+    const mag = typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? frNum(a.magnitude) : '';
     const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
-    ctx.font = `700 ${Math.round(th * 0.62)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
-    const tw = Math.min(W - tx - pad, ctx.measureText(when).width + th * 0.9);
+    const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
+    const fs = Math.round(th * 0.62);
+    ctx.font = `700 ${fs}px ${FONTS}`;
+    const ww = ctx.measureText(when).width + th * 0.9;
+    let mw = 0;
+    if (mag) {
+      ctx.font = `800 ${Math.round(fs * 0.8)}px ${FONTS}`; mw = ctx.measureText('M').width;
+      ctx.font = `900 ${Math.round(fs * 1.12)}px ${FONTS}`; mw += ctx.measureText(mag).width + th * 0.25;
+      mw += th * 0.9;
+    }
+    const total = Math.min(W - tx - pad, ww + mw);
+    const cellW = mag ? Math.max(0, total - mw) : total;
     const grd = ctx.createLinearGradient(0, pad, 0, pad + th);
-    grd.addColorStop(0, '#5b7fe0'); grd.addColorStop(1, '#2d4fb8');
-    ctx.fillStyle = grd; ctx.fillRect(tx, pad, tw, th);
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, H / 500); ctx.strokeRect(tx, pad, tw, th);
+    grd.addColorStop(0, '#6d8ee6'); grd.addColorStop(0.5, '#3b5fc8'); grd.addColorStop(1, '#2a4bb0');
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(tx + 3, pad + 3, total, th);
+    ctx.fillStyle = grd; ctx.fillRect(tx, pad, total, th);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1.5, H / 500);
+    ctx.strokeRect(tx, pad, cellW, th);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(when, tx + th * 0.45, pad + th / 2 + 1, tw - th * 0.9);
+    ctx.font = `700 ${fs}px ${FONTS}`;
+    ctx.fillText(when, tx + th * 0.45, pad + th / 2 + 1, cellW - th * 0.9);
+    if (mag) {
+      const mx = tx + cellW;
+      ctx.strokeRect(mx, pad, total - cellW, th);
+      ctx.fillStyle = '#ffe600'; ctx.textBaseline = 'alphabetic';
+      const base = pad + th / 2 + fs * 0.42;
+      ctx.font = `800 ${Math.round(fs * 0.8)}px ${FONTS}`;
+      const x0 = mx + th * 0.45;
+      ctx.fillText('M', x0, base);
+      const x1 = x0 + ctx.measureText('M').width + th * 0.1;
+      ctx.font = `900 ${Math.round(fs * 1.12)}px ${FONTS}`;
+      ctx.fillText(mag, x1, base + fs * 0.06);
+    }
     return canvas;
   }
 

@@ -23,7 +23,7 @@ self.addEventListener('push', (event) => {
     // Notification de M-Alert : simple message, sans alerte.
     if (notice) {
       const deps = notice.departments.includes('ALL') ? 'Toute la France' : notice.departments.join(', ');
-      await self.registration.showNotification(`${notice.test ? '[TEST] ' : ''}🔔 ${notice.title}`, {
+      await self.registration.showNotification(`${notice.test ? '[TEST] ' : ''}${notice.mobileAlert ? '' : '🔔 '}${notice.title}`, {
         body: notice.body || deps,
         tag: `notice-${notice.id}`,
         icon: 'icons/icon-192.png',

@@ -136,6 +136,8 @@
     if (alert.sound && SOUND_FILES.includes(alert.sound)) return alert.sound; // son imposé (alerte annulée)
     const level = alert.level;
     const category = alert.category || 'meteo';
+    // Alerte mobile demandée dans M-Alert-sender : son d'alerte mobile, quel que soit le niveau.
+    if (MOBILE && alert.mobileAlert) return 'alerte-mobile';
     // Séisme : son choisi (EEW par défaut), quel que soit le niveau.
     if (category === 'seisme') return QUAKE_SOUNDS[alert.quakeSound] || QUAKE_SOUNDS.eew;
     if (MOBILE && level >= 3) return 'alerte-mobile';

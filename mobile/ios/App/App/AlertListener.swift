@@ -232,6 +232,15 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             if wanted(a) { AlertNotifier.notifyCancel(a, settings: settings) }
             return
         }
+        if type == "notice" {
+            // Notification de M-Alert qui déclenche l'alerte mobile : sonne comme une alerte, titre et
+            // texte tels quels (« Sécurité Civile » / « Avis de tornade »).
+            guard let n = msg["notice"] as? [String: Any], n["mobileAlert"] as? Bool == true,
+                  settings["notices"] as? Bool ?? true, UIApplication.shared.applicationState != .active else { return }
+            if !(settings["all"] as? Bool ?? false) && !concernsMe(n) { return }
+            AlertNotifier.notifyMobileNotice(n, settings: settings)
+            return
+        }
         guard type == "alert" || type == "ring", let a = msg["alert"] as? [String: Any], let id = a["id"] as? String else { return }
         if type == "alert" && seen.contains(id) { return }
         seen.insert(id)
@@ -351,10 +360,21 @@ enum AlertNotifier {
         if a["category"] as? String == "seisme" {
             parts = Quake.notificationParts(a, settings: settings).map { (title: test + $0.title, body: $0.body) }
         }
+        // Alerte mobile demandée dans M-Alert-sender : urgente avec le son d'alerte mobile, quel que soit le niveau.
+        let mobile = a["mobileAlert"] as? Bool == true
         postParts(id: id, parts: parts, level: level,
-                  timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && level >= 3,
+                  timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && (level >= 3 || mobile),
                   critical: false,
-                  alertSound: level >= 3)
+                  alertSound: level >= 3 || mobile)
+    }
+
+    /// Notification de M-Alert qui déclenche l'alerte mobile (même identifiant que la page : pas de doublon).
+    static func notifyMobileNotice(_ n: [String: Any], settings: [String: Any]) {
+        let id = "notice-" + (n["id"] as? String ?? "")
+        guard claim(id) else { return }
+        let test = n["test"] as? Bool == true ? "[TEST] " : ""
+        postParts(id: id, parts: [(title: test + (n["title"] as? String ?? "M-Alert"), body: n["body"] as? String ?? "")], level: 3,
+                  timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: true)
     }
 
     /// Alerte annulée reçue en arrière-plan.

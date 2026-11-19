@@ -157,6 +157,17 @@ public class AlertService extends Service {
                 if (wanted(b)) notifyCancel(a);
                 return;
             }
+            if ("notice".equals(type)) {
+                // Notification de M-Alert qui déclenche l'alerte mobile : sonne comme une alerte,
+                // titre et texte tels quels (« Sécurité Civile » / « Avis de tornade »).
+                JSONObject n = msg.getJSONObject("notice");
+                if (!n.optBoolean("mobileAlert") || MainActivity.visible || !settings.optBoolean("notices", true)) return;
+                if (!settings.optBoolean("all") && !concernsMe(n)) return;
+                if (seen.contains("notice-" + n.optString("id"))) return;
+                seen.add("notice-" + n.optString("id"));
+                notifyMobileNotice(n);
+                return;
+            }
             if (!"alert".equals(type) && !"ring".equals(type)) return;
             JSONObject a = msg.getJSONObject("alert");
             String id = a.optString("id");
@@ -205,6 +216,8 @@ public class AlertService extends Service {
     private String soundOf(JSONObject a) {
         String cat = a.optString("category", "meteo");
         int level = a.optInt("level", 1);
+        // Alerte mobile demandée dans M-Alert-sender : son d'alerte mobile, quel que soit le niveau.
+        if (a.optBoolean("mobileAlert")) return "alerte_mobile";
         if ("seisme".equals(cat)) {
             String s = a.optString("quakeSound", "eew");
             return "eew2".equals(s) ? "seisme_eew2" : "leger".equals(s) ? "seisme_leger" : "seisme_eew";
@@ -236,12 +249,28 @@ public class AlertService extends Service {
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
-            .setPriority(level >= 4 ? NotificationCompat.PRIORITY_MAX : NotificationCompat.PRIORITY_HIGH)
+            .setPriority(level >= 4 || a.optBoolean("mobileAlert") ? NotificationCompat.PRIORITY_MAX : NotificationCompat.PRIORITY_HIGH)
             .setCategory(level >= 4 ? NotificationCompat.CATEGORY_ALARM : NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(openApp(a.optString("id").hashCode()));
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.notify(a.optString("id").hashCode(), b.build());
+    }
+
+    private void notifyMobileNotice(JSONObject n) {
+        String title = (n.optBoolean("test") ? "[TEST] " : "") + n.optString("title");
+        String text = n.optString("body");
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_alerte_mobile")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(("notice-" + n.optString("id")).hashCode()));
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.notify(("notice-" + n.optString("id")).hashCode(), b.build());
     }
 
     private void notifyCancel(JSONObject a) {

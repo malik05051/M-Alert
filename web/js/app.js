@@ -671,6 +671,20 @@
     } else {
       showNoticeBanner(n);
     }
+    // Notification qui déclenche l'alerte mobile (M-Alert-sender) : elle sonne comme une alerte (son
+    // « Alerte mobile » sur les téléphones), notification urgente avec le titre et le texte tels quels
+    // (« Sécurité Civile » / « Avis de tornade »).
+    if (n.mobileAlert) {
+      const what = { level: 3, category: 'meteo', phenomenon: 0, mobileAlert: true };
+      if (settings.sound && soundAllowed(what)) {
+        window.MAlertSound.play(what, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+        vibrate(3);
+      }
+      systemNotification(`${n.test ? '[TEST] ' : ''}${n.title}`, n.body || M.departmentsLabel(n.departments, 3),
+        { tag: `notice-${n.id}`, urgent: true, level: 3, sound: 'alerte-mobile' });
+      if (native) native.alert({ level: 3, front: settings.front });
+      return;
+    }
     shortSound({ level: 1, category: 'meteo', phenomenon: 0 });
     // Persistante (comme les alertes orange et rouge) : une notification qui expire seule peut ne
     // jamais s'afficher (KDE Plasma notamment, quand la fenêtre de M-Alert passe au premier plan).
@@ -757,9 +771,9 @@
     stopWaveCountdown();
     const ov = $('alertOverlay');
     ov.className = 'alert-overlay compact notice';
-    ov.style.setProperty('--c', n.__void ? VOID_COLOR : n.__vig ? n.color : NOTICE_COLOR);
+    ov.style.setProperty('--c', n.__void ? VOID_COLOR : n.__vig ? n.color : n.mobileAlert ? '#f97316' : NOTICE_COLOR);
     ov.style.setProperty('--ct', n.__vig ? n.textColor : '#0b1220');
-    $('ovLevel').textContent = n.__void ? '❌ Alerte annulée' : n.__vig ? n.levelText : '🔔 Notification';
+    $('ovLevel').textContent = n.__void ? '❌ Alerte annulée' : n.__vig ? n.levelText : n.mobileAlert ? '📢 Alerte' : '🔔 Notification';
     $('ovPhen').textContent = n.__void || n.__vig ? n.phen : 'M-Alert';
     $('ovTest').classList.toggle('hidden', !n.test);
     $('ovTime').textContent = M.formatDateTime(n.createdAt);
@@ -1172,7 +1186,7 @@
     const max = Number(settings.maxSound ?? 120);
     window.MAlertSound.play(alert, {
       volume: settings.volume,
-      loop: majeur || (settings.repeat && alert.level >= 3),
+      loop: majeur || (settings.repeat && (alert.level >= 3 || Boolean(alert.mobileAlert))),
       untilStopped: majeur || max === 0,
       maxSeconds: max || 120,
       fadeIn: settings.fadeIn,
@@ -1316,8 +1330,10 @@
       quake ? `${prefix}${quake.title}` : `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alert.title}`,
       quake ? quake.body : `${M.departmentsLabel(alert.departments, 3)}\n${alert.description}`,
       {
-        tag: alert.id, urgent: alert.level >= 3, level: alert.level,
+        tag: alert.id, urgent: alert.level >= 3 || Boolean(alert.mobileAlert), level: alert.level,
         parts: quake && quake.parts.map((p) => ({ title: `${prefix}${p.title}`, body: p.body })),
+        // Alerte mobile demandée dans M-Alert-sender : son d'alerte mobile, quel que soit le niveau.
+        sound: alert.mobileAlert ? 'alerte-mobile' : null,
       },
     );
     if (native) native.alert({ level: alert.level, front: settings.front });
