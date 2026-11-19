@@ -8,4 +8,5 @@
 - **Incrustation OBS : carte des intensités** comme la NHK : à côté de l'intensité max, l'heure du séisme et la magnitude dans deux cases, la magnitude en jaune (« M 5,7 »).
 - **Alerte mobile** : une alerte envoyée avec l'option « 📢 Alerte mobile » sonne sur les téléphones avec le son Alerte mobile, en notification urgente, quel que soit son niveau (aussi application fermée).
 - **Notifications qui déclenchent l'alerte mobile** : une notification envoyée avec cette option sonne comme une alerte sur les téléphones, avec son titre et son texte tels quels (ex. « Sécurité Civile » / « Avis de tornade »).
+- **Batterie (iOS et Android)** : la réception en arrière-plan ne reçoit plus que les alertes et notifications qui sonnent, et ne réveille le téléphone qu'une fois par minute (au lieu d'environ quatre fois).
 - Script OBS mis à jour (version de la page 3.1.1-3) : remplacez `m-alert.lua` dans OBS.
