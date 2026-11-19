@@ -218,6 +218,8 @@
   const SOURCES = {
     auto: { label: '🤖 Alerte automatique · source : EMSC', short: '🤖 automatique (EMSC)' },
     emsc: { label: '✅ Source : EMSC · alerte validée par M-Alert', short: '✅ EMSC' },
+    'plum-auto': { label: '🤖 Alerte automatique · source : secousses mesurées par les stations sismiques (méthode PLUM)', short: '📈 automatique (PLUM)' },
+    plum: { label: '📈 Source : secousses mesurées par les stations sismiques (méthode PLUM) · alerte validée par M-Alert', short: '📈 PLUM' },
     'stations-auto': { label: '🤖 Alerte automatique · source : stations sismiques (détection M-Alert)', short: '📶 automatique (stations)' },
     stations: { label: '📶 Source : stations sismiques (détection M-Alert) · alerte validée par M-Alert', short: '📶 stations' },
     'stations-auto-emsc': { label: '🤖 Alerte automatique · source : stations sismiques, confirmée par l\'EMSC', short: '📶 automatique (stations + EMSC)' },
