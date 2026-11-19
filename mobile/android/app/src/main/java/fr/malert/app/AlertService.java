@@ -48,7 +48,7 @@ public class AlertService extends Service {
     };
     private static final int[] WATER = { 2, 4, 9, 12, 16 };
 
-    private final OkHttpClient http = new OkHttpClient.Builder().pingInterval(25, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS).build();
+    private final OkHttpClient http = new OkHttpClient.Builder().pingInterval(60, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS).build();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Set<String> seen = new HashSet<>();
     private WebSocket ws;
@@ -106,7 +106,9 @@ public class AlertService extends Service {
     private void connect() {
         if (ws != null) ws.close(1000, "nouvelle connexion");
         String server = settings.optString("serverUrl", "https://m-alert-sender.onrender.com").replaceAll("/+$", "");
-        String url = server.replaceFirst("^http", "ws") + "/ws";
+        // Canal allégé : seulement les alertes et notifications qui sonnent, un ping par minute
+        // (venant du téléphone) : moins de réveils de la radio, moins de batterie.
+        String url = server.replaceFirst("^http", "ws") + "/ws?lite=1";
         ws = http.newWebSocket(new Request.Builder().url(url).build(), new WebSocketListener() {
             @Override
             public void onOpen(WebSocket s, Response r) {

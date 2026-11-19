@@ -31,6 +31,10 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     private var settings: [String: Any] = [:]
 
     private static let watchdogId = "malert-watchdog"
+    /// Ping du serveur (canal allégé, le serveur ne pinge pas) : une fois par minute.
+    private static let tickSeconds: TimeInterval = 60
+    /// Notification « M-Alert ne reçoit plus les alertes » : 5 minutes sans réveil de l'application.
+    private static let watchdogSeconds: TimeInterval = 300
 
     override init() {
         super.init()
@@ -81,7 +85,10 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             running = true
             keepAlive()
             connect()
-            timer = Timer.scheduledTimer(withTimeInterval: 25, repeats: true) { [weak self] _ in self?.tick() }
+            // Un réveil par minute (ping du serveur et notification de garde ensemble) : la radio du
+            // téléphone reste en veille le reste du temps.
+            timer = Timer.scheduledTimer(withTimeInterval: AlertListener.tickSeconds, repeats: true) { [weak self] _ in self?.tick() }
+            timer?.tolerance = 10
         }
         armWatchdog()
     }
@@ -144,7 +151,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {}
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
 
-    /// Toutes les 25 s : ping du serveur, son silencieux relancé, notification de garde repoussée.
+    /// Toutes les minutes : ping du serveur, son silencieux relancé, notification de garde repoussée.
     private func tick() {
         guard running else { return }
         if player?.isPlaying == false { player?.play() }
@@ -163,7 +170,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         content.title = "M-Alert"
         content.body = AlertNotifier.text("watchdog", settings: settings)
         content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 120, repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: AlertListener.watchdogSeconds, repeats: false)
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: AlertListener.watchdogId, content: content, trigger: trigger))
     }
 
@@ -174,7 +181,9 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         var server = (settings["serverUrl"] as? String) ?? "https://m-alert-sender.onrender.com"
         while server.hasSuffix("/") { server.removeLast() }
         if server.lowercased().hasPrefix("http") { server = "ws" + server.dropFirst(4) }
-        guard let url = URL(string: server + "/ws") else { return }
+        // Canal allégé : seulement les alertes et notifications qui sonnent (pas la vigilance, l'OBS,
+        // les marégraphes…), pas de ping du serveur : moins de réveils, moins de batterie.
+        guard let url = URL(string: server + "/ws?lite=1") else { return }
         let t = session.webSocketTask(with: url)
         task = t
         t.resume()
