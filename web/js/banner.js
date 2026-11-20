@@ -945,7 +945,7 @@
     const t = new Date(a.originTime || a.createdAt || Date.now());
     const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
     const when = `Le ${day} vers ${hourOf(t.toISOString())}`;
-    // Magnitude « M5.7 » en un seul texte (comme la NHK et le reste de M-Alert), jaune plein cerné de sombre.
+    // Magnitude « M5.7 » en un seul texte (comme la NHK et le reste de M-Alert), jaune plein.
     const mag = typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? `M${a.magnitude.toFixed(1)}` : '';
     const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
     const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
@@ -973,9 +973,6 @@
       ctx.font = `900 ${mfs}px ${FONTS}`;
       ctx.textAlign = 'center';
       const cx = mx + (total - cellW) / 2; const cy = pad + th / 2 + 1;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0b1a4a'; ctx.lineWidth = Math.max(2, mfs * 0.16);
-      ctx.strokeText(mag, cx, cy, total - cellW - th * 0.5);
       ctx.fillStyle = '#ffe600';
       ctx.fillText(mag, cx, cy, total - cellW - th * 0.5);
       ctx.textAlign = 'left';
