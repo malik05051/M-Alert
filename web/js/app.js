@@ -151,6 +151,9 @@
   let vigilance = null;     // dernières données de vigilance
   let sealevel = null;      // mesures des marégraphes de l'UNESCO (tsunami, vagues-submersion)
   const seaObs = (code, kind) => M.seaObsText(sealevel && sealevel.departments && sealevel.departments[code], kind);
+  let rivers = null;        // hauteurs d'eau des rivières (Hub'Eau) pendant les alertes crues et inondation
+  const riverOf = (code) => (rivers && rivers.departments && rivers.departments[code]) || null;
+  let webcamsEnabled = false; // webcams proches des alertes (Windy), si le serveur a la clé
   let day = 0;              // 0 = aujourd'hui, 1 = demain, 2 = après-demain (prévision M-Alert)
   let selectedCode = null;  // département cliqué sur la carte
   const seen = new Set(M.storage.get('malert.seen', []));
@@ -1021,6 +1024,9 @@
         // Vagues-submersion : pleine mer mesurée par le marégraphe de l'UNESCO.
         const obs = !wind && !flood ? seaObs(r.department, 'surge') : '';
         if (obs) html.push(`<div class="tsu-obs">📡 ${escapeHtml(obs)}</div>`);
+        // Crues et inondations : hauteur d'eau mesurée (Hub'Eau), là où l'eau monte le plus.
+        const riv = flood ? M.riverObsText(riverOf(r.department), 1) : '';
+        if (riv) html.push(`<div class="tsu-obs">💧 ${escapeHtml(riv)}</div>`);
       }
     }
     html.push(`<div class="tsu-note">${flood
@@ -1111,6 +1117,8 @@
     $('ovTest').classList.toggle('hidden', !alert.test);
     $('ovTime').textContent = M.formatDateTime(alert.createdAt) + (alert.updatedAt ? ` · modifiée ${M.formatTime(alert.updatedAt)}` : '') + ` · ${M.sourceLabel(alert)}`;
     renderTsunamiBoard(alert);
+    renderRivers(alert);
+    resetCams(alert);
     $('ovTitle').textContent = alert.title;
     $('ovDeps').textContent = M.departmentsLabel(alert.departments, 8);
     // Tremblement de terre : intensité (shindo), magnitude et épicentre.
@@ -1159,6 +1167,87 @@
     $('ovAck').focus({ preventScroll: true });
     ov.querySelector('.alert-banner').scrollTop = 0;
     ov.querySelector('.alert-body').classList.remove('expanded');
+  }
+
+  /**
+   * Crues, pluie-inondation, inondation sans tableau de prévision : hauteurs d'eau mesurées
+   * (Hub'Eau) dans les départements de l'alerte, les miens d'abord.
+   */
+  function renderRivers(alert) {
+    const el = $('ovRivers');
+    const hasBoard = alert.forecastTable && Array.isArray(alert.forecastTable.rows) && alert.forecastTable.rows.length;
+    const mine = shownMine();
+    const deps = M.isFloodAlert(alert) && !hasBoard
+      ? [...(alert.departments || [])].sort((a, b) => Number(mine.includes(b)) - Number(mine.includes(a))) : [];
+    const lines = [];
+    for (const d of deps) {
+      const r = riverOf(d);
+      // Une station par élément (texte traduit à part dans les autres langues).
+      const sts = r && Array.isArray(r.stations) ? r.stations.slice(0, mine.includes(d) ? 2 : 1).map(M.riverStationText).filter(Boolean) : [];
+      if (sts.length) lines.push(`<div class="riv-line${mine.includes(d) ? ' mine' : ''}"><b>${escapeHtml(M.departmentName(d).replace(/ \(\w+\)$/, ''))}</b> ${sts.map((t) => `<span>${escapeHtml(t)}</span>`).join(' · ')}</div>`);
+      if (lines.length >= 4) break;
+    }
+    el.classList.toggle('hidden', !lines.length);
+    el.innerHTML = lines.length ? `<div class="riv-title">💧 Hauteurs d'eau mesurées <small>Hub'Eau · Vigicrues</small></div>${lines.join('')}` : '';
+  }
+
+  // ---------- Webcams de la zone (Windy) ----------
+
+  let camsFor = null;
+  /** Nouvelle alerte en bannière : bouton « Webcams de la zone », images pas encore chargées. */
+  function resetCams(alert) {
+    const ok = webcamsEnabled && !alert.__notice && (alert.departments || []).length + (alert.epicenter ? 1 : 0) > 0;
+    $('ovCamsWrap').classList.toggle('hidden', !ok);
+    if (camsFor === (alert.id || alert.title)) return;
+    camsFor = alert.id || alert.title;
+    $('ovCams').classList.add('hidden');
+    $('ovCams').innerHTML = '';
+    $('ovCamsBtn').disabled = false;
+    $('ovCamsBtn').textContent = '📷 Webcams de la zone';
+  }
+  async function loadCams() {
+    const alert = current;
+    if (!alert) return;
+    const server = M.normalizeServerUrl(settings.serverUrl);
+    const mine = shownMine().filter((d) => (alert.departments || []).includes(d));
+    const q = new URLSearchParams();
+    // Vigilance Météo-France (pas une alerte du serveur) : recherche par départements.
+    if (alert.__vig || !alert.id) {
+      q.set('deps', [...new Set([...mine, ...(alert.departments || [])])].slice(0, 5).join(','));
+      q.set('kind', M.webcamKind(alert));
+    } else {
+      q.set('alert', alert.id);
+      if (mine.length) q.set('deps', mine.join(','));
+    }
+    const box = $('ovCams');
+    $('ovCamsBtn').disabled = true;
+    $('ovCamsBtn').textContent = '📷 Chargement…';
+    try {
+      const res = await fetch(`${server}/api/webcams?${q}`);
+      const data = await res.json();
+      if (current !== alert) return;
+      const list = Array.isArray(data.webcams) ? data.webcams : [];
+      const ago = (t) => {
+        const m = Math.round((Date.now() - Date.parse(t)) / 60000);
+        return !Number.isFinite(m) ? '' : m < 60 ? `il y a ${Math.max(1, m)} min` : m < 48 * 60 ? `il y a ${Math.round(m / 60)} h` : '';
+      };
+      box.innerHTML = list.length
+        ? `<div class="cams-strip">${list.map((w) => `<a class="cam" href="${escapeHtml(w.day || w.detail)}" target="_blank" rel="noopener" title="${escapeHtml(w.title)}">
+            <img src="${escapeHtml(w.preview)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+            <span class="cam-t">${escapeHtml(w.title)}</span>
+            <span class="cam-s">${[typeof w.km === 'number' ? `${Math.round(w.km)} km` : '', ago(w.updatedAt), w.live ? 'direct' : ''].filter(Boolean).map((x, i, arr) => (x === 'direct' ? '<b>direct</b>' : `<span>${escapeHtml(x)}</span>`)).join(' · ')}</span>
+          </a>`).join('')}</div>
+          <div class="cams-credit"><span>Images en direct ou récentes</span> · <a href="${escapeHtml((data.credit && data.credit.url) || 'https://www.windy.com/webcams')}" target="_blank" rel="noopener">${escapeHtml((data.credit && data.credit.text) || 'Webcams : Windy.com')}</a></div>`
+        : `<div class="cams-credit">${escapeHtml(data.error ? `Webcams indisponibles (${data.error}).` : 'Aucune webcam trouvée près de la zone.')}</div>`;
+      box.classList.remove('hidden');
+      $('ovCamsBtn').textContent = list.length ? `📷 ${list.length} webcam(s) de la zone` : '📷 Webcams de la zone';
+    } catch (_) {
+      if (current !== alert) return;
+      box.innerHTML = '<div class="cams-credit">Webcams indisponibles (serveur injoignable).</div>';
+      box.classList.remove('hidden');
+      $('ovCamsBtn').textContent = '📷 Webcams de la zone';
+    }
+    $('ovCamsBtn').disabled = false;
   }
 
   /** Heures calmes en cours (réglages) ? */
@@ -1222,6 +1311,15 @@
   }
 
   $('ovAck').addEventListener('click', acknowledge);
+  $('ovCamsBtn').addEventListener('click', loadCams);
+  // Webcam : lecteur Windy (images de la journée) dans le navigateur du téléphone ou de l'ordinateur.
+  $('ovCams').addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    const mob = window.MAlertMobile;
+    if (!a || native || !mob || !mob.openUrl) return;
+    e.preventDefault();
+    mob.openUrl(a.href).catch(() => {});
+  });
   // Bannière : un clic sur le texte l'affiche en entier (description et consignes).
   // Consignes : affichées sous la description, le bandeau défile jusqu'à elles (le tableau reste visible).
   document.querySelector('#alertOverlay .alert-body').addEventListener('click', (e) => {
@@ -1492,10 +1590,16 @@
         sealevel = msg.sealevel || null;
         if (current && !current.__notice) renderTsunamiBoard(current);
         break;
+      case 'rivers':
+        rivers = msg.rivers || null;
+        if (current && !current.__notice) { renderTsunamiBoard(current); renderRivers(current); }
+        break;
       case 'hello': {
         const old = vigilance;
         vigilance = msg.vigilance;
         sealevel = msg.sealevel || null;
+        rivers = msg.rivers || null;
+        webcamsEnabled = Boolean(msg.webcams && msg.webcams.enabled);
         alerts = (msg.alerts || []).filter(M.isActive);
         renderAll();
         checkVigilanceChange(old, vigilance);

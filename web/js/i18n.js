@@ -37,6 +37,14 @@
     'Après-demain : prévision M-Alert pas encore disponible.': ['Day after tomorrow: M-Alert forecast not yet available.', 'Übermorgen: M-Alert-Vorhersage noch nicht verfügbar.', 'Pasado mañana: previsión de M-Alert aún no disponible.'],
     'Département coloré : alerte M-Alert en cours. Côte colorée : alerte tsunami ou vagues-submersion. ✕ : épicentre d\'un tremblement de terre. Contour pointillé : vos départements.': ['Coloured department: current M-Alert alert. Coloured coast: tsunami or coastal flooding alert. ✕: earthquake epicentre. Dotted outline: your departments.', 'Farbiges Département: aktuelle M-Alert-Warnung. Farbige Küste: Tsunami- oder Sturmflutwarnung. ✕: Epizentrum eines Erdbebens. Gepunkteter Umriss: Ihre Départements.', 'Departamento coloreado: alerta de M-Alert en curso. Costa coloreada: alerta de tsunami u oleaje-inundación. ✕: epicentro de un terremoto. Contorno punteado: sus departamentos.'],
     'Mon département': ['My department', 'Mein Département', 'Mi departamento'],
+    "Hauteurs d'eau mesurées": ['Measured water levels', 'Gemessene Wasserstände', 'Niveles de agua medidos'],
+    'Webcams de la zone': ['Webcams in the area', 'Webcams in der Region', 'Webcams de la zona'],
+    'Chargement…': ['Loading…', 'Wird geladen…', 'Cargando…'],
+    'Images en direct ou récentes': ['Live or recent images', 'Live- oder aktuelle Bilder', 'Imágenes en directo o recientes'],
+    'Aucune webcam trouvée près de la zone.': ['No webcam found near the area.', 'Keine Webcam in der Nähe gefunden.', 'No se ha encontrado ninguna webcam cerca de la zona.'],
+    'Webcams indisponibles (serveur injoignable).': ['Webcams unavailable (server unreachable).', 'Webcams nicht verfügbar (Server nicht erreichbar).', 'Webcams no disponibles (servidor inaccesible).'],
+    'direct': ['live', 'live', 'en directo'],
+    'stable': ['steady', 'stabil', 'estable'],
     'Département sélectionné': ['Selected department', 'Ausgewähltes Département', 'Departamento seleccionado'],
     'Suivre aussi': ['Follow too', 'Auch folgen', 'Seguir también'],
     'Ne plus suivre': ['Unfollow', 'Nicht mehr folgen', 'Dejar de seguir'],
@@ -298,6 +306,10 @@
     [/^(.+) : Séisme$/, { en: '$1: Earthquake', de: '$1: Erdbeben', es: '$1: Terremoto' }],
     [/^à l'instant · jusqu'à (.+)$/, { en: 'just now · until $1', de: 'gerade eben · bis $1', es: 'ahora mismo · hasta $1' }],
     [/^à l'instant$/, { en: 'just now', de: 'gerade eben', es: 'ahora mismo' }],
+    [/^(\d+) webcam\(s\) de la zone$/, { en: '$1 webcam(s) in the area', de: '$1 Webcam(s) in der Region', es: '$1 webcam(s) de la zona' }],
+    [/^Webcams indisponibles \((.+)\)\.$/, { en: 'Webcams unavailable ($1).', de: 'Webcams nicht verfügbar ($1).', es: 'Webcams no disponibles ($1).' }],
+    // Hauteur d'eau d'une station (Hub'Eau) : « La Loire à Tours 90 cm (+2 cm en 6 h), 22 h 00 ».
+    [/^(.+) \(([^()]+) en (\d+) h\), (\d+) h (\d+)$/, { en: '$1 ($2 in $3 h), $4:$5', de: '$1 ($2 in $3 Std.), $4:$5 Uhr', es: '$1 ($2 en $3 h), $4:$5' }],
   ];
 
   // Partie traduisible d'un texte : sans les espaces, emojis ou symboles du début et de la fin.

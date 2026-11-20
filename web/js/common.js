@@ -377,6 +377,34 @@
   }
 
   /**
+   * Hauteur d'eau d'une station (Hub'Eau, rivers.departments[code].stations[i]) :
+   * « La Loire à Tours 3,24 m (+42 cm en 6 h, 14 h 30) », ou ''.
+   */
+  function riverStationText(st) {
+    if (!st || typeof st.h !== 'number') return '';
+    const rise = typeof st.rise === 'number'
+      ? ` (${st.rise === 0 ? 'stable' : `${heightText(st.rise, { sign: true, digits: 2 })}`} en ${st.hours || 6} h)` : '';
+    return `${st.name} ${heightText(st.h, { digits: 2 })}${rise}, ${formatTime(st.at).replace(':', ' h ')}`;
+  }
+  /** Stations d'un département (les max premières, celles où l'eau monte le plus), ou ''. */
+  function riverObsText(dep, max = 1) {
+    if (!dep || !Array.isArray(dep.stations)) return '';
+    return dep.stations.slice(0, max).map(riverStationText).filter(Boolean).join(' · ');
+  }
+  /** Crues, pluie-inondation ou inondation : hauteurs d'eau mesurées (Hub'Eau). */
+  const RIVER_PHENOMENA = [2, 4, 12];
+  function isFloodAlert(a) {
+    return Boolean(a) && (a.category || 'meteo') === 'meteo' && RIVER_PHENOMENA.includes(Number(a.phenomenon));
+  }
+  /** Genre de webcams pour une alerte : 'coast', 'water' ou 'any'. */
+  function webcamKind(a) {
+    if (!a) return 'any';
+    if (a.category === 'tsunami') return 'coast';
+    if ((a.category || 'meteo') === 'meteo' && [9, 16].includes(Number(a.phenomenon))) return 'coast';
+    return isFloodAlert(a) ? 'water' : 'any';
+  }
+
+  /**
    * Heure d'arrivée du tsunami corrigée par les marégraphes pour un département de l'alerte :
    * { at, measured } (measured : arrivée vue par le marégraphe), ou null.
    */
@@ -632,7 +660,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, seaObsText, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, seaObsText, riverStationText, riverObsText, isFloodAlert, webcamKind, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
     TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,
     departmentList, departmentName, departmentsLabel, isActive,
