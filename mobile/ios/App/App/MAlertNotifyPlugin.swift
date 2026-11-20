@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import UserNotifications
+import Security
 
 /// Notifications d'alerte M-Alert sur iOS (appelées par la page, voir mobile/mobile.js).
 ///
@@ -19,6 +20,8 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
         CAPPluginMethod(name: "openUrl", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveBackup", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "loadBackup", returnType: CAPPluginReturnPromise),
     ]
 
     override public func load() {
@@ -97,6 +100,48 @@ public class MAlertNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotification
         DispatchQueue.main.async {
             let l = AlertListener.shared
             call.resolve(["running": l.running, "connected": l.connected, "location": l.locationState])
+        }
+    }
+
+    // Copie des réglages dans le trousseau iOS : elle reste après la suppression de l'application
+    // (réinstallation par Feather, AltStore, Sideloadly…) si la nouvelle copie est signée par le
+    // même compte (même identifiant d'équipe), et les réglages sont rétablis au premier lancement.
+    private static let backupService = "fr.malert.app.backup"
+    private static let backupAccount = "settings"
+
+    private static func backupQuery() -> [String: Any] {
+        return [kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: backupService,
+                kSecAttrAccount as String: backupAccount]
+    }
+
+    @objc func saveBackup(_ call: CAPPluginCall) {
+        guard let text = call.getString("data"), let data = text.data(using: .utf8), data.count < 200_000 else {
+            call.reject("réglages absents ou trop grands")
+            return
+        }
+        let q = MAlertNotifyPlugin.backupQuery()
+        let attrs: [String: Any] = [kSecValueData as String: data,
+                                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
+        var status = SecItemUpdate(q as CFDictionary, attrs as CFDictionary)
+        if status == errSecItemNotFound {
+            var add = q
+            add.merge(attrs) { _, new in new }
+            status = SecItemAdd(add as CFDictionary, nil)
+        }
+        if status == errSecSuccess { call.resolve() } else { call.reject("trousseau : erreur \(status)") }
+    }
+
+    @objc func loadBackup(_ call: CAPPluginCall) {
+        var q = MAlertNotifyPlugin.backupQuery()
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching(q as CFDictionary, &out)
+        if status == errSecSuccess, let data = out as? Data, let text = String(data: data, encoding: .utf8) {
+            call.resolve(["data": text])
+        } else {
+            call.resolve([:])
         }
     }
 

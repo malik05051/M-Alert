@@ -117,7 +117,7 @@ jobs:
           IFS=. read -r a b c <<< "$V"
           cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            MARKETING_VERSION="$V" CURRENT_PROJECT_VERSION="$((a*10000+b*100+${c%%[^0-9]*}))" \
+            MARKETING_VERSION="$V" CURRENT_PROJECT_VERSION="$((a*10000+b*100+${c%%[^0-9]*})).${GITHUB_RUN_NUMBER}" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
           mkdir -p Payload ../../out && cp -R build/Build/Products/Release-iphoneos/App.app Payload/
           zip -qry "../../out/M-Alert-$V-non-signe.ipa" Payload

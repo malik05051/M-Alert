@@ -248,6 +248,17 @@
         </label>
       </fieldset>
 
+      <fieldset>
+        <legend>Sauvegarde des réglages</legend>
+        <p class="muted small" style="margin:0 0 6px">Pour retrouver vos réglages après une réinstallation ou sur un autre appareil : exportez-les (code copié), puis importez ce code. Sur iPhone, ils sont aussi gardés dans le trousseau et rétablis tout seuls si l'application réinstallée est signée par le même compte.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn small" id="btnExport">📤 Exporter les réglages</button>
+          <button type="button" class="btn small ghost" id="btnImport">📥 Importer des réglages</button>
+        </div>
+        <textarea id="setBackupCode" class="hidden" rows="3" spellcheck="false" style="width:100%;margin-top:6px;font-size:11px"></textarea>
+        <p class="small" id="setBackupState"></p>
+      </fieldset>
+
       <footer>
         <button type="button" class="btn ghost" id="btnTest">Tester une alerte</button>
         <span class="spacer"></span>

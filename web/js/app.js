@@ -1905,6 +1905,54 @@
       + `<optgroup label="Tous les fuseaux">${M.allTimeZones().filter((id) => !main.includes(id)).map((id) => opt(id, id.replace(/_/g, ' '))).join('')}</optgroup>`;
   }
 
+  // ---------- Sauvegarde des réglages (code à copier, puis à importer) ----------
+
+  const BACKUP_PREFIX = 'MALERT1:';
+  function backupState(text, ok = true) {
+    $('setBackupState').textContent = text;
+    $('setBackupState').style.color = ok ? 'var(--ok)' : 'var(--err)';
+  }
+  $('btnExport').addEventListener('click', async () => {
+    const data = { settings, timezone: M.chosenTimeZone() || '' };
+    const code = BACKUP_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+    const box = $('setBackupCode');
+    box.value = code;
+    box.readOnly = true;
+    box.classList.remove('hidden');
+    box.select();
+    try {
+      await navigator.clipboard.writeText(code);
+      backupState('Code copié : gardez-le (notes, message à vous-même) et collez-le dans « Importer » après la réinstallation.');
+    } catch (_) {
+      backupState('Copiez ce code (sélectionné) et gardez-le : collez-le dans « Importer » après la réinstallation.');
+    }
+  });
+  $('btnImport').addEventListener('click', () => {
+    const box = $('setBackupCode');
+    if (box.classList.contains('hidden') || box.readOnly) {
+      box.value = '';
+      box.readOnly = false;
+      box.placeholder = 'Collez ici le code exporté (MALERT1:…), puis touchez à nouveau « Importer des réglages ».';
+      box.classList.remove('hidden');
+      box.focus();
+      backupState('');
+      return;
+    }
+    try {
+      const raw = box.value.trim();
+      if (!raw.startsWith(BACKUP_PREFIX)) throw new Error('code');
+      const data = JSON.parse(decodeURIComponent(escape(atob(raw.slice(BACKUP_PREFIX.length)))));
+      if (!data || typeof data.settings !== 'object') throw new Error('code');
+      settings = { ...DEFAULTS, ...data.settings };
+      saveSettings();
+      if (typeof data.timezone === 'string') M.setTimeZone(data.timezone);
+      backupState('Réglages importés : l\'application redémarre…');
+      setTimeout(() => location.reload(), 800);
+    } catch (_) {
+      backupState('Code invalide : collez le code complet, qui commence par MALERT1:', false);
+    }
+  });
+
   async function openSettings({ welcome = false } = {}) {
     fillTimeZones();
     $('setTimeZone').value = M.chosenTimeZone();
