@@ -1333,7 +1333,8 @@
         tag: alert.id, urgent: alert.level >= 3 || Boolean(alert.mobileAlert), level: alert.level,
         parts: quake && quake.parts.map((p) => ({ title: `${prefix}${p.title}`, body: p.body })),
         // Alerte mobile demandée dans M-Alert-sender : son d'alerte mobile, quel que soit le niveau.
-        sound: alert.mobileAlert ? 'alerte-mobile' : null,
+        // Son choisi dans M-Alert-sender, sinon alerte mobile demandée : son d'alerte mobile.
+        sound: alert.sound || (alert.mobileAlert ? 'alerte-mobile' : null),
       },
     );
     if (native) native.alert({ level: alert.level, front: settings.front });

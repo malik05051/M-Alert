@@ -199,8 +199,11 @@
   /** Alerte du bandeau : la dernière reçue (ou mise à jour) parmi celles qui doivent l'être. */
   function current() {
     const list = alerts.filter(wanted).sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
-    return list[0] || null;
+    // Alerte montrée depuis M-Alert-sender (« 🎥 Afficher dans OBS ») : en tête jusqu'à la suivante.
+    return (forcedId && list.find((a) => a.id === forcedId)) || list[0] || null;
   }
+  let forcedId = null;
+  const forcedFirst = (x, y) => (forcedId ? (y.id === forcedId) - (x.id === forcedId) : 0);
 
   // Dernière alerte reçue (en cours ou terminée) : bandeau et texte affichés à la main quand aucune
   // alerte n'est en cours.
@@ -679,7 +682,7 @@
     // côte : la vigilance orange passe avant les alertes jaunes plus récentes), puis la plus récente.
     const coastTop = (x) => Math.max(x.level || 0, ...Object.values(B.coastLevelsOf ? B.coastLevelsOf(x) : {}));
     const coastList = alerts.filter(wanted).filter(isCoast)
-      .sort((x, y) => ((y.id === coastPinned) - (x.id === coastPinned)) || ((y.category === 'tsunami') - (x.category === 'tsunami'))
+      .sort((x, y) => forcedFirst(x, y) || ((y.id === coastPinned) - (x.id === coastPinned)) || ((y.category === 'tsunami') - (x.category === 'tsunami'))
         || (coastTop(y) - coastTop(x)) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     const lastCoast = isCoast(lastAlert) ? lastAlert : null;
     const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
@@ -688,7 +691,7 @@
     if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
     // Alerte missile : écran plein, puis bloc en bas (pas de bandeau ni d'écran réduit pour elle).
     const missiles = alerts.filter(wanted).filter((x) => x.category === 'missile')
-      .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+      .sort((x, y) => forcedFirst(x, y) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     // Toutes les alertes missile en cours sont affichées ensemble (niveaux différents).
     const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
     const missileList = manualMissile === false ? [] : missiles.length ? missiles
@@ -749,7 +752,7 @@
     if (tableOn) renderCoastTable(coastAny);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
     const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')
-      .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
+      .sort((x, y) => forcedFirst(x, y) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     const quake = quakes[0] || null;
     const quakeAny = quake || (lastAlert && lastAlert.category === 'seisme' ? lastAlert : null);
     const quakeRecent = quake && (hold === 0 || Date.now() - Date.parse(quake.updatedAt || quake.createdAt) < hold * 1000 || phase > 0);
@@ -760,12 +763,16 @@
     if (eewOn) renderEew(manualEew === true ? quakeAny : quake);
     // Intensités du séisme en cours (ou du dernier) : plein écran, écran réduit ou mini.
     // Séisme choisi dans M-Alert-sender, sinon celui en cours (ou le dernier).
-    const mapQuake = shindoQuake || quakeAny;
+    // Séisme choisi dans M-Alert-sender : sa version à jour s'il est encore en cours (magnitude,
+    // épicentre et intensités corrigés après coup, intensités PLUM), sinon celle reçue du sender.
+    const liveChosen = shindoQuake && alerts.find((x) => x.id === shindoQuake.id && x.category === 'seisme');
+    const mapQuake = liveChosen || shindoQuake || quakeAny;
     const smode = mapQuake ? shindoMode : null;
     for (const m of ['full', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
     if (smode) {
       // Terre verte, puis brune une fois le « Rapport final » affiché (comme la NHK).
-      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}:${epicenterOn}`;
+      // Redessinée à chaque changement : révision, magnitude, profondeur, épicentre, intensités.
+      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${mapQuake.magnitude}:${mapQuake.depth}:${mapQuake.shindo}:${JSON.stringify(mapQuake.epicenter || null)}:${JSON.stringify(mapQuake.intensities || {})}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}:${epicenterOn}`;
       if (sk !== shindoKey) {
         B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn, epicenter: epicenterOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn, epicenter: epicenterOn });
         shindoKey = sk;
@@ -781,6 +788,7 @@
 
   function arrived(a) {
     if (!wanted(a)) return;
+    if (a.id !== forcedId) forcedId = null; // nouvelle alerte : elle passe devant celle montrée à la main
     // Séisme : « Alerte de tremblement de terre » en haut pendant 3 secondes.
     if (a.category === 'seisme' && !fondLayer && !bannerLayer) {
       document.body.classList.add('show-quake-top');
@@ -835,6 +843,19 @@
         arrived(msg.alert);
         remember(msg.alert);
         break;
+      case 'obs-show': {
+        // Alerte existante montrée depuis M-Alert-sender : rejouée comme à son arrivée (bandeau, carte
+        // des côtes, panneau du séisme, écran du missile…), en tête jusqu'à la prochaine alerte.
+        const a = msg.alert;
+        if (!a || !M.isActive(a)) break;
+        alerts = alerts.filter((x) => x.id !== a.id).concat(a);
+        forcedId = a.id;
+        if (isCoast(a)) coastId = null; // carte plein écran à nouveau
+        if (a.category === 'missile') missileId = null;
+        remember(a);
+        arrived(a);
+        break;
+      }
       case 'update': {
         // Départements ajoutés : clignotants sur la carte du bandeau, noms en jaune, annoncés en haut.
         const before = alerts.find((x) => x.id === msg.alert.id) || (lastAlert && lastAlert.id === msg.alert.id ? lastAlert : null);
@@ -847,6 +868,8 @@
         alerts = alerts.filter((x) => x.id !== msg.alert.id);
         if (M.isActive(msg.alert)) alerts.push(msg.alert);
         if (lastAlert && lastAlert.id === msg.alert.id) lastAlert = msg.alert;
+        // Séisme montré dans les intensités : ses nouvelles valeurs (même s'il n'est plus en cours).
+        if (shindoQuake && shindoQuake.id === msg.alert.id && msg.alert.category === 'seisme') shindoQuake = { ...msg.alert };
         // Séisme : le bandeau ne revient que pour des départements ajoutés (pas pour la magnitude ou
         // les intensités recalculées).
         if (msg.alert.id === shownId && (msg.alert.category !== 'seisme' || added.length)) shownAt = Date.now();

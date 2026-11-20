@@ -945,18 +945,16 @@
     const t = new Date(a.originTime || a.createdAt || Date.now());
     const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
     const when = `Le ${day} vers ${hourOf(t.toISOString())}`;
-    const mag = typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? frNum(a.magnitude) : '';
+    // Magnitude « M5.7 » en un seul texte (comme la NHK et le reste de M-Alert), jaune plein cerné de sombre.
+    const mag = typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? `M${a.magnitude.toFixed(1)}` : '';
     const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
     const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
     const fs = Math.round(th * 0.62);
+    const mfs = Math.round(th * 0.7);
     ctx.font = `700 ${fs}px ${FONTS}`;
     const ww = ctx.measureText(when).width + th * 0.9;
-    let mw = 0;
-    if (mag) {
-      ctx.font = `800 ${Math.round(fs * 0.8)}px ${FONTS}`; mw = ctx.measureText('M').width;
-      ctx.font = `900 ${Math.round(fs * 1.12)}px ${FONTS}`; mw += ctx.measureText(mag).width + th * 0.25;
-      mw += th * 0.9;
-    }
+    ctx.font = `900 ${mfs}px ${FONTS}`;
+    const mw = mag ? ctx.measureText(mag).width + th * 0.9 : 0;
     const total = Math.min(W - tx - pad, ww + mw);
     const cellW = mag ? Math.max(0, total - mw) : total;
     const grd = ctx.createLinearGradient(0, pad, 0, pad + th);
@@ -970,15 +968,17 @@
     ctx.fillText(when, tx + th * 0.45, pad + th / 2 + 1, cellW - th * 0.9);
     if (mag) {
       const mx = tx + cellW;
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
       ctx.strokeRect(mx, pad, total - cellW, th);
-      ctx.fillStyle = '#ffe600'; ctx.textBaseline = 'alphabetic';
-      const base = pad + th / 2 + fs * 0.42;
-      ctx.font = `800 ${Math.round(fs * 0.8)}px ${FONTS}`;
-      const x0 = mx + th * 0.45;
-      ctx.fillText('M', x0, base);
-      const x1 = x0 + ctx.measureText('M').width + th * 0.1;
-      ctx.font = `900 ${Math.round(fs * 1.12)}px ${FONTS}`;
-      ctx.fillText(mag, x1, base + fs * 0.06);
+      ctx.font = `900 ${mfs}px ${FONTS}`;
+      ctx.textAlign = 'center';
+      const cx = mx + (total - cellW) / 2; const cy = pad + th / 2 + 1;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0b1a4a'; ctx.lineWidth = Math.max(2, mfs * 0.16);
+      ctx.strokeText(mag, cx, cy, total - cellW - th * 0.5);
+      ctx.fillStyle = '#ffe600';
+      ctx.fillText(mag, cx, cy, total - cellW - th * 0.5);
+      ctx.textAlign = 'left';
     }
     return canvas;
   }

@@ -371,10 +371,13 @@ enum AlertNotifier {
         }
         // Alerte mobile demandée dans M-Alert-sender : urgente avec le son d'alerte mobile, quel que soit le niveau.
         let mobile = a["mobileAlert"] as? Bool == true
+        // Son choisi dans M-Alert-sender : seule l'alerte mobile est embarquée (alerte-mobile.caf) ;
+        // un autre son choisi donne le son par défaut d'iOS.
+        let chosen = (a["sound"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         postParts(id: id, parts: parts, level: level,
-                  timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && (level >= 3 || mobile),
+                  timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && (level >= 3 || mobile || chosen == "alerte-mobile"),
                   critical: false,
-                  alertSound: level >= 3 || mobile)
+                  alertSound: chosen.map { $0 == "alerte-mobile" } ?? (level >= 3 || mobile))
     }
 
     /// Notification de M-Alert qui déclenche l'alerte mobile (même identifiant que la page : pas de doublon).
