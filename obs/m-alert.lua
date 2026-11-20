@@ -21,7 +21,7 @@ obs = obslua
 
 local SOURCE_NAME = "M-Alert"
 -- Version de la page (adresse changée à chaque version : OBS ne garde pas l'ancienne en cache).
-local PAGE_VERSION = "3.1.1-3"
+local PAGE_VERSION = "3.1.1-4"
 local DEFAULT_BASE = "https://malik05051.github.io/M-Alert/obs/"
 -- Écran réduit (comme la NHK) : scène où OBS passe pendant une alerte, et sa source de fond.
 local ALERT_SCENE = "M-Alert (alerte)"
@@ -415,6 +415,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "shindofull", label = "Intensités en plein écran (réduites avec l'écran) : afficher / masquer" },
   { cmd = "shindomini", label = "Intensités en mini : afficher / masquer" },
   { cmd = "epicenter", label = "Épicentre sur la carte des intensités : afficher / masquer" },
+  { cmd = "magnitude", label = "Magnitude sur la carte des intensités : afficher / masquer" },
   { cmd = "notsunami", label = "« Aucun risque de tsunami » : afficher / masquer" },
   { cmd = "final", label = "« Rapport final » : afficher / masquer" },
 }

@@ -218,6 +218,9 @@ public class AlertService extends Service {
     private String soundOf(JSONObject a) {
         String cat = a.optString("category", "meteo");
         int level = a.optInt("level", 1);
+        // Son choisi dans M-Alert-sender (« seisme-eew2 » -> canal « alert_seisme_eew2 »).
+        String chosen = a.optString("sound", "").replace('-', '_');
+        for (String[] s : SOUNDS) if (s[0].equals(chosen)) return chosen;
         // Alerte mobile demandée dans M-Alert-sender : son d'alerte mobile, quel que soit le niveau.
         if (a.optBoolean("mobileAlert")) return "alerte_mobile";
         if ("seisme".equals(cat)) {
