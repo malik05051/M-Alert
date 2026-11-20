@@ -34,6 +34,7 @@
     quietMin: 4, // pendant les heures calmes : sonne dès ce niveau (9 : séismes et tsunamis seulement)
     tiles: false,
     lang: '', // langue de l'interface ('' : celle de l'appareil)
+    translateAlerts: true, // titre, description et consignes des alertes traduits (anglais, allemand, espagnol)
     notifLang1: '', // langues des notifications de séisme ('' : celle de l'interface)
     notifLang2: 'auto', // seconde langue ('auto' : anglais, ou français si la première est l'anglais ; 'none' : aucune)
     quakeMode: 'level', // séismes : 'level' (niveau de l'alerte), 'magnitude', 'intensity' (chez moi) ou 'either'
@@ -136,6 +137,21 @@
    * les alertes et les notifications restent les mêmes.
    */
   const streamer = () => Boolean(settings.streamer);
+  // Traduction automatique des alertes (titre, description, consignes), faite par le serveur dans la
+  // langue de l'application (anglais, allemand, espagnol) ; « Voir l'original » la retire pour une alerte.
+  const showOriginal = new Set();
+  function alertText(a) {
+    const lang = window.MAlertI18n && window.MAlertI18n.lang;
+    const t = a && lang && lang !== 'fr' && settings.translateAlerts !== false && a.i18n ? a.i18n[lang] : null;
+    const orig = Boolean(t) && showOriginal.has(a.id);
+    const use = t && !orig ? t : {};
+    return {
+      title: use.title || (a && a.title) || '',
+      description: use.description || (a && a.description) || '',
+      advice: use.advice || (a ? M.adviceFor(a) : ''),
+      translated: Boolean(t) && !orig, available: Boolean(t),
+    };
+  }
   const shownMine = () => (streamer() ? [] : myDepartments());
   document.documentElement.classList.toggle('streamer', streamer());
 
@@ -299,7 +315,7 @@
     html += phenRows(vig);
     if (vig && vig.manual) html += '<div class="tt-row">✎ Corrigé par M-Alert</div>';
     for (const a of al) {
-      html += `<div class="tt-row" style="margin-top:4px"><span class="tag" style="background:${LEVELS[a.level].color};color:${LEVELS[a.level].text}">${escapeHtml(M.alertLevelName(a))}</span>${escapeHtml(a.title)}</div>`;
+      html += `<div class="tt-row" style="margin-top:4px"><span class="tag" style="background:${LEVELS[a.level].color};color:${LEVELS[a.level].text}">${escapeHtml(M.alertLevelName(a))}</span>${escapeHtml(alertText(a).title)}</div>`;
     }
     return html;
   }
@@ -409,7 +425,7 @@
     const lv = LEVELS[a.level];
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) && !streamer() ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
-      <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(a.title)}</div>
+      <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(alertText(a).title)}</div>
       <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.pollutionSummary(a) ? ` · ${escapeHtml(M.pollutionSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${M.sourceShort(a) ? ` · ${escapeHtml(M.sourceShort(a))}` : ''}</div>
       ${mf && mf.length ? `<div class="m mf-line">${mfHtml(mf)}</div>` : ''}
@@ -704,7 +720,7 @@
     const kind = M.alertKind(a);
     const n = {
       id: `void-${a.id}`, __void: true, test: a.test, departments: a.departments, createdAt: a.voided.at,
-      title: `Annulation : ${a.title}`, phen: `${kind.icon} ${kind.name}`,
+      title: `Annulation : ${alertText(a).title}`, phen: `${kind.icon} ${kind.name}`,
       body: `${a.voided.reason}\n\nL'alerte « ${M.alertLevelLabel(a)} » envoyée ${M.formatDateTime(a.createdAt)} est annulée : vous pouvez reprendre vos activités normalement.`,
     };
     if (current && !current.__notice) {
@@ -793,6 +809,7 @@
     $('ovTest').classList.toggle('hidden', !n.test);
     $('ovTime').textContent = M.formatDateTime(n.createdAt);
     $('ovTitle').textContent = n.title;
+    $('ovTr').classList.add('hidden');
     $('ovDeps').textContent = M.departmentsLabel(n.departments, 8);
     $('ovEpi').classList.add('hidden');
     $('ovTsunami').classList.add('hidden'); // pas de tableau d'une alerte tsunami affichée avant
@@ -1119,7 +1136,7 @@
     renderTsunamiBoard(alert);
     renderRivers(alert);
     resetCams(alert);
-    $('ovTitle').textContent = alert.title;
+    renderOverlayText(alert);
     $('ovDeps').textContent = M.departmentsLabel(alert.departments, 8);
     // Tremblement de terre : intensité (shindo), magnitude et épicentre.
     const quake = [];
@@ -1157,16 +1174,26 @@
     if (mf && mf.length) quake.push(`<span class="mf-line">${mfHtml(mf)}</span>`);
     $('ovEpi').classList.toggle('hidden', !quake.length);
     $('ovEpi').innerHTML = quake.join(' ');
-    $('ovDesc').textContent = alert.description;
-    const advice = M.adviceFor(alert);
-    $('ovAdviceWrap').classList.toggle('hidden', !advice);
-    $('ovAdvice').textContent = advice || '';
     $('ovValid').textContent = alert.noEnd ? 'Sans date de fin : en vigueur jusqu\'à la levée de l\'alerte' : `Valable ${M.untilText(alert)}`;
     $('ovQueue').textContent = queue.length ? `+${queue.length} autre(s) alerte(s)` : '';
     $('ovMute').classList.toggle('hidden', Boolean(silent) || !settings.sound);
     $('ovAck').focus({ preventScroll: true });
     ov.querySelector('.alert-banner').scrollTop = 0;
     ov.querySelector('.alert-body').classList.remove('expanded');
+  }
+
+  /** Titre, description et consignes de la bannière (traduits si possible) et mention « Traduit… ». */
+  function renderOverlayText(alert) {
+    const tx = alert.__notice ? { title: alert.title, description: alert.description, advice: M.adviceFor(alert) } : alertText(alert);
+    $('ovTitle').textContent = tx.title;
+    $('ovDesc').textContent = tx.description;
+    $('ovAdviceWrap').classList.toggle('hidden', !tx.advice);
+    $('ovAdvice').textContent = tx.advice || '';
+    const tr = $('ovTr');
+    tr.classList.toggle('hidden', !tx.available);
+    tr.innerHTML = tx.available
+      ? (tx.translated ? '<span>🌐 Traduit automatiquement</span> · <u>Voir l\'original</u>' : '<span>🌐 Texte original</span> · <u>Voir la traduction</u>')
+      : '';
   }
 
   /**
@@ -1311,6 +1338,12 @@
   }
 
   $('ovAck').addEventListener('click', acknowledge);
+  $('ovTr').addEventListener('click', () => {
+    if (!current || !current.id) return;
+    if (showOriginal.has(current.id)) showOriginal.delete(current.id); else showOriginal.add(current.id);
+    renderOverlayText(current);
+    renderAll();
+  });
   $('ovCamsBtn').addEventListener('click', loadCams);
   // Webcam : lecteur Windy (images de la journée) dans le navigateur du téléphone ou de l'ordinateur.
   $('ovCams').addEventListener('click', (e) => {
@@ -1409,7 +1442,7 @@
     if (!matchesMe(alert)) {
       markSeen(alert.id);
       const lv = LEVELS[alert.level];
-      toast(`${M.specialLevel(alert) ? M.alertLevelLabel(alert) : `Nouvelle alerte ${lv.name.toLowerCase()}`} : ${alert.title}`, M.departmentsLabel(alert.departments, 3), lv.color, () => {
+      toast(`${M.specialLevel(alert) ? M.alertLevelLabel(alert) : `Nouvelle alerte ${lv.name.toLowerCase()}`} : ${alertText(alert).title}`, M.departmentsLabel(alert.departments, 3), lv.color, () => {
         focusAlert(alert);
         showOverlay(alert, { silent: true });
       });
@@ -1437,8 +1470,8 @@
       ? window.MAlertI18n.quakeNotification(alert, { place: quakePlace(alert), local: myQuakeIntensity(alert) }, settings)
       : null;
     systemNotification(
-      quake ? `${prefix}${quake.title}` : `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alert.title}`,
-      quake ? quake.body : `${M.departmentsLabel(alert.departments, 3)}\n${alert.description}`,
+      quake ? `${prefix}${quake.title}` : `${prefix}${M.alertKind(alert).icon} ${M.alertLevelLabel(alert)} — ${alertText(alert).title}`,
+      quake ? quake.body : `${M.departmentsLabel(alert.departments, 3)}\n${alertText(alert).description}`,
       {
         tag: alert.id, urgent: alert.level >= 3 || Boolean(alert.mobileAlert), level: alert.level,
         parts: quake && quake.parts.map((p) => ({ title: `${prefix}${p.title}`, body: p.body })),
@@ -1484,12 +1517,12 @@
       else acknowledge();
     }
     if (concernedNow) {
-      toast(`Alerte modifiée : ${alert.title}`, M.departmentsLabel(alert.departments, 3), lv.color, () => {
+      toast(`Alerte modifiée : ${alertText(alert).title}`, M.departmentsLabel(alert.departments, 3), lv.color, () => {
         focusAlert(alert);
         showOverlay(alert, { silent: true });
       });
     } else if (concernedBefore) {
-      toast(`Vos départements ne sont plus concernés : ${alert.title}`, M.departmentsLabel(alert.departments, 3), '#34d399');
+      toast(`Vos départements ne sont plus concernés : ${alertText(alert).title}`, M.departmentsLabel(alert.departments, 3), '#34d399');
     }
   }
 
@@ -1590,6 +1623,14 @@
         sealevel = msg.sealevel || null;
         if (current && !current.__notice) renderTsunamiBoard(current);
         break;
+      case 'alert-i18n': {
+        // Traduction arrivée après l'alerte : textes mis à jour, sans nouvelle notification.
+        for (const a of alerts) if (a.id === msg.id) a.i18n = msg.i18n;
+        for (const a of queue) if (a.id === msg.id) a.i18n = msg.i18n;
+        if (current && current.id === msg.id) { current.i18n = msg.i18n; renderOverlayText(current); }
+        renderAll();
+        break;
+      }
       case 'rivers':
         rivers = msg.rivers || null;
         if (current && !current.__notice) { renderTsunamiBoard(current); renderRivers(current); }
@@ -1664,7 +1705,7 @@
           break;
         }
         if (had && isMine(a) && !a.silent) {
-          toast(msg.type === 'cancel' ? `Alerte levée : ${a.title}` : `Fin de l'alerte : ${a.title}`, M.departmentsLabel(a.departments, 3), '#34d399');
+          toast(msg.type === 'cancel' ? `Alerte levée : ${alertText(a).title}` : `Fin de l'alerte : ${alertText(a).title}`, M.departmentsLabel(a.departments, 3), '#34d399');
         }
         break;
       }
@@ -1881,6 +1922,7 @@
     $('setQuakeShindo').value = String(settings.quakeShindo || '3');
     showQuakeFields();
     $('setLang').value = settings.lang || '';
+    $('setTranslate').checked = settings.translateAlerts !== false;
     $('setNotifLang1').value = settings.notifLang1 || '';
     $('setNotifLang2').value = settings.notifLang2 || 'auto';
     $('setTimeSensitive').checked = settings.timeSensitive !== false;
@@ -1972,6 +2014,7 @@
       quakeMag: Number($('setQuakeMag').value),
       quakeShindo: $('setQuakeShindo').value,
       lang: $('setLang').value,
+      translateAlerts: $('setTranslate').checked,
       notifLang1: $('setNotifLang1').value,
       notifLang2: $('setNotifLang2').value,
       timeSensitive: $('setTimeSensitive').checked,

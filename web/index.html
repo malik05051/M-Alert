@@ -77,6 +77,7 @@
         <span class="alert-time" id="ovTime"></span>
       </div>
       <h1 id="ovTitle"></h1>
+      <button type="button" class="tr-note hidden" id="ovTr"></button>
       <p class="alert-deps" id="ovDeps"></p>
       <p class="alert-epi hidden" id="ovEpi"></p>
       <p class="alert-waves hidden" id="ovWaves" aria-live="off"></p>
@@ -226,8 +227,8 @@
         <legend>Application</legend>
         <label class="field">Langue de l'application
           <select id="setLang" data-no-i18n></select>
-          <span class="muted small">Les textes des alertes rédigés par M-Alert restent en français.</span>
         </label>
+        <label class="check"><input type="checkbox" id="setTranslate"> Traduire automatiquement les alertes (titre, description, consignes) dans la langue de l'application : anglais, allemand ou espagnol (traduction automatique, « Voir l'original » dans la bannière)</label>
         <label class="check"><input type="checkbox" id="setStreamer"> Mode streamer : mon département n'apparaît pas à l'écran (carte, « Mon département », 📍, intensité « chez vous ») ; dans ces réglages, il est flouté (survolez-le pour le voir)</label>
         <label class="check"><input type="checkbox" id="setTiles"> Fond de carte détaillé (villes, routes)</label>
         <label class="check"><input type="checkbox" id="setVigList"> Afficher les vigilances Météo-France (jaune, orange, rouge) dans « Alertes en cours »</label>
