@@ -241,6 +241,16 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             if wanted(a) { AlertNotifier.notifyCancel(a, settings: settings) }
             return
         }
+        if type == "vig-ring" {
+            // Vigilance Météo-France relancée en « alerte mobile » depuis M-Alert-sender.
+            guard msg["mobileAlert"] as? Bool == true, let g = msg["group"] as? [String: Any],
+                  UIApplication.shared.applicationState != .active else { return }
+            if !(settings["all"] as? Bool ?? false) && !concernsMe(g) { return }
+            let ph = num(g["phenomenon"]) ?? 0
+            if (settings["phenomenaOff"] as? [Any] ?? []).contains(where: { num($0) == ph }) { return }
+            AlertNotifier.notifyVigMobile(g, settings: settings)
+            return
+        }
         if type == "notice" {
             // Notification de M-Alert qui déclenche l'alerte mobile : sonne comme une alerte, titre et
             // texte tels quels (« Sécurité Civile » / « Avis de tornade »).
@@ -378,6 +388,21 @@ enum AlertNotifier {
                   timeSensitive: (settings["timeSensitive"] as? Bool ?? true) && (level >= 3 || mobile || chosen == "alerte-mobile"),
                   critical: false,
                   alertSound: chosen.map { $0 == "alerte-mobile" } ?? (level >= 3 || mobile))
+    }
+
+    /// Vigilance relancée en alerte mobile (même identifiant que la page : pas de doublon).
+    static func notifyVigMobile(_ g: [String: Any], settings: [String: Any]) {
+        let id = "vig-" + (g["key"] as? String ?? "")
+        guard claim(id) else { return }
+        let names = ["", "verte", "jaune", "orange", "rouge", "majeure"]
+        let level = max(0, min(5, Int(num(g["level"]) ?? 2)))
+        let kinds = settings["kindNames"] as? [String: Any]
+        let fr = (kinds?["fr"] ?? kinds?.values.first) as? [String: Any]
+        let ph = fr?["p\(Int(num(g["phenomenon"]) ?? 0))"] as? String ?? ""
+        let deps = (g["departments"] as? [String] ?? [])
+        let body = "Météo-France" + (deps.isEmpty ? "" : " · " + deps.prefix(8).joined(separator: ", ") + (deps.count > 8 ? "…" : ""))
+        postParts(id: id, parts: [(title: "Rappel · Vigilance \(names[level])" + (ph.isEmpty ? "" : " — \(ph)"), body: body)], level: 3,
+                  timeSensitive: settings["timeSensitive"] as? Bool ?? true, critical: false, alertSound: true)
     }
 
     /// Notification de M-Alert qui déclenche l'alerte mobile (même identifiant que la page : pas de doublon).

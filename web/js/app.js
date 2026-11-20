@@ -755,13 +755,25 @@
   }
 
   /** Relance d'une vigilance par M-Alert : bannière, son et notification, si elle me concerne. */
-  function onVigRing(g) {
+  function onVigRing(g, { mobileAlert = false } = {}) {
     if (!g || !(settings.all || isMine(g))) return;
     if (g.phenomenon && (settings.phenomenaOff || []).includes(Number(g.phenomenon))) return;
     showVigBanner(g, { ring: true });
     const ph = PHENOMENA[g.phenomenon] || PHENOMENA[0];
+    const title = `Rappel · Vigilance ${VIGILANCE[g.level].name.toLowerCase()} — ${ph.name}`;
+    // « 📢 Alerte mobile » depuis M-Alert-sender : sonne comme une alerte mobile (téléphones).
+    if (mobileAlert) {
+      const what = { level: g.level, category: 'meteo', phenomenon: g.phenomenon, mobileAlert: true };
+      if (settings.sound && soundAllowed(what)) {
+        window.MAlertSound.play(what, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+        vibrate(3);
+      }
+      systemNotification(title, M.departmentsLabel(g.departments, 3), { tag: `vig-${g.key}`, urgent: true, level: Math.max(3, g.level), sound: 'alerte-mobile' });
+      if (native) native.alert({ level: Math.max(3, g.level), front: settings.front });
+      return;
+    }
     shortSound({ level: g.level, category: 'meteo', phenomenon: g.phenomenon });
-    systemNotification(`Rappel · Vigilance ${VIGILANCE[g.level].name.toLowerCase()} — ${ph.name}`, M.departmentsLabel(g.departments, 3), { tag: `vig-${g.key}`, urgent: true });
+    systemNotification(title, M.departmentsLabel(g.departments, 3), { tag: `vig-${g.key}`, urgent: true });
     if (native) native.alert({ level: g.level, front: settings.front });
   }
 
@@ -1566,7 +1578,7 @@
         break;
       }
       case 'vig-ring':
-        onVigRing(msg.group);
+        onVigRing(msg.group, { mobileAlert: Boolean(msg.mobileAlert) });
         break;
       case 'vigilance': {
         const old = vigilance;

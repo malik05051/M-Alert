@@ -159,6 +159,16 @@ public class AlertService extends Service {
                 if (wanted(b)) notifyCancel(a);
                 return;
             }
+            if ("vig-ring".equals(type)) {
+                // Vigilance Météo-France relancée en « alerte mobile » depuis M-Alert-sender.
+                JSONObject g = msg.optJSONObject("group");
+                if (g == null || !msg.optBoolean("mobileAlert") || MainActivity.visible) return;
+                if (!settings.optBoolean("all") && !concernsMe(g)) return;
+                JSONArray phOff = settings.optJSONArray("phenomenaOff");
+                if (phOff != null) for (int i = 0; i < phOff.length(); i++) if (g.optInt("phenomenon") == phOff.optInt(i)) return;
+                notifyVigMobile(g);
+                return;
+            }
             if ("notice".equals(type)) {
                 // Notification de M-Alert qui déclenche l'alerte mobile : sonne comme une alerte,
                 // titre et texte tels quels (« Sécurité Civile » / « Avis de tornade »).
@@ -260,6 +270,34 @@ public class AlertService extends Service {
             .setContentIntent(openApp(a.optString("id").hashCode()));
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.notify(a.optString("id").hashCode(), b.build());
+    }
+
+    private void notifyVigMobile(JSONObject g) {
+        String[] lv = { "", "verte", "jaune", "orange", "rouge", "majeure" };
+        int level = Math.max(0, Math.min(5, g.optInt("level", 2)));
+        JSONObject names = settings.optJSONObject("kindNames");
+        JSONObject fr = names != null ? names.optJSONObject("fr") : null;
+        if (fr == null && names != null && names.keys().hasNext()) fr = names.optJSONObject(names.keys().next());
+        String ph = fr != null ? fr.optString("p" + g.optInt("phenomenon"), "") : "";
+        String title = "Rappel · Vigilance " + lv[level] + (ph.isEmpty() ? "" : " — " + ph);
+        JSONArray deps = g.optJSONArray("departments");
+        StringBuilder text = new StringBuilder("Météo-France");
+        if (deps != null && deps.length() > 0) {
+            text.append(" · ");
+            for (int i = 0; i < Math.min(8, deps.length()); i++) text.append(i > 0 ? ", " : "").append(deps.optString(i));
+            if (deps.length() > 8) text.append("…");
+        }
+        String id = "vig-" + g.optString("key");
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, "alert_alerte_mobile")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(id.hashCode()));
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.notify(id.hashCode(), b.build());
     }
 
     private void notifyMobileNotice(JSONObject n) {
