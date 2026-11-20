@@ -415,6 +415,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "shindofull", label = "Intensités en plein écran (réduites avec l'écran) : afficher / masquer" },
   { cmd = "shindomini", label = "Intensités en mini : afficher / masquer" },
   { cmd = "epicenter", label = "Épicentre sur la carte des intensités : afficher / masquer" },
+  { cmd = "magnitude", label = "Magnitude sur la carte des intensités : afficher / masquer" },
   { cmd = "notsunami", label = "« Aucun risque de tsunami » : afficher / masquer" },
   { cmd = "final", label = "« Rapport final » : afficher / masquer" },
 }

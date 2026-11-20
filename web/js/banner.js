@@ -879,7 +879,8 @@
    */
   // final : « Rapport final » affiché : terre brune (comme la NHK), sinon verte (premières informations).
   // epicenter = false : croix de l'épicentre masquée.
-  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false, view = null, final = false, epicenter = true } = {}) {
+  // magnitude = false : magnitude masquée (case « M5.7 » à côté de l'heure).
+  function drawShindoMap(canvas, a, { width = 1920, height = 1080, mini = false, view = null, final = false, epicenter = true, magnitude = true } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     const W = width; const H = height;
@@ -946,7 +947,7 @@
     const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
     const when = `Le ${day} vers ${hourOf(t.toISOString())}`;
     // Magnitude « M5.7 » en un seul texte (comme la NHK et le reste de M-Alert), jaune plein.
-    const mag = typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? `M${a.magnitude.toFixed(1)}` : '';
+    const mag = magnitude && typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? `M${a.magnitude.toFixed(1)}` : '';
     const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
     const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
     const fs = Math.round(th * 0.62);

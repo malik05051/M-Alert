@@ -109,6 +109,7 @@
   let shindoQuake = null;
   let shindoView = null;
   let epicenterOn = true; // croix de l'épicentre sur la carte des intensités
+  let magnitudeOn = true; // magnitude (« M5.7 ») sur la carte des intensités
   /**
    * État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). changed :
    * parties modifiées (seules appliquées ; à la connexion, tout).
@@ -131,7 +132,7 @@
     }
     if (typeof o.gauges === 'boolean' && part('gauges')) { gaugesOn = o.gauges; tableKey = ''; }
     if (o.missile && part('missile')) { manualMissile = tri(o.missile.show); manualCard = tri(o.missile.card); }
-    if (!part('shindo') && !part('notsunami') && !part('final') && !part('epicenter')) return;
+    if (!part('shindo') && !part('notsunami') && !part('final') && !part('epicenter') && !part('magnitude')) return;
     if (o.shindo && part('shindo')) {
       // « reduced » (ancien choix) : plein écran, qui se réduit avec l'écran.
       shindoMode = o.shindo.mode === 'reduced' ? 'full' : ['full', 'mini'].includes(o.shindo.mode) ? o.shindo.mode : null;
@@ -141,6 +142,7 @@
     if (typeof o.notsunami === 'boolean' && part('notsunami')) noTsunamiOn = o.notsunami;
     if (typeof o.final === 'boolean' && part('final')) finalOn = o.final;
     if (typeof o.epicenter === 'boolean' && part('epicenter')) epicenterOn = o.epicenter;
+    if (typeof o.magnitude === 'boolean' && part('magnitude')) magnitudeOn = o.magnitude;
   }
   let missileId = null;
   let missileStart = 0;
@@ -772,9 +774,9 @@
     if (smode) {
       // Terre verte, puis brune une fois le « Rapport final » affiché (comme la NHK).
       // Redessinée à chaque changement : révision, magnitude, profondeur, épicentre, intensités.
-      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${mapQuake.magnitude}:${mapQuake.depth}:${mapQuake.shindo}:${JSON.stringify(mapQuake.epicenter || null)}:${JSON.stringify(mapQuake.intensities || {})}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}:${epicenterOn}`;
+      const sk = `${mapQuake.id}:${mapQuake.revision || 0}:${mapQuake.updatedAt || ''}:${mapQuake.magnitude}:${mapQuake.depth}:${mapQuake.shindo}:${JSON.stringify(mapQuake.epicenter || null)}:${JSON.stringify(mapQuake.intensities || {})}:${smode === 'mini'}:${JSON.stringify(shindoView)}:${finalOn}:${epicenterOn}:${magnitudeOn}`;
       if (sk !== shindoKey) {
-        B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn, epicenter: epicenterOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn, epicenter: epicenterOn });
+        B.drawShindoMap($('shindoMap'), mapQuake, smode === 'mini' ? { width: 1020, height: 750, mini: true, view: shindoView, final: finalOn, epicenter: epicenterOn, magnitude: magnitudeOn } : { width: 1920, height: 1080, view: shindoView, final: finalOn, epicenter: epicenterOn, magnitude: magnitudeOn });
         shindoKey = sk;
       }
     }
@@ -925,6 +927,7 @@
     else if (d.cmd === 'notsunami') noTsunamiOn = !noTsunamiOn;
     else if (d.cmd === 'final') finalOn = !finalOn;
     else if (d.cmd === 'epicenter') epicenterOn = !epicenterOn;
+    else if (d.cmd === 'magnitude') magnitudeOn = !magnitudeOn;
     else return;
     render();
   });
