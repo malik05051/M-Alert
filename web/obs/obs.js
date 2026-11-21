@@ -166,7 +166,9 @@
     clearTimeout(webcamTimer);
     if (!on) return;
     const el = $('webcam');
-    el.style.left = `${w.x}%`; el.style.top = `${w.y}%`; el.style.width = `${w.w}vw`;
+    // Plein écran (choisi dans le sender) : toute l'image, légende par-dessus en bas.
+    el.classList.toggle('full', Boolean(w.full));
+    el.style.left = w.full ? '' : `${w.x}%`; el.style.top = w.full ? '' : `${w.y}%`; el.style.width = w.full ? '' : `${w.w}vw`;
     el.querySelector('.wc-cap span').textContent = [w.title, w.city].filter(Boolean).join(' · ');
     // Liens des images valables 10 minutes : nouvelle demande toutes les 5 minutes.
     if (!webcamData || webcamData.id !== w.id || Date.now() - webcamData.at > 5 * 60000) { loadWebcam(w.id); }

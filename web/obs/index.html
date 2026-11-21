@@ -77,6 +77,9 @@
     #webcam .wc-cap { display: flex; justify-content: space-between; gap: 1vw; padding: .5vh .8vw; background: rgba(0,0,0,.78); color: #fff; font: 600 1.9vh/1.2 "Noto Sans", "Segoe UI", Arial, sans-serif; }
     #webcam .wc-cap span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #webcam .wc-cap span:last-child { white-space: nowrap; opacity: .85; }
+    #webcam.full { left: 0; top: 0; width: 100vw; height: 100vh; border: 0; box-shadow: none; }
+    #webcam.full .wc-view { width: 100%; height: 100%; aspect-ratio: auto; }
+    #webcam.full .wc-cap { position: absolute; left: 0; right: 0; bottom: 0; font-size: 2.2vh; }
     /* Écran réduit : dans l'image réduite (à droite du panneau de gauche). */
     body.reduced #miniMap { right: 10.6vw; }
     body.reduced #coastTable { left: 11vw; }
