@@ -380,7 +380,7 @@
   const QUAKE_METHODS = {
     plum: { tag: '📈 PLUM', title: 'Intensités mesurées par les stations sismiques (méthode PLUM)' },
     hybrid: { tag: '📈 PLUM', title: 'Intensités : la plus forte de la méthode PLUM (stations sismiques) et de l\'estimation d\'après l\'épicentre' },
-    epicentre: { tag: '📍 Sans PLUM', title: 'Intensités estimées d\'après l\'épicentre et la magnitude, sans la méthode PLUM' },
+    epicentre: { tag: '', title: 'Intensités estimées d\'après l\'épicentre et la magnitude, sans la méthode PLUM' }, // pas d'étiquette
   };
   /** 'plum', 'hybrid', 'epicentre' (séisme), ou null (autre alerte). */
   function quakeMethod(a) {
@@ -388,11 +388,12 @@
     if (QUAKE_METHODS[a.quakeMethod]) return a.quakeMethod;
     return /^plum/.test(a.source || '') ? 'plum' : 'epicentre';
   }
-  /** Étiquette HTML du séisme : « 📈 PLUM » (seule ou avec l'épicentre) ou « 📍 Sans PLUM » (vide sinon). */
+  /** Étiquette HTML du séisme : « 📈 PLUM » (seule ou avec l'épicentre) ; rien sans PLUM. */
   function quakeMethodTag(a, cls = 'tag quake-method') {
     const m = quakeMethod(a);
     if (!m) return '';
     const q = QUAKE_METHODS[m];
+    if (!q.tag) return '';
     return `<span class="${cls} qm-${m}" title="${escapeHtml(q.title)}">${escapeHtml(q.tag)}</span>`;
   }
 

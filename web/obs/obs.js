@@ -605,8 +605,8 @@
       const esc = M.escapeHtml;
       // Étiquette : intensités par la méthode PLUM (stations), hybride, ou sans PLUM.
       const qm = M.quakeMethod(a);
-      const qmText = qm === 'plum' || qm === 'hybrid' ? 'PLUM' : 'Sans PLUM';
-      $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div><div class="eew-method qm-${qm}">${esc(qmText)}</div>`
+      const qmTag = qm === 'plum' || qm === 'hybrid' ? `<div class="eew-method qm-${qm}">PLUM</div>` : ''; // rien sans PLUM
+      $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>${qmTag}`
         // Noms composés : retour à la ligne possible après les traits d'union (« Alpes-de- / Haute-Provence »).
         + `<div class="eew-list">${places.map((p) => `<span class="eew-dep">${esc(p).replace(/-/g, '-<wbr>')}</span>`).join('')}</div>`
         + '<div class="eew-page"></div>';

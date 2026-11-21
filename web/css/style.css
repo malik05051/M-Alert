@@ -218,7 +218,6 @@ html[lang="es"] .alert-overlay.compact .alert-body.expanded::after { content: 'O
 .tsu-obs { font-size: 12.5px; font-weight: 600; color: #93c5fd; padding: 0 0 4px; border-bottom: 1px solid #1f1f1f; margin-top: -2px; }
 .alert-method { display: inline-block; margin-left: 8px; vertical-align: 1px; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 99px; border: 1px solid rgba(255,255,255,.35); white-space: nowrap; }
 .alert-method.qm-plum, .alert-method.qm-hybrid, .quake-method.qm-plum, .quake-method.qm-hybrid { background: #0e7490; color: #ecfeff; border-color: #22d3ee; }
-.alert-method.qm-epicentre, .quake-method.qm-epicentre { background: #334155; color: #e2e8f0; border-color: #64748b; }
 .m-method { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 99px; border: 1px solid; }
 .tr-note { display: block; background: none; border: 0; padding: 0; margin: -4px 0 6px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; text-align: left; }
 .tr-note u { color: #93c5fd; }
