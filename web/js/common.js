@@ -376,6 +376,26 @@
     return '';
   }
 
+  // Séisme : d'où viennent les intensités (étiquette « PLUM » ou non).
+  const QUAKE_METHODS = {
+    plum: { tag: '📈 PLUM', title: 'Intensités mesurées par les stations sismiques (méthode PLUM)' },
+    hybrid: { tag: '📈 PLUM + épicentre', title: 'Intensités : la plus forte de la méthode PLUM (stations sismiques) et de l\'estimation d\'après l\'épicentre' },
+    epicentre: { tag: '📍 Sans PLUM', title: 'Intensités estimées d\'après l\'épicentre et la magnitude, sans la méthode PLUM' },
+  };
+  /** 'plum', 'hybrid', 'epicentre' (séisme), ou null (autre alerte). */
+  function quakeMethod(a) {
+    if (!a || a.category !== 'seisme') return null;
+    if (QUAKE_METHODS[a.quakeMethod]) return a.quakeMethod;
+    return /^plum/.test(a.source || '') ? 'plum' : 'epicentre';
+  }
+  /** Étiquette HTML du séisme : « 📈 PLUM », « 📈 PLUM + épicentre » ou « 📍 Sans PLUM » (vide sinon). */
+  function quakeMethodTag(a, cls = 'tag quake-method') {
+    const m = quakeMethod(a);
+    if (!m) return '';
+    const q = QUAKE_METHODS[m];
+    return `<span class="${cls} qm-${m}" title="${escapeHtml(q.title)}">${escapeHtml(q.tag)}</span>`;
+  }
+
   /**
    * Hauteur d'eau d'une station (Hub'Eau, rivers.departments[code].stations[i]) :
    * « La Loire à Tours 3,24 m (+42 cm en 6 h, 14 h 30) », ou ''.
@@ -660,7 +680,7 @@
   window.MAlert = {
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
     categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
-    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, seaObsText, riverStationText, riverObsText, isFloodAlert, webcamKind, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
+    FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, quakeMethod, quakeMethodTag, QUAKE_METHODS, seaObsText, riverStationText, riverObsText, isFloodAlert, webcamKind, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
     TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,
     departmentList, departmentName, departmentsLabel, isActive,

@@ -603,7 +603,10 @@
       let where = 'Séisme';
       if (a.epicenter) where = B.onLand(a.epicenter.lat, a.epicenter.lon) ? `Séisme : ${places[0] || ''}` : 'Séisme en mer';
       const esc = M.escapeHtml;
-      $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div>`
+      // Étiquette : intensités par la méthode PLUM (stations), hybride, ou sans PLUM.
+      const qm = M.quakeMethod(a);
+      const qmText = qm === 'plum' ? 'PLUM (stations)' : qm === 'hybrid' ? 'PLUM + épicentre' : 'Sans PLUM';
+      $('eew').innerHTML = `<div class="eew-red">Alerte sismique précoce</div><div class="eew-yellow">${esc(where)}</div><div class="eew-method qm-${qm}">${esc(qmText)}</div>`
         // Noms composés : retour à la ligne possible après les traits d'union (« Alpes-de- / Haute-Provence »).
         + `<div class="eew-list">${places.map((p) => `<span class="eew-dep">${esc(p).replace(/-/g, '-<wbr>')}</span>`).join('')}</div>`
         + '<div class="eew-page"></div>';

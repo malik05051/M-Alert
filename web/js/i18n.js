@@ -47,6 +47,11 @@
     'Collez ici le code exporté (MALERT1:…), puis touchez à nouveau « Importer des réglages ».': ['Paste the exported code here (MALERT1:…), then tap “Import settings” again.', 'Fügen Sie hier den exportierten Code ein (MALERT1:…) und tippen Sie erneut auf „Einstellungen importieren“.', 'Pegue aquí el código exportado (MALERT1:…) y vuelva a tocar «Importar ajustes».'],
     "Réglages importés : l'application redémarre…": ['Settings imported: the app is restarting…', 'Einstellungen importiert: Die App startet neu…', 'Ajustes importados: la aplicación se reinicia…'],
     'Code invalide : collez le code complet, qui commence par MALERT1:': ['Invalid code: paste the whole code, starting with MALERT1:', 'Ungültiger Code: Fügen Sie den vollständigen Code ein, der mit MALERT1: beginnt', 'Código no válido: pegue el código completo, que empieza por MALERT1:'],
+    '📈 PLUM + épicentre': ['📈 PLUM + epicentre', '📈 PLUM + Epizentrum', '📈 PLUM + epicentro'],
+    '📍 Sans PLUM': ['📍 No PLUM', '📍 Ohne PLUM', '📍 Sin PLUM'],
+    'Intensités mesurées par les stations sismiques (méthode PLUM)': ['Intensities measured by seismic stations (PLUM method)', 'Von Erdbebenstationen gemessene Intensitäten (PLUM-Methode)', 'Intensidades medidas por las estaciones sísmicas (método PLUM)'],
+    "Intensités : la plus forte de la méthode PLUM (stations sismiques) et de l'estimation d'après l'épicentre": ['Intensities: the higher of the PLUM method (seismic stations) and the estimate from the epicentre', 'Intensitäten: der höhere Wert aus PLUM-Methode (Erdbebenstationen) und Schätzung nach dem Epizentrum', 'Intensidades: la mayor entre el método PLUM (estaciones sísmicas) y la estimación según el epicentro'],
+    "Intensités estimées d'après l'épicentre et la magnitude, sans la méthode PLUM": ['Intensities estimated from the epicentre and magnitude, without the PLUM method', 'Aus Epizentrum und Magnitude geschätzte Intensitäten, ohne PLUM-Methode', 'Intensidades estimadas según el epicentro y la magnitud, sin el método PLUM'],
     'Traduit automatiquement': ['Machine-translated', 'Maschinell übersetzt', 'Traducido automáticamente'],
     "Voir l'original": ['See original', 'Original anzeigen', 'Ver el original'],
     'Texte original': ['Original text', 'Originaltext', 'Texto original'],
@@ -336,7 +341,8 @@
     let out = DICT[core] ? DICT[core][IDX[lang]] : null;
     // Texte commençant par un emoji qui fait partie de la clé (ex. « 🔇 Touchez l'écran… »).
     const whole = text.trim();
-    if (out === null && DICT[whole]) return text.replace(whole, DICT[whole][IDX[lang]]);
+    // (Traduction identique au texte : rien à changer, sinon la page se retraduirait sans fin.)
+    if (out === null && DICT[whole]) return DICT[whole][IDX[lang]] === whole ? null : text.replace(whole, DICT[whole][IDX[lang]]);
     if (out === null) {
       for (const [re, tr] of PATTERNS) {
         if (re.test(core)) {

@@ -425,7 +425,7 @@
     const lv = LEVELS[a.level];
     const ph = M.alertKind(a);
     return `<div class="alert-item ${isMine(a) && !streamer() ? 'mine' : ''}" data-alert="${a.id}" style="border-left-color:${lv.color}">
-      <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${escapeHtml(alertText(a).title)}</div>
+      <div class="t"><span class="tag" style="background:${lv.color};color:${lv.text}">${escapeHtml(M.alertLevelName(a))}</span>${a.test ? '<span class="tag" style="background:#6d28d9;color:#fff">TEST</span>' : ''}${M.quakeMethodTag(a)}${escapeHtml(alertText(a).title)}</div>
       <div class="m">${ph.icon} ${escapeHtml(ph.name)}${M.quakeSummary(a) ? ` · ${escapeHtml(M.quakeSummary(a))}` : ''}${M.tornadoSummary(a) ? ` · ${escapeHtml(M.tornadoSummary(a))}` : ''}${M.fireSummary(a) ? ` · ${escapeHtml(M.fireSummary(a))}` : ''}${M.pollutionSummary(a) ? ` · ${escapeHtml(M.pollutionSummary(a))}` : ''}${M.tsunamiSummary(a) ? ` · ${escapeHtml(M.tsunamiSummary(a))}` : ''} · ${escapeHtml(M.departmentsLabel(a.departments, 3))}</div>
       <div class="m">${M.relativeTime(a.createdAt)}${a.updatedAt ? ` · modifiée ${M.relativeTime(a.updatedAt)}` : ''} · ${M.untilText(a, { short: true })}${M.sourceShort(a) ? ` · ${escapeHtml(M.sourceShort(a))}` : ''}</div>
       ${mf && mf.length ? `<div class="m mf-line">${mfHtml(mf)}</div>` : ''}
@@ -1131,6 +1131,7 @@
     ov.style.setProperty('--ct', lv.text);
     $('ovLevel').textContent = M.alertLevelLabel(alert);
     $('ovPhen').textContent = `${ph.icon} ${ph.name}`;
+    $('ovMethod').innerHTML = M.quakeMethodTag(alert, 'alert-method');
     $('ovTest').classList.toggle('hidden', !alert.test);
     $('ovTime').textContent = M.formatDateTime(alert.createdAt) + (alert.updatedAt ? ` · modifiée ${M.formatTime(alert.updatedAt)}` : '') + ` · ${M.sourceLabel(alert)}`;
     renderTsunamiBoard(alert);
