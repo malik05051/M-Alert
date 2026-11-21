@@ -185,7 +185,7 @@
 
   // ---------- Bandeau d'évacuation (4 langues, ou les 4 en alternance) ----------
   let evacKey = '';
-  let evacRolling = false;
+  let evacRolling = 0; // heure du début du changement de langue en cours (0 : aucun)
   function renderEvac() {
     const e = evacState;
     const on = Boolean(e && e.show);
@@ -207,24 +207,38 @@
       el.style.left = `${f.left}px`; el.style.top = `${f.top}px`;
       el.style.setProperty('--es', String(f.scale));
     };
+    // Changement de langue resté bloqué (source OBS masquée, animation jamais terminée) : on repart à plat.
+    if (evacRolling && Date.now() - evacRolling > 1500) stopEvacRoll(inner);
     if (key !== evacKey) {
       const html = B.evacHtml(kind, lang, { icon: e.icon, text: custom });
       const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
       evacKey = key;
       if (roll) {
-        // Comme la NHK : écrasé vers le bas (≈ 0,08 s), un instant à plat, puis le suivant se déplie (≈ 0,12 s).
-        evacRolling = true;
-        inner.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(0.02)' }], { duration: 85, easing: 'ease-in', fill: 'forwards' }).onfinish = () => {
-          inner.innerHTML = html;
-          place();
-          const up = inner.animate([{ transform: 'scaleY(0.02)' }, { transform: 'scaleY(0.02)', offset: 0.2 }, { transform: 'scaleY(1)' }], { duration: 150, easing: 'ease-out', fill: 'forwards' });
-          up.onfinish = () => { evacRolling = false; up.cancel(); };
-        };
+        // Comme la NHK : écrasé vers le bas (≈ 0,08 s), un instant à plat, puis le suivant se déplie
+        // (≈ 0,12 s). Une seule animation sans « fill » : à la fin (ou si elle est interrompue), le
+        // bandeau retrouve toujours sa taille normale.
+        evacRolling = Date.now();
+        const anim = inner.animate([
+          { transform: 'scaleY(1)', easing: 'ease-in' },
+          { transform: 'scaleY(0.02)', offset: 0.36 },
+          { transform: 'scaleY(0.02)', offset: 0.49, easing: 'ease-out' },
+          { transform: 'scaleY(1)' },
+        ], { duration: 235 });
+        const swap = setTimeout(() => { inner.innerHTML = html; place(); }, 85);
+        const done = () => { clearTimeout(swap); if (inner.innerHTML !== html) { inner.innerHTML = html; place(); } evacRolling = 0; };
+        anim.onfinish = done;
+        anim.oncancel = done;
         return;
       }
       inner.innerHTML = html;
     }
     if (!evacRolling) place();
+  }
+  function stopEvacRoll(inner) {
+    if (inner.getAnimations) for (const an of inner.getAnimations()) an.cancel();
+    inner.style.transform = '';
+    evacRolling = 0;
+    evacKey = '';
   }
 
   let missileId = null;
@@ -730,6 +744,19 @@
   }
 
   // Carte missile : les départements concernés clignotent comme à la NHK (≈ 0,55 s en jaune, 0,5 s en gris).
+  // Cartes (plein écran et mini-carte) : côtes et départements en alerte clignotent au rythme de la
+  // carte missile de la NHK ; redessinées seulement au changement d'état (ou à la demande de render).
+  let mapReq = null;
+  let miniReq = null;
+  let mapsOn = null;
+  function drawMaps(force) {
+    const on = Date.now() % 1050 < 550;
+    if (!force && on === mapsOn) return;
+    mapsOn = on;
+    if (mapReq) B.drawTsunamiMap($('tsunami'), mapReq, on);
+    if (miniReq) B.drawTsunamiMap($('miniMap'), miniReq.alert, on, { width: 960, height: 540, zoom: miniReq.zoom, view: miniReq.view });
+  }
+
   function blinkMissileMap() {
     const v = missileShown;
     if (!v) return;
@@ -829,7 +856,7 @@
     const stayOn = alerts.filter(wanted).some(stays);
     reduce(Boolean(((autoOn || phase > 0 || stayOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
-    if (mapOn) B.drawTsunamiMap($('tsunami'), tsu, blink);
+    mapReq = mapOn ? tsu : null;
     document.body.classList.toggle('show-board', boardOn);
     if (boardOn) renderBoard(boardAlert);
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
@@ -840,7 +867,8 @@
     const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(tableAlert) : manualTable === false ? false : phase === 2 && Boolean(tableAlert));
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
-    if (miniOn) B.drawTsunamiMap($('miniMap'), miniAlert, blink, { width: 960, height: 540, zoom: miniZoom, view: miniView });
+    miniReq = miniOn ? { alert: miniAlert, zoom: miniZoom, view: miniView } : null;
+    drawMaps(true);
     if (tableOn) renderCoastTable(tableAlert);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
     const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')
@@ -1091,5 +1119,5 @@
     if (evacState && evacState.show) renderEvac(); // alternance des langues, alerte en cours (« auto »)
   }, 700);
   // Clignotement de la carte missile : seule la carte est redessinée, au changement d'état.
-  setInterval(blinkMissileMap, 50);
+  setInterval(() => { blinkMissileMap(); drawMaps(false); }, 50);
 })();

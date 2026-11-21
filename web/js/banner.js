@@ -438,8 +438,9 @@
       if (!d) return;
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, Pr);
-      // Alerte non côtière : départements de l'alerte à la couleur de leur niveau.
-      ctx.fillStyle = byDeps && levels[code] ? colors[levels[code]] || colors[2] : '#b8c8e6';
+      // Alerte non côtière : départements de l'alerte à la couleur de leur niveau, qui clignotent
+      // comme la carte missile de la NHK (on = false : gris comme le reste de la carte).
+      ctx.fillStyle = byDeps && levels[code] && on ? colors[levels[code]] || colors[2] : '#b8c8e6';
       ctx.fill('evenodd');
       if (byDeps && levels[code]) { ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
     };
