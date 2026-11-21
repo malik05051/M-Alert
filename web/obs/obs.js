@@ -214,18 +214,26 @@
       const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
       evacKey = key;
       if (roll) {
-        // Comme la NHK : écrasé vers le bas (≈ 0,08 s), un instant à plat, puis le suivant se déplie
-        // (≈ 0,12 s). Une seule animation sans « fill » : à la fin (ou si elle est interrompue), le
-        // bandeau retrouve toujours sa taille normale.
+        // Comme la NHK : écrasé vers le bas, bord inférieur fixe (≈ 0,08 s), un instant à plat, puis
+        // le suivant se déplie depuis le bas (≈ 0,09 s). Une seule animation sans « fill » : à la fin
+        // (ou si elle est interrompue), le bandeau retrouve toujours sa taille normale. Le texte change
+        // quand l'animation elle-même est à plat (son horloge, pas une minuterie à part : dans OBS,
+        // l'animation peut démarrer en retard et le texte changeait alors avant l'écrasement).
         evacRolling = Date.now();
         const anim = inner.animate([
           { transform: 'scaleY(1)', easing: 'ease-in' },
-          { transform: 'scaleY(0.02)', offset: 0.36 },
-          { transform: 'scaleY(0.02)', offset: 0.49, easing: 'ease-out' },
+          { transform: 'scaleY(0.02)', offset: 0.42 },
+          { transform: 'scaleY(0.02)', offset: 0.53, easing: 'ease-out' },
           { transform: 'scaleY(1)' },
-        ], { duration: 235 });
-        const swap = setTimeout(() => { inner.innerHTML = html; place(); }, 85);
-        const done = () => { clearTimeout(swap); if (inner.innerHTML !== html) { inner.innerHTML = html; place(); } evacRolling = 0; };
+        ], { duration: 190 });
+        let swapped = false;
+        const swap = () => { if (!swapped) { swapped = true; inner.innerHTML = html; place(); } };
+        const watch = () => {
+          if (swapped || anim.playState === 'finished' || anim.playState === 'idle') return;
+          if ((anim.currentTime || 0) >= 82) swap(); else requestAnimationFrame(watch);
+        };
+        requestAnimationFrame(watch);
+        const done = () => { swap(); evacRolling = 0; };
         anim.onfinish = done;
         anim.oncancel = done;
         return;
