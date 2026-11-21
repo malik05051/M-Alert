@@ -418,6 +418,8 @@ local OVERLAY_TOGGLES = {
   { cmd = "magnitude", label = "Magnitude sur la carte des intensités : afficher / masquer" },
   { cmd = "notsunami", label = "« Aucun risque de tsunami » : afficher / masquer" },
   { cmd = "final", label = "« Rapport final » : afficher / masquer" },
+  { cmd = "evac", label = "Bandeau de consigne (« Tsunami : évacuez ! ») : afficher / masquer" },
+  { cmd = "webcam", label = "Webcam (choisie dans M-Alert-sender) : afficher / masquer" },
 }
 local toggle_hotkeys = {}
 local map_hotkey = nil

@@ -15,4 +15,5 @@
 - **Incrustation OBS : bandeau de consigne** (comme le « 津波にげて » de la NHK) pour tous les types d'alerte, avec son pictogramme, en français, anglais, allemand, espagnol ou les 4 en alternance ; message prêt, celui de l'alerte en cours, ou texte écrit dans M-Alert-sender (traduit automatiquement), icône au choix ; placé librement depuis le sender et toujours entier dans l'image.
 - **Incrustation OBS : webcam** choisie dans M-Alert-sender (dernière image, journée en accéléré ou direct), placée et dimensionnée depuis le sender.
 - **Incrustation OBS : toutes les alertes en carte et mini-carte** (départements à la couleur de leur niveau), déplaçables et zoomables depuis le sender.
+- **Script OBS** : boutons et raccourcis « Bandeau de consigne : afficher / masquer » et « Webcam : afficher / masquer ».
 - Script OBS mis à jour (version de la page 3.2.0) : remplacez `m-alert.lua` dans OBS.

@@ -1015,6 +1015,18 @@
     else if (d.cmd === 'final') finalOn = !finalOn;
     else if (d.cmd === 'epicenter') epicenterOn = !epicenterOn;
     else if (d.cmd === 'magnitude') magnitudeOn = !magnitudeOn;
+    else if (d.cmd === 'evac') {
+      // Bandeau de consigne : affiché ou masqué (réglages du sender gardés ; sans réglage : celui de l'alerte en cours).
+      const on = document.body.classList.contains('show-evac');
+      evacState = { kind: 'auto', icon: '', lang: 'fr', x: 50, y: 62, scale: 1, ...(evacState || {}), show: !on };
+      renderEvac();
+    }
+    else if (d.cmd === 'webcam') {
+      // Webcam choisie dans M-Alert-sender : affichée ou masquée (rien si aucune n'est choisie).
+      if (!webcamState || !webcamState.id) { status('Aucune webcam choisie (M-Alert-sender : 📷 Webcams → 🎥 Dans OBS)'); return; }
+      webcamState = { ...webcamState, show: !document.body.classList.contains('show-webcam') };
+      renderWebcam();
+    }
     else return;
     render();
   });
