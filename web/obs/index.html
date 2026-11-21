@@ -59,8 +59,9 @@
     #coastBoard .cb-foot { position: absolute; right: 2.5vw; bottom: 1.2vh; display: flex; gap: 7vw; font-size: 3.2vh; font-weight: 600; }
     /* Bandeau d'évacuation (comme la NHK), placé et dimensionné depuis M-Alert-sender. */
     #evac { position: fixed; left: 50%; top: 62%; display: none; z-index: 8; transform: translate(-50%, -50%) scale(var(--es, 1)); transform-origin: center; }
-    body.show-evac #evac { display: flex; }
-    .evac { align-items: stretch; gap: 1.6vh; padding: 1.3vh 1.6vh 1.3vh 2.6vh; background: #d7141a; color: #fff; white-space: nowrap;
+    body.show-evac #evac { display: block; }
+    /* Changement de langue comme la NHK : le bandeau s'écrase vers le bas, puis le suivant se déplie. */
+    .evac { display: flex; transform-origin: 50% 100%; align-items: stretch; gap: 1.6vh; padding: 1.3vh 1.6vh 1.3vh 2.6vh; background: #d7141a; color: #fff; white-space: nowrap;
       box-shadow: inset 0 0 0 .45vh #d7141a, inset 0 0 0 .8vh #fff, 0 .6vh 2vh rgba(0,0,0,.45); font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     .evac-txt { display: flex; flex-direction: column; justify-content: center; padding: .8vh 1vh .6vh; }
     .evac-sub { font-size: 2.3vh; line-height: 1.25; font-weight: 700; letter-spacing: .04em; opacity: .95; margin-bottom: .9vh; }
@@ -195,7 +196,7 @@
   <div id="quakeFinal">Rapport final</div>
   <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div></div>
   <div id="webcam"><div class="wc-view"><img alt="" referrerpolicy="no-referrer"><iframe title="Webcam" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe></div><div class="wc-cap"><span></span><span>Webcam : Windy.com</span></div></div>
-  <div id="evac" class="evac"></div>
+  <div id="evac"><div class="evac" id="evacIn"></div></div>
   <div id="status"></div>
   <script src="../config.js?v=3.2.0"></script>
   <script src="../data/departements.js?v=3.2.0"></script>

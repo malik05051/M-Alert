@@ -185,6 +185,7 @@
 
   // ---------- Bandeau d'évacuation (4 langues, ou les 4 en alternance) ----------
   let evacKey = '';
+  let evacRolling = false;
   function renderEvac() {
     const e = evacState;
     const on = Boolean(e && e.show);
@@ -199,11 +200,31 @@
     const kind = e.kind === 'auto' ? B.evacKindOf(shownAlert) : e.kind;
     const custom = e.kind === 'custom' && e.custom && e.custom.main ? (lang === 'fr' ? e.custom : (e.tr && e.tr[lang]) || e.custom) : null;
     const key = JSON.stringify([kind, lang, e.icon, custom]);
-    if (key !== evacKey) { el.innerHTML = B.evacHtml(kind, lang, { icon: e.icon, text: custom }); evacKey = key; }
+    const inner = $('evacIn');
     // Toujours entier dans l'image : réduit s'il est trop long, gardé loin des bords.
-    const f = B.evacPlace(el, window.innerWidth, window.innerHeight, e);
-    el.style.left = `${f.left}px`; el.style.top = `${f.top}px`;
-    el.style.setProperty('--es', String(f.scale));
+    const place = () => {
+      const f = B.evacPlace(el, window.innerWidth, window.innerHeight, e);
+      el.style.left = `${f.left}px`; el.style.top = `${f.top}px`;
+      el.style.setProperty('--es', String(f.scale));
+    };
+    if (key !== evacKey) {
+      const html = B.evacHtml(kind, lang, { icon: e.icon, text: custom });
+      const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
+      evacKey = key;
+      if (roll) {
+        // Comme la NHK : écrasé vers le bas (≈ 0,08 s), un instant à plat, puis le suivant se déplie (≈ 0,12 s).
+        evacRolling = true;
+        inner.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(0.02)' }], { duration: 85, easing: 'ease-in', fill: 'forwards' }).onfinish = () => {
+          inner.innerHTML = html;
+          place();
+          const up = inner.animate([{ transform: 'scaleY(0.02)' }, { transform: 'scaleY(0.02)', offset: 0.2 }, { transform: 'scaleY(1)' }], { duration: 150, easing: 'ease-out', fill: 'forwards' });
+          up.onfinish = () => { evacRolling = false; up.cancel(); };
+        };
+        return;
+      }
+      inner.innerHTML = html;
+    }
+    if (!evacRolling) place();
   }
 
   let missileId = null;

@@ -1094,8 +1094,14 @@
     const top = Math.max(hh + m, Math.min(H - hh - m, (H * (Number(e.y) || 50)) / 100));
     return { scale, left, top };
   }
+  /** Textes d'un message prêt : { main, sub } (consigne, que faire). */
+  function evacText(kind, lang = 'fr') {
+    const k = EVAC[kind] ? kind : 'generic';
+    const [main, sub] = EVAC[k][EVAC_LANGS.includes(lang) ? lang : 'fr'];
+    return { main, sub };
+  }
   /** Nom français de chaque message (listes du sender). */
   const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
 
-  window.MAlertBanner = { drawShindoMap, evacHtml, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, evacHtml, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
