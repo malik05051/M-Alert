@@ -110,6 +110,9 @@
   let shindoView = null;
   let epicenterOn = true; // croix de l'épicentre sur la carte des intensités
   let magnitudeOn = true; // magnitude (« M5.7 ») sur la carte des intensités
+  // Webcam et bandeau d'évacuation, choisis et placés dans M-Alert-sender.
+  let webcamState = null;
+  let evacState = null;
   /**
    * État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). changed :
    * parties modifiées (seules appliquées ; à la connexion, tout).
@@ -132,6 +135,8 @@
     }
     if (typeof o.gauges === 'boolean' && part('gauges')) { gaugesOn = o.gauges; tableKey = ''; }
     if (o.missile && part('missile')) { manualMissile = tri(o.missile.show); manualCard = tri(o.missile.card); }
+    if (o.webcam && part('webcam')) { webcamState = o.webcam; renderWebcam(); }
+    if (o.evac && part('evac')) { evacState = o.evac; renderEvac(); }
     if (!part('shindo') && !part('notsunami') && !part('final') && !part('epicenter') && !part('magnitude')) return;
     if (o.shindo && part('shindo')) {
       // « reduced » (ancien choix) : plein écran, qui se réduit avec l'écran.
@@ -144,6 +149,63 @@
     if (typeof o.epicenter === 'boolean' && part('epicenter')) epicenterOn = o.epicenter;
     if (typeof o.magnitude === 'boolean' && part('magnitude')) magnitudeOn = o.magnitude;
   }
+  // ---------- Webcam (Windy) : dernière image actualisée, journée en accéléré ou direct ----------
+  let webcamData = null; // { id, preview, day, live, at }
+  let webcamTimer = null;
+  async function loadWebcam(id) {
+    try {
+      const r = await fetch(`${server}/api/webcams/${encodeURIComponent(id)}`);
+      const j = await r.json();
+      if (j && j.webcam && webcamState && webcamState.id === id) { webcamData = { ...j.webcam, at: Date.now() }; renderWebcam(); }
+    } catch (_) { /* nouvel essai au prochain rafraîchissement */ }
+  }
+  function renderWebcam() {
+    const w = webcamState;
+    const on = Boolean(w && w.show && w.id && server);
+    document.body.classList.toggle('show-webcam', on);
+    clearTimeout(webcamTimer);
+    if (!on) return;
+    const el = $('webcam');
+    el.style.left = `${w.x}%`; el.style.top = `${w.y}%`; el.style.width = `${w.w}vw`;
+    el.querySelector('.wc-cap span').textContent = [w.title, w.city].filter(Boolean).join(' · ');
+    // Liens des images valables 10 minutes : nouvelle demande toutes les 5 minutes.
+    if (!webcamData || webcamData.id !== w.id || Date.now() - webcamData.at > 5 * 60000) { loadWebcam(w.id); }
+    webcamTimer = setTimeout(renderWebcam, 60000);
+    if (!webcamData || webcamData.id !== w.id) return;
+    const frameUrl = w.mode === 'live' ? webcamData.live || webcamData.day : w.mode === 'day' ? webcamData.day : null;
+    el.classList.toggle('frame', Boolean(frameUrl));
+    el.classList.toggle('img', !frameUrl);
+    const fr = el.querySelector('iframe');
+    if (frameUrl && fr.getAttribute('src') !== frameUrl) fr.setAttribute('src', frameUrl);
+    if (!frameUrl && fr.getAttribute('src')) fr.removeAttribute('src');
+    const img = el.querySelector('img');
+    const pic = webcamData.preview || webcamData.daylight;
+    if (!frameUrl && pic && img.getAttribute('src') !== pic) img.setAttribute('src', pic);
+  }
+
+  // ---------- Bandeau d'évacuation (4 langues, ou les 4 en alternance) ----------
+  let evacKey = '';
+  function renderEvac() {
+    const e = evacState;
+    const on = Boolean(e && e.show);
+    document.body.classList.toggle('show-evac', on);
+    if (!on) { evacKey = ''; return; }
+    const langs = B.EVAC_LANGS;
+    const lang = e.lang === 'cycle' ? langs[Math.floor(Date.now() / 4000) % langs.length] : e.lang;
+    const el = $('evac');
+    // « auto » : message de l'alerte en cours (choisie dans le sender, sinon la dernière) ;
+    // « custom » : texte écrit dans le sender, traduit pour les autres langues.
+    const shownAlert = (coastPinned && alerts.find((x) => x.id === coastPinned)) || current() || lastAlert;
+    const kind = e.kind === 'auto' ? B.evacKindOf(shownAlert) : e.kind;
+    const custom = e.kind === 'custom' && e.custom && e.custom.main ? (lang === 'fr' ? e.custom : (e.tr && e.tr[lang]) || e.custom) : null;
+    const key = JSON.stringify([kind, lang, e.icon, custom]);
+    if (key !== evacKey) { el.innerHTML = B.evacHtml(kind, lang, { icon: e.icon, text: custom }); evacKey = key; }
+    // Toujours entier dans l'image : réduit s'il est trop long, gardé loin des bords.
+    const f = B.evacPlace(el, window.innerWidth, window.innerHeight, e);
+    el.style.left = `${f.left}px`; el.style.top = `${f.top}px`;
+    el.style.setProperty('--es', String(f.scale));
+  }
+
   let missileId = null;
   let missileStart = 0;
   let missileKey = '';
@@ -687,7 +749,9 @@
       .sort((x, y) => forcedFirst(x, y) || ((y.id === coastPinned) - (x.id === coastPinned)) || ((y.category === 'tsunami') - (x.category === 'tsunami'))
         || (coastTop(y) - coastTop(x)) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     const lastCoast = isCoast(lastAlert) ? lastAlert : null;
-    const tsu = manualMap === false ? null : manualMap === true ? coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
+    // Alerte choisie dans M-Alert-sender, quelle qu'elle soit (toutes les alertes en carte et mini-carte).
+    const pinnedAny = coastPinned ? alerts.filter(wanted).find((x) => x.id === coastPinned) || null : null;
+    const tsu = manualMap === false ? null : manualMap === true ? pinnedAny || coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     if (a) markFirst(a.id);
     if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
@@ -746,12 +810,14 @@
     if (boardOn) renderBoard(boardAlert);
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
     const coastAny = tsu || coastList[0] || lastCoast;
-    const miniOn = !mapOn && !boardOn && (manualMini === true ? Boolean(coastAny) : manualMini === false ? false : phase === 2);
-    const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(coastAny) : manualTable === false ? false : phase === 2);
+    const miniAlert = pinnedAny || coastAny;
+    const tableAlert = isCoast(coastAny) ? coastAny : null;
+    const miniOn = !mapOn && !boardOn && (manualMini === true ? Boolean(miniAlert) : manualMini === false ? false : phase === 2);
+    const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(tableAlert) : manualTable === false ? false : phase === 2 && Boolean(tableAlert));
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
-    if (miniOn) B.drawTsunamiMap($('miniMap'), coastAny, blink, { width: 960, height: 540, zoom: miniZoom, view: miniView });
-    if (tableOn) renderCoastTable(coastAny);
+    if (miniOn) B.drawTsunamiMap($('miniMap'), miniAlert, blink, { width: 960, height: 540, zoom: miniZoom, view: miniView });
+    if (tableOn) renderCoastTable(tableAlert);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
     const quakes = alerts.filter(wanted).filter((x) => x.category === 'seisme')
       .sort((x, y) => forcedFirst(x, y) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
@@ -986,6 +1052,7 @@
     if (infoUntil && Date.now() > infoUntil) { infoUntil = 0; document.body.classList.remove('show-info'); }
     if (cancelled && !cancelOn()) { cancelled = null; document.body.classList.remove('cancelling'); }
     render();
+    if (evacState && evacState.show) renderEvac(); // alternance des langues, alerte en cours (« auto »)
   }, 700);
   // Clignotement de la carte missile : seule la carte est redessinée, au changement d'état.
   setInterval(blinkMissileMap, 50);

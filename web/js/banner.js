@@ -334,13 +334,21 @@
    * (cadrée sur les côtes en alerte) ou 2 à 4 (zoom centré sur elles).
    */
   /** Niveau de chaque côte en alerte (tableau du tsunami ou des vagues), sinon le niveau de l'alerte. */
+  /** Alerte des côtes (tsunami, vagues-submersion, forte houle) : côtes tracées ; sinon départements. */
+  function isCoastal(alert) {
+    return Boolean(alert) && (alert.category === 'tsunami' || ((alert.category || 'meteo') === 'meteo' && [9, 16].includes(Number(alert.phenomenon))));
+  }
+
   function coastLevelsOf(alert) {
     const surge = Boolean(alert && alert.category !== 'tsunami');
     const levels = {};
     const rows = (alert && (alert.tsunamiTable || (alert.forecastTable && alert.forecastTable.rows))) || [];
     const set = new Set((alert && alert.departments) || []);
     for (const r of rows) if (!surge || set.has(r.department) || set.has('ALL')) levels[r.department] = Math.max(levels[r.department] || 0, r.level);
-    if (alert && !Object.keys(levels).length) for (const c of alert.departments || []) levels[c] = alert.level;
+    if (alert && !Object.keys(levels).length) {
+      const list = (alert.departments || []).includes('ALL') ? Object.keys(geoData().deps) : alert.departments || [];
+      for (const c of list) levels[c] = alert.level;
+    }
     return levels;
   }
 
@@ -362,11 +370,19 @@
       return { box: [view.lat - view.span, view.lat + view.span, view.lon - hlo, view.lon + hlo], zoomed: true, mapX: 0, legendW, inset, levels };
     }
     let box = [41.2, 51.2, -5.4, 9.8];
-    const zoomed = Boolean(zoom) && Object.keys(levels).some((c) => c !== '988' && (coasts[c] || []).length);
+    // Alerte non côtière (toutes les alertes en mini-carte) : départements entiers.
+    const byDeps = !isCoastal(alert);
+    const { deps } = geoData();
+    const zoomed = Boolean(zoom) && Object.keys(levels).some((c) => c !== '988' && (byDeps ? deps[c] : (coasts[c] || []).length));
     if (zoomed) {
       let s = 90; let n = -90; let we = 180; let e = -180;
       for (const c of Object.keys(levels)) {
         if (c === '988') continue;
+        if (byDeps) {
+          const b = deps[c] && deps[c].box;
+          if (b) { s = Math.min(s, b[0]); n = Math.max(n, b[1]); we = Math.min(we, b[2]); e = Math.max(e, b[3]); }
+          continue;
+        }
         for (const line of coasts[c] || []) for (const [la, lo] of line) { s = Math.min(s, la); n = Math.max(n, la); we = Math.min(we, lo); e = Math.max(e, lo); }
       }
       const cla = (s + n) / 2; const clo = (we + e) / 2;
@@ -406,6 +422,7 @@
     const { deps, coasts } = geoData();
     // Tsunami, ou vagues-submersion / forte houle (mêmes côtes, couleurs des niveaux météo).
     const surge = Boolean(alert && alert.category !== 'tsunami');
+    const byDeps = Boolean(alert) && !isCoastal(alert);
     const colors = surge ? LEVEL_FILL : TSU_COLORS;
     const names = surge ? { 5: 'Majeure', 4: 'Rouge', 3: 'Orange', 2: 'Jaune' } : TSU_NAMES;
     // Métropole (et Corse) : à gauche ; encart Nouvelle-Calédonie en bas à gauche.
@@ -421,12 +438,15 @@
       if (!d) return;
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, Pr);
-      ctx.fillStyle = '#b8c8e6'; ctx.fill('evenodd');
+      // Alerte non côtière : départements de l'alerte à la couleur de leur niveau.
+      ctx.fillStyle = byDeps && levels[code] ? colors[levels[code]] || colors[2] : '#b8c8e6';
+      ctx.fill('evenodd');
+      if (byDeps && levels[code]) { ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
     };
     for (const code of Object.keys(deps)) if (code !== '988') draw(code, P);
     // Côtes en alerte de la métropole (encart ensuite, par-dessus).
     const strokeCoasts = (only) => {
-      if (!on) return;
+      if (!on || byDeps) return;
       for (const [code, lv] of Object.entries(levels)) {
         if ((code === '988') !== only) continue;
         ctx.strokeStyle = colors[lv] || colors[2];
@@ -981,5 +1001,101 @@
     return canvas;
   }
 
-  window.MAlertBanner = { drawShindoMap, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  // ---------- Bandeau de consigne (comme le « 津波にげて » de la NHK), pour tous les types d'alerte ----------
+  // [texte principal, ligne du dessus] en français, anglais, allemand et espagnol.
+  const EVAC = {
+    tsunami: { fr: ['TSUNAMI : ÉVACUEZ !', 'Rejoignez immédiatement un lieu en hauteur'], en: ['TSUNAMI! EVACUATE!', 'Move to high ground immediately'], de: ['TSUNAMI! EVAKUIEREN!', 'Sofort höher gelegenes Gelände aufsuchen'], es: ['¡TSUNAMI! ¡EVACUEN!', 'Diríjase de inmediato a un lugar elevado'] },
+    seisme: { fr: ['SÉISME : PROTÉGEZ-VOUS !', 'Sous un meuble solide, protégez votre tête'], en: ['EARTHQUAKE! TAKE COVER!', 'Get under sturdy furniture, protect your head'], de: ['ERDBEBEN! SCHÜTZEN SIE SICH!', 'Unter stabile Möbel, Kopf schützen'], es: ['¡TERREMOTO! ¡PROTÉJASE!', 'Bajo un mueble sólido, protéjase la cabeza'] },
+    flood: { fr: ['INONDATION : ÉVACUEZ !', 'Montez à l\'étage, ne prenez pas la route'], en: ['FLOOD! EVACUATE!', 'Go upstairs, do not drive through water'], de: ['ÜBERSCHWEMMUNG! EVAKUIEREN!', 'Nach oben gehen, nicht durchs Wasser fahren'], es: ['¡INUNDACIÓN! ¡EVACUEN!', 'Suba a un piso alto, no circule por el agua'] },
+    crue: { fr: ['CRUE : ÉLOIGNEZ-VOUS !', 'Éloignez-vous des cours d\'eau'], en: ['RIVER FLOOD! MOVE AWAY!', 'Stay away from rivers and streams'], de: ['HOCHWASSER! ABSTAND HALTEN!', 'Von Flüssen und Bächen fernhalten'], es: ['¡CRECIDA! ¡ALÉJESE!', 'Aléjese de los ríos y arroyos'] },
+    surge: { fr: ['SUBMERSION : ÉVACUEZ !', 'Éloignez-vous du littoral'], en: ['STORM SURGE! EVACUATE!', 'Move away from the coast'], de: ['STURMFLUT! EVAKUIEREN!', 'Halten Sie sich von der Küste fern'], es: ['¡MAREJADA! ¡EVACUEN!', 'Aléjese de la costa'] },
+    houle: { fr: ['FORTE HOULE : DANGER !', 'Ne vous approchez pas du bord de mer'], en: ['HEAVY SWELL! DANGER!', 'Stay away from the shoreline'], de: ['STARKE DÜNUNG! GEFAHR!', 'Vom Ufer fernbleiben'], es: ['¡MAR DE FONDO! ¡PELIGRO!', 'No se acerque a la orilla'] },
+    fire: { fr: ['INCENDIE : ÉVACUEZ !', 'Suivez les consignes des pompiers'], en: ['FIRE! EVACUATE!', 'Follow firefighters\' instructions'], de: ['FEUER! EVAKUIEREN!', 'Folgen Sie den Anweisungen der Feuerwehr'], es: ['¡INCENDIO! ¡EVACUEN!', 'Siga las instrucciones de los bomberos'] },
+    tornade: { fr: ['TORNADE : À L\'ABRI !', 'Au plus bas, dans une pièce sans fenêtre'], en: ['TORNADO! TAKE COVER NOW!', 'Lowest floor, in a room without windows'], de: ['TORNADO! SOFORT SCHUTZ SUCHEN!', 'Unterstes Stockwerk, Raum ohne Fenster'], es: ['¡TORNADO! ¡REFÚGIESE YA!', 'En la planta más baja, sin ventanas'] },
+    tempete: { fr: ['TEMPÊTE : RESTEZ À L\'ABRI !', 'Ne sortez pas, éloignez-vous des arbres'], en: ['STORM! STAY INDOORS!', 'Do not go out, keep away from trees'], de: ['ORKAN! DRINNEN BLEIBEN!', 'Nicht hinausgehen, Abstand zu Bäumen'], es: ['¡TEMPORAL! ¡QUÉDESE DENTRO!', 'No salga, aléjese de los árboles'] },
+    vent: { fr: ['VENT VIOLENT : ABRITEZ-VOUS !', 'Limitez vos déplacements, évitez les forêts'], en: ['SEVERE WIND! TAKE SHELTER!', 'Limit travel, avoid forests'], de: ['STURM! SCHUTZ SUCHEN!', 'Fahrten einschränken, Wälder meiden'], es: ['¡VIENTO FUERTE! ¡RESGUÁRDESE!', 'Limite sus desplazamientos, evite los bosques'] },
+    orages: { fr: ['ORAGES : ABRITEZ-VOUS !', 'Évitez les arbres et les activités dehors'], en: ['THUNDERSTORMS! TAKE SHELTER!', 'Avoid trees and outdoor activities'], de: ['GEWITTER! SCHUTZ SUCHEN!', 'Bäume und Aktivitäten im Freien meiden'], es: ['¡TORMENTAS! ¡RESGUÁRDESE!', 'Evite los árboles y las actividades al aire libre'] },
+    neige: { fr: ['NEIGE-VERGLAS : PRUDENCE !', 'Limitez vos déplacements'], en: ['SNOW AND ICE! CAUTION!', 'Limit your travel'], de: ['SCHNEE UND GLÄTTE! VORSICHT!', 'Fahrten einschränken'], es: ['¡NIEVE Y HIELO! ¡PRECAUCIÓN!', 'Limite sus desplazamientos'] },
+    canicule: { fr: ['CANICULE : HYDRATEZ-VOUS !', 'Restez au frais, prenez des nouvelles des proches'], en: ['HEATWAVE! STAY HYDRATED!', 'Keep cool, check on vulnerable people'], de: ['HITZEWELLE! VIEL TRINKEN!', 'Kühl bleiben, nach Angehörigen sehen'], es: ['¡OLA DE CALOR! ¡HIDRÁTESE!', 'Manténgase fresco, cuide de sus allegados'] },
+    froid: { fr: ['GRAND FROID : PROTÉGEZ-VOUS !', 'Couvrez-vous, signalez les sans-abri au 115'], en: ['EXTREME COLD! STAY WARM!', 'Dress warmly, help homeless people'], de: ['STRENGE KÄLTE! WARM HALTEN!', 'Warm anziehen, Obdachlosen helfen'], es: ['¡FRÍO EXTREMO! ¡ABRÍGUESE!', 'Abríguese, ayude a las personas sin hogar'] },
+    avalanche: { fr: ['AVALANCHES : DANGER !', 'Restez sur les pistes balisées'], en: ['AVALANCHE DANGER!', 'Stay on marked slopes'], de: ['LAWINENGEFAHR!', 'Auf markierten Pisten bleiben'], es: ['¡PELIGRO DE ALUDES!', 'No salga de las pistas balizadas'] },
+    pollution: { fr: ['POLLUTION : LIMITEZ VOS EFFORTS', 'Évitez les activités physiques intenses'], en: ['AIR POLLUTION: LIMIT EXERTION', 'Avoid intense physical activity'], de: ['LUFTVERSCHMUTZUNG: ANSTRENGUNG MEIDEN', 'Intensive körperliche Aktivität vermeiden'], es: ['CONTAMINACIÓN: EVITE ESFUERZOS', 'Evite la actividad física intensa'] },
+    accident: { fr: ['ACCIDENT INDUSTRIEL : CONFINEZ-VOUS !', 'Fermez portes et fenêtres, coupez la ventilation'], en: ['INDUSTRIAL ACCIDENT! SHELTER IN PLACE!', 'Close doors and windows, turn off ventilation'], de: ['INDUSTRIEUNFALL! DRINNEN BLEIBEN!', 'Türen und Fenster schließen, Lüftung aus'], es: ['¡ACCIDENTE INDUSTRIAL! ¡CONFÍNESE!', 'Cierre puertas y ventanas, apague la ventilación'] },
+    attentat: { fr: ['ATTENTAT : FUYEZ, CACHEZ-VOUS !', 'Alertez le 17 ou le 112 une fois en sécurité'], en: ['ATTACK! RUN, HIDE!', 'Call 112 once you are safe'], de: ['ANSCHLAG! FLÜCHTEN, VERSTECKEN!', 'In Sicherheit die 112 anrufen'], es: ['¡ATENTADO! ¡HUYA, ESCÓNDASE!', 'Llame al 112 cuando esté a salvo'] },
+    missile: { fr: ['MISSILE : ABRITEZ-VOUS !', 'Dans un bâtiment solide, loin des fenêtres'], en: ['MISSILE! TAKE SHELTER!', 'Inside a solid building, away from windows'], de: ['RAKETE! SCHUTZ SUCHEN!', 'In einem festen Gebäude, weg von Fenstern'], es: ['¡MISIL! ¡REFÚGIESE!', 'En un edificio sólido, lejos de las ventanas'] },
+    greve: { fr: ['GRÈVE : PERTURBATIONS', 'Renseignez-vous avant de partir'], en: ['STRIKE: DISRUPTIONS', 'Check before you travel'], de: ['STREIK: STÖRUNGEN', 'Vor der Fahrt informieren'], es: ['HUELGA: PERTURBACIONES', 'Infórmese antes de salir'] },
+    blocus: { fr: ['BLOCUS : ÉVITEZ LE SECTEUR', 'Prévoyez un autre itinéraire'], en: ['BLOCKADE: AVOID THE AREA', 'Plan another route'], de: ['BLOCKADE: GEBIET MEIDEN', 'Andere Route planen'], es: ['BLOQUEO: EVITE LA ZONA', 'Prevea otro itinerario'] },
+    generic: { fr: ['ÉVACUEZ IMMÉDIATEMENT', 'Suivez les consignes des autorités'], en: ['EVACUATE NOW', 'Follow the authorities\' instructions'], de: ['SOFORT EVAKUIEREN', 'Folgen Sie den Anweisungen der Behörden'], es: ['EVACUEN DE INMEDIATO', 'Siga las instrucciones de las autoridades'] },
+  };
+  // Pictogrammes dessinés pour M-Alert (rouge sur blanc, 100 × 100).
+  const RUN = '<circle cx="66" cy="22" r="7"/><path d="M62 31 L54 52 L66 62 L62 80 M54 52 L42 64 M60 36 L72 46 L80 42 M60 36 L46 40 L40 50" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>';
+  const LINE = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
+  const CLOUD = '<path d="M22 58 a14 14 0 0 1 4 -27 a18 18 0 0 1 34 -6 a14 14 0 0 1 14 33 Z"/>';
+  const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
+  const THERMO = '<rect x="64" y="10" width="16" height="58" rx="8"/><circle cx="72" cy="78" r="14"/>';
+  const EVAC_ICON = {
+    tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/>${RUN}`,
+    seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
+    flood: `<path d="M24 56 L50 32 L76 56 V72 H24 Z" ${LINE} stroke-width="7"/><rect x="44" y="58" width="12" height="14"/><path d="M4 80 q8 -7 16 0 t16 0 t16 0 t16 0 t16 0 t16 0 V96 H4 Z"/>`,
+    crue: `<path d="M50 8 L34 30 H44 V48 H56 V30 H66 Z"/><path d="M8 62 q10 -8 21 0 t21 0 t21 0 t21 0 M8 78 q10 -8 21 0 t21 0 t21 0 t21 0 M8 94 q10 -8 21 0 t21 0 t21 0 t21 0" ${LINE} stroke-width="6"/>`,
+    surge: `<path d="M72 28 V96 H96 V28 Z"/><path d="M2 96 C4 60 30 42 54 54 C42 54 36 66 42 76 C48 86 60 84 66 96 Z"/>`,
+    houle: `<path d="M2 66 C10 40 34 34 46 48 C36 48 32 58 38 64 C44 70 52 66 56 60 C64 44 86 40 98 56 V96 H2 Z"/><path d="M14 24 q9 -7 18 0 t18 0" ${LINE} stroke-width="5"/>`,
+    fire: '<path d="M30 94 C10 84 12 60 26 48 C26 60 32 64 34 60 C32 44 40 28 50 20 C50 36 62 44 60 62 C66 58 68 50 68 46 C80 58 80 84 62 94 Z"/>',
+    tornade: `<path d="M8 14 H92 M16 30 H82 M28 46 H70 M38 62 H62 M46 78 H56 M50 92 H52" ${LINE} stroke-width="8"/>`,
+    tempete: `${CLOUD}<path d="M10 72 H62 M22 84 H80 M10 96 H50" ${LINE} stroke-width="6"/>`,
+    vent: `<path d="M8 34 H58 a10 10 0 1 0 -10 -10 M8 52 H76 a10 10 0 1 1 -10 10 M8 70 H44" ${LINE} stroke-width="7"/>`,
+    orages: `${CLOUD}<path d="M48 58 L36 80 H48 L42 98 L64 70 H52 L58 58 Z"/>`,
+    neige: FLAKE(50, 50, 40, 7),
+    canicule: `<circle cx="32" cy="34" r="13"/><path d="M32 8 V14 M32 54 V60 M6 34 H12 M52 34 H58 M14 16 l4 4 M46 48 l4 4 M14 52 l4 -4 M46 20 l4 -4" ${LINE} stroke-width="5"/>${THERMO}`,
+    froid: `${FLAKE(30, 40, 22, 5)}<rect x="64" y="10" width="16" height="58" rx="8" fill="none" stroke-width="5"/><circle cx="72" cy="78" r="14"/>`,
+    avalanche: '<path d="M2 94 L40 26 L58 54 L68 42 L98 94 Z"/><circle cx="78" cy="26" r="7"/><circle cx="90" cy="42" r="5"/><circle cx="66" cy="14" r="4"/>',
+    pollution: `${CLOUD}<circle cx="30" cy="76" r="5"/><circle cx="50" cy="84" r="5"/><circle cx="70" cy="76" r="5"/><circle cx="40" cy="94" r="4"/><circle cx="62" cy="94" r="4"/>`,
+    accident: '<path d="M6 94 V54 L28 66 V54 L50 66 V30 H62 V66 L94 66 V94 Z"/><circle cx="68" cy="22" r="7"/><circle cx="82" cy="14" r="5"/>',
+    attentat: `<path d="M10 16 H34 V94" ${LINE} stroke-width="6"/>${RUN}`,
+    missile: `<path d="M66 6 L84 22 L50 56 L38 46 Z"/><path d="M38 46 L26 44 L36 34 Z M50 56 L52 68 L62 58 Z"/><path d="M12 94 V74 L34 60 L56 74 V94" ${LINE} stroke-width="6"/>`,
+    greve: `<path d="M12 42 H28 L68 20 V80 L28 58 H12 Z"/><path d="M28 58 L34 84 H44 L40 60" /><path d="M80 36 q9 14 0 28" ${LINE} stroke-width="6"/>`,
+    blocus: '<rect x="6" y="34" width="88" height="22"/><path d="M20 34 H32 L22 56 H10 Z M44 34 H56 L46 56 H34 Z M68 34 H80 L70 56 H58 Z" fill="#fff" stroke="none"/><path d="M22 56 V92 M78 56 V92" fill="none" stroke-width="8" stroke-linecap="round"/>',
+    generic: `${RUN}<path d="M10 76 H36 M28 68 L38 76 L28 84" ${LINE} stroke-width="7"/>`,
+  };
+  const EVAC_LANGS = ['fr', 'en', 'de', 'es'];
+  const EVAC_KINDS = Object.keys(EVAC);
+  /** Bandeau qui va avec une alerte (catégorie, phénomène météo). */
+  function evacKindOf(a) {
+    if (!a) return 'generic';
+    const cat = a.category || 'meteo';
+    const byCat = { tsunami: 'tsunami', seisme: 'seisme', incendie: 'fire', pollution: 'pollution', accident: 'accident', attentat: 'attentat', greve: 'greve', blocus: 'blocus', missile: 'missile' };
+    if (byCat[cat]) return byCat[cat];
+    const byPhen = { 1: 'vent', 2: 'flood', 3: 'orages', 4: 'crue', 5: 'neige', 6: 'canicule', 7: 'froid', 8: 'avalanche', 9: 'surge', 10: 'tornade', 11: 'fire', 12: 'flood', 14: 'tempete', 15: 'orages', 16: 'houle' };
+    return byPhen[Number(a.phenomenon)] || 'generic';
+  }
+  /** Contenu du bandeau (kind : voir EVAC ; lang : 'fr', 'en', 'de', 'es'). */
+  function evacHtml(kind, lang, { icon = '', text = null } = {}) {
+    const k = EVAC[kind] ? kind : 'generic';
+    const l = EVAC_LANGS.includes(lang) ? lang : 'fr';
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    // Texte écrit dans M-Alert-sender (et sa traduction), sinon celui du message choisi.
+    const [main, sub] = text && text.main ? [text.main, text.sub || ''] : EVAC[k][l];
+    const ico = EVAC_ICON[icon] ? icon : k;
+    return `<div class="evac-txt">${sub ? `<div class="evac-sub">${esc(sub)}</div>` : ''}<div class="evac-main">${esc(main)}</div></div>`
+      + (icon === 'none' ? '' : `<div class="evac-ico"><svg viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a" aria-hidden="true">${EVAC_ICON[ico]}</svg></div>`);
+  }
+  /**
+   * Bandeau placé dans une image de W × H : taille réduite s'il est trop long (96 % de la largeur au
+   * plus) et position gardée dans l'image (bandeau entier visible, même déplacé vers un bord).
+   * el : bandeau déjà rempli ; e : { x, y (centre, %), scale }. Retourne { scale, left, top } (px).
+   */
+  function evacPlace(el, W, H, e) {
+    el.style.setProperty('--es', '1');
+    const w = el.offsetWidth || 1; const h = el.offsetHeight || 1;
+    const scale = Math.max(0.1, Math.min(Number(e.scale) || 1, (W * 0.96) / w, (H * 0.9) / h));
+    const hw = (w * scale) / 2; const hh = (h * scale) / 2;
+    const m = W * 0.01;
+    const left = Math.max(hw + m, Math.min(W - hw - m, (W * (Number(e.x) || 50)) / 100));
+    const top = Math.max(hh + m, Math.min(H - hh - m, (H * (Number(e.y) || 50)) / 100));
+    return { scale, left, top };
+  }
+  /** Nom français de chaque message (listes du sender). */
+  const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
+
+  window.MAlertBanner = { drawShindoMap, evacHtml, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
