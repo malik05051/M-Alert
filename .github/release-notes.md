@@ -1,19 +1,6 @@
-## M-Alert 3.2.0
+## M-Alert 3.2.1
 
-- **Son choisi par alerte** : M-Alert-sender peut imposer le son d'une alerte (Alerte mobile, séisme EEW, EEW 2, EEW léger, EEW, rouge, majeur, tsunami, information) ; il est joué par l'application, sur Android aussi application fermée (sur iOS application fermée, seule l'alerte mobile a son propre son).
-- **Vigilance Météo-France en alerte mobile** : une vigilance relancée avec « 📢 Alerte mobile » depuis M-Alert-sender sonne sur les téléphones avec le son Alerte mobile, en notification urgente, aussi application fermée.
-- **🌐 Alertes traduites automatiquement** en anglais, allemand et espagnol (titre, description, consignes) quand l'application est dans l'une de ces langues ; « Voir l'original » dans la bannière, réglage pour désactiver la traduction.
-- **📷 Webcams de la zone** : bouton dans la bannière des alertes, images récentes des caméras proches (côte pour un tsunami ou des vagues-submersion, rivières et villes pour une crue, épicentre d'un séisme), un clic ouvre la journée en accéléré ou le direct (Windy) ; **🔴 webcams en direct sur YouTube** en tête quand il y en a (et dans l'incrustation OBS).
-- **💧 Hauteurs d'eau mesurées** pendant les alertes crues, pluie-inondation et inondation : stations où l'eau monte le plus (Hub'Eau, réseau Vigicrues), dans la bannière et le tableau des prévisions.
-- **Réglages gardés à la réinstallation** : sur iPhone, copiés dans le trousseau et rétablis tout seuls si l'application réinstallée (Feather, AltStore, Sideloadly) est signée par le même compte ; partout, « 📤 Exporter » et « 📥 Importer » les réglages (code à garder) dans ⚙ Réglages.
-- **Mise à jour par-dessus sur iPhone** : numéro de build différent à chaque construction (même version remplacée), pour que Feather et iOS la voient comme une mise à jour.
-- **Batterie (iOS et Android)** : la réception en arrière-plan ne reçoit plus que les alertes et notifications qui sonnent, et ne réveille le téléphone qu'une fois par minute au lieu d'environ quatre ; la notification « M-Alert ne reçoit plus les alertes » apparaît après 5 minutes sans réveil.
-- **Méthode PLUM** : les alertes séisme dont les intensités viennent des stations sismiques (méthode de l'agence météorologique japonaise, seule ou avec l'épicentre) portent l'étiquette « 📈 PLUM » ; dans la bannière, la liste et le panneau sismique de l'incrustation OBS.
-- **Incrustation OBS : alerte montrée depuis M-Alert-sender** (« 🎥 Afficher dans OBS ») : une alerte en cours est rejouée comme à son arrivée (bandeau, carte des côtes, panneau du séisme, écran du missile).
-- **Incrustation OBS : intensités toujours à jour** : la carte des intensités est redessinée dès que le séisme est corrigé (magnitude, profondeur, épicentre, intensités), même choisi dans M-Alert-sender et terminé.
-- **Incrustation OBS : magnitude** « M5.7 » d'un seul texte jaune à côté de l'heure, affichable ou masquable depuis M-Alert-sender ou le script OBS.
-- **Incrustation OBS : bandeau de consigne** (comme le « 津波にげて » de la NHK) pour tous les types d'alerte, avec son pictogramme, en français, anglais, allemand, espagnol ou les 4 en alternance ; message prêt, celui de l'alerte en cours, ou texte écrit dans M-Alert-sender (traduit automatiquement), icône au choix ; placé librement depuis le sender et toujours entier dans l'image.
-- **Incrustation OBS : webcam** choisie dans M-Alert-sender (dernière image, journée en accéléré ou direct), placée et dimensionnée depuis le sender, ou en plein écran.
-- **Incrustation OBS : toutes les alertes en carte et mini-carte** (départements à la couleur de leur niveau, qui clignotent comme la carte missile de la NHK), déplaçables et zoomables depuis le sender.
-- **Script OBS** : boutons et raccourcis « Bandeau de consigne : afficher / masquer » et « Webcam : afficher / masquer ».
-- Script OBS mis à jour (version de la page 3.2.0) : remplacez `m-alert.lua` dans OBS.
+- **🔴 Webcams en direct (YouTube)** : dans « 📷 Webcams de la zone » de la bannière des alertes, les webcams qui diffusent en direct sur YouTube près de la zone (port, plage, ville…) en tête de liste, avec le badge « 🔴 Direct » ; un clic ouvre le direct. Les images Windy suivent.
+- **Incrustation OBS : webcam en direct** : un direct YouTube choisi dans M-Alert-sender s'affiche dans le cadre de la webcam (lecteur YouTube, son coupé, mention « Direct : YouTube »).
+- **Incrustation OBS : webcam en plein écran** (option « Taille : Plein écran » de M-Alert-sender), légende en bas par-dessus l'image.
+- Script OBS mis à jour (version de la page 3.2.1) : remplacez `m-alert.lua` dans OBS.
