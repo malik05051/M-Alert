@@ -1262,10 +1262,11 @@
       box.innerHTML = list.length
         ? `<div class="cams-strip">${list.map((w) => `<a class="cam" href="${escapeHtml(w.day || w.detail)}" target="_blank" rel="noopener" title="${escapeHtml(w.title)}">
             <img src="${escapeHtml(w.preview)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+            ${w.source === 'youtube' ? '<span class="cam-live">🔴 Direct</span>' : ''}
             <span class="cam-t">${escapeHtml(w.title)}</span>
-            <span class="cam-s">${[typeof w.km === 'number' ? `${Math.round(w.km)} km` : '', ago(w.updatedAt), w.live ? 'direct' : ''].filter(Boolean).map((x, i, arr) => (x === 'direct' ? '<b>direct</b>' : `<span>${escapeHtml(x)}</span>`)).join(' · ')}</span>
+            <span class="cam-s">${[w.source === 'youtube' ? `YouTube${w.city ? ` · ${w.city}` : ''}` : '', typeof w.km === 'number' ? `${Math.round(w.km)} km` : '', w.source === 'youtube' ? '' : ago(w.updatedAt), w.live && w.source !== 'youtube' ? 'direct' : ''].filter(Boolean).map((x, i, arr) => (x === 'direct' ? '<b>direct</b>' : `<span>${escapeHtml(x)}</span>`)).join(' · ')}</span>
           </a>`).join('')}</div>
-          <div class="cams-credit"><span>Images en direct ou récentes</span> · <a href="${escapeHtml((data.credit && data.credit.url) || 'https://www.windy.com/webcams')}" target="_blank" rel="noopener">${escapeHtml((data.credit && data.credit.text) || 'Webcams : Windy.com')}</a></div>`
+          <div class="cams-credit"><span>${data.live ? 'Directs YouTube et images récentes' : 'Images en direct ou récentes'}</span> · <a href="${escapeHtml((data.credit && data.credit.url) || 'https://www.windy.com/webcams')}" target="_blank" rel="noopener">${escapeHtml((data.credit && data.credit.text) || 'Webcams : Windy.com')}</a></div>`
         : `<div class="cams-credit">${escapeHtml(data.error ? `Webcams indisponibles (${data.error}).` : 'Aucune webcam trouvée près de la zone.')}</div>`;
       box.classList.remove('hidden');
       $('ovCamsBtn').textContent = list.length ? `📷 ${list.length} webcam(s) de la zone` : '📷 Webcams de la zone';

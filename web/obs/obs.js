@@ -149,7 +149,7 @@
     if (typeof o.epicenter === 'boolean' && part('epicenter')) epicenterOn = o.epicenter;
     if (typeof o.magnitude === 'boolean' && part('magnitude')) magnitudeOn = o.magnitude;
   }
-  // ---------- Webcam (Windy) : dernière image actualisée, journée en accéléré ou direct ----------
+  // ---------- Webcam (Windy) : dernière image actualisée, journée en accéléré ou direct ; ou direct YouTube ----------
   let webcamData = null; // { id, preview, day, live, at }
   let webcamTimer = null;
   async function loadWebcam(id) {
@@ -176,6 +176,10 @@
     el.classList.toggle('frame', Boolean(frameUrl));
     el.classList.toggle('img', !frameUrl);
     const fr = el.querySelector('iframe');
+    // Direct YouTube : le lecteur intégré de YouTube demande l'adresse de la page (sinon « erreur 153 »).
+    const yt = /^yt:/.test(w.id);
+    fr.setAttribute('referrerpolicy', yt ? 'strict-origin-when-cross-origin' : 'no-referrer');
+    el.querySelector('.wc-cap span:last-child').textContent = yt ? 'Direct : YouTube' : 'Webcam : Windy.com';
     if (frameUrl && fr.getAttribute('src') !== frameUrl) fr.setAttribute('src', frameUrl);
     if (!frameUrl && fr.getAttribute('src')) fr.removeAttribute('src');
     const img = el.querySelector('img');
