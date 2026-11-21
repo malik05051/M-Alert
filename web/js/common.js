@@ -379,7 +379,7 @@
   // Séisme : d'où viennent les intensités (étiquette « PLUM » ou non).
   const QUAKE_METHODS = {
     plum: { tag: '📈 PLUM', title: 'Intensités mesurées par les stations sismiques (méthode PLUM)' },
-    hybrid: { tag: '📈 PLUM + épicentre', title: 'Intensités : la plus forte de la méthode PLUM (stations sismiques) et de l\'estimation d\'après l\'épicentre' },
+    hybrid: { tag: '📈 PLUM', title: 'Intensités : la plus forte de la méthode PLUM (stations sismiques) et de l\'estimation d\'après l\'épicentre' },
     epicentre: { tag: '📍 Sans PLUM', title: 'Intensités estimées d\'après l\'épicentre et la magnitude, sans la méthode PLUM' },
   };
   /** 'plum', 'hybrid', 'epicentre' (séisme), ou null (autre alerte). */
@@ -388,7 +388,7 @@
     if (QUAKE_METHODS[a.quakeMethod]) return a.quakeMethod;
     return /^plum/.test(a.source || '') ? 'plum' : 'epicentre';
   }
-  /** Étiquette HTML du séisme : « 📈 PLUM », « 📈 PLUM + épicentre » ou « 📍 Sans PLUM » (vide sinon). */
+  /** Étiquette HTML du séisme : « 📈 PLUM » (seule ou avec l'épicentre) ou « 📍 Sans PLUM » (vide sinon). */
   function quakeMethodTag(a, cls = 'tag quake-method') {
     const m = quakeMethod(a);
     if (!m) return '';
