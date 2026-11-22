@@ -1080,6 +1080,65 @@
     return `<div class="evac-txt">${sub ? `<div class="evac-sub">${esc(sub)}</div>` : ''}<div class="evac-main">${esc(main)}</div></div>`
       + (icon === 'none' ? '' : `<div class="evac-ico"><svg viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a" aria-hidden="true">${EVAC_ICON[ico]}</svg></div>`);
   }
+  /** Pictogramme seul (SVG autonome, rouge, fond transparent ; carré blanc si tile). */
+  function evacIconSvg(kind, { icon = '', tile = false } = {}) {
+    const k = EVAC_ICON[icon] ? icon : EVAC_ICON[kind] ? kind : 'generic';
+    return tile
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 120 120"><rect x="-10" y="-10" width="120" height="120" fill="#fff"/><g fill="#d7141a" stroke="#d7141a">${EVAC_ICON[k]}</g></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a">${EVAC_ICON[k]}</svg>`;
+  }
+  /**
+   * Bandeau en image PNG (fond transparent), dessiné comme dans l'incrustation OBS pour une image de
+   * hauteur H (1080 : taille réelle dans OBS en 1080p). Retourne une promesse de Blob.
+   */
+  async function evacPng(kind, lang, { icon = '', text = null, H = 1080 } = {}) {
+    const k = EVAC[kind] ? kind : 'generic';
+    const l = EVAC_LANGS.includes(lang) ? lang : 'fr';
+    const [main, sub] = text && text.main ? [text.main, text.sub || ''] : EVAC[k][l];
+    const u = H / 100; // 1vh
+    const FONT_FAMILY = '"Noto Sans", "Segoe UI", Arial, sans-serif';
+    const fMain = `900 ${9 * u}px ${FONT_FAMILY}`;
+    const fSub = `700 ${2.3 * u}px ${FONT_FAMILY}`;
+    try { await Promise.all([document.fonts.load(fMain, main), document.fonts.load(fSub, sub || 'A')]); } catch (_) { /* polices du système */ }
+    const c = document.createElement('canvas');
+    let ctx = c.getContext('2d');
+    const measure = (font, t, ls) => { ctx.font = font; if ('letterSpacing' in ctx) ctx.letterSpacing = `${ls}px`; return ctx.measureText(t).width; };
+    const wMain = measure(fMain, main, 9 * u * 0.02);
+    const wSub = sub ? measure(fSub, sub, 2.3 * u * 0.04) : 0;
+    const subH = sub ? 2.3 * u * 1.25 + 0.9 * u : 0;
+    const txtW = Math.max(wMain, wSub) + 2 * u;
+    const txtH = 0.8 * u + subH + 9 * u * 1.2 + 0.6 * u;
+    const withIcon = icon !== 'none';
+    const W = Math.ceil(2.6 * u + txtW + (withIcon ? 1.6 * u + 11 * u : 0) + 1.6 * u);
+    const Hb = Math.ceil(2 * 1.3 * u + txtH);
+    c.width = W; c.height = Hb;
+    ctx = c.getContext('2d');
+    // Fond rouge et filet blanc intérieur (comme les ombres internes du bandeau d'OBS).
+    ctx.fillStyle = '#d7141a'; ctx.fillRect(0, 0, W, Hb);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.35 * u;
+    ctx.strokeRect(0.625 * u, 0.625 * u, W - 1.25 * u, Hb - 1.25 * u);
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    const x0 = 2.6 * u + 1 * u;
+    let y = 1.3 * u + 0.8 * u;
+    const line = (font, t, size, lh, ls) => {
+      ctx.font = font; if ('letterSpacing' in ctx) ctx.letterSpacing = `${ls}px`;
+      const m = ctx.measureText(t);
+      const asc = m.fontBoundingBoxAscent ?? size * 0.8; const desc = m.fontBoundingBoxDescent ?? size * 0.2;
+      ctx.fillText(t, x0, y + (size * lh - (asc + desc)) / 2 + asc);
+      y += size * lh;
+    };
+    if (sub) { ctx.globalAlpha = 0.95; line(fSub, sub, 2.3 * u, 1.25, 2.3 * u * 0.04); ctx.globalAlpha = 1; y += 0.9 * u; }
+    line(fMain, main, 9 * u, 1.2, 9 * u * 0.02);
+    if (withIcon) {
+      const tx = W - 1.6 * u - 11 * u; const ty = 1.3 * u + 0.9 * u; const th = Hb - 2 * 1.3 * u - 1.8 * u;
+      ctx.fillStyle = '#fff'; ctx.fillRect(tx, ty, 11 * u, th);
+      const img = new Image();
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(evacIconSvg(k, { icon }))}`;
+      await img.decode();
+      ctx.drawImage(img, tx + u, ty + (th - 9 * u) / 2, 9 * u, 9 * u);
+    }
+    return new Promise((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error('Image impossible'))), 'image/png'));
+  }
   /**
    * Bandeau placé dans une image de W × H : taille réduite s'il est trop long (96 % de la largeur au
    * plus) et position gardée dans l'image (bandeau entier visible, même déplacé vers un bord).
@@ -1104,5 +1163,5 @@
   /** Nom français de chaque message (listes du sender). */
   const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
 
-  window.MAlertBanner = { drawShindoMap, evacHtml, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, evacHtml, evacPng, evacIconSvg, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
