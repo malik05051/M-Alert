@@ -221,8 +221,9 @@
       const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
       evacKey = key;
       if (roll) {
-        // Comme la NHK : écrasé vers le bas, bord inférieur fixe (≈ 0,08 s), un instant à plat, puis
-        // le suivant se déplie depuis le bas (≈ 0,09 s). Une seule animation sans « fill » : à la fin
+        // Comme la NHK (variante « C » choisie) : le bandeau se referme vers son centre (≈ 0,08 s), un
+        // instant à plat, puis le suivant s'ouvre depuis le centre (≈ 0,09 s) ; origine de la
+        // transformation au centre (.evac dans index.html). Une seule animation sans « fill » : à la fin
         // (ou si elle est interrompue), le bandeau retrouve toujours sa taille normale. Le texte change
         // quand l'animation elle-même est à plat (son horloge, pas une minuterie à part : dans OBS,
         // l'animation peut démarrer en retard et le texte changeait alors avant l'écrasement).
