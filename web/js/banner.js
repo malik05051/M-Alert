@@ -340,6 +340,8 @@
   }
 
   function coastLevelsOf(alert) {
+    // Niveaux déjà calculés (alerte complétée par la vigilance Météo-France, ou vigilance seule).
+    if (alert && alert.depLevels) return { ...alert.depLevels };
     const surge = Boolean(alert && alert.category !== 'tsunami');
     const levels = {};
     const rows = (alert && (alert.tsunamiTable || (alert.forecastTable && alert.forecastTable.rows))) || [];
@@ -350,6 +352,64 @@
       for (const c of list) levels[c] = alert.level;
     }
     return levels;
+  }
+
+  // ---------- Vigilance Météo-France dans les cartes et mini-cartes ----------
+  /** Période de vigilance de l'heure t (sinon la première) : { begin, end, departments }. */
+  function vigPeriod(vig, t = Date.now()) {
+    const periods = (vig && vig.periods) || [];
+    return periods.find((x) => Date.parse(x.begin) <= t && t < Date.parse(x.end)) || periods[0] || null;
+  }
+  /** Départements en vigilance (jaune ou plus) pour un phénomène Météo-France : { code: niveau }. */
+  function vigLevelsOf(vig, phenomenon, t = Date.now()) {
+    const p = vigPeriod(vig, t);
+    const out = {};
+    if (!p || !p.departments) return out;
+    for (const [code, d] of Object.entries(p.departments)) {
+      for (const ph of (d && d.phenomena) || []) {
+        if (Number(ph.id) === Number(phenomenon) && ph.level >= 2) out[code] = Math.max(out[code] || 0, Math.min(4, ph.level));
+      }
+    }
+    return out;
+  }
+  /**
+   * Alerte météo complétée par la vigilance Météo-France du même phénomène (ex. alerte vagues-submersion
+   * orange en Corse + vigilance jaune de la côte sud-ouest) : chaque département au plus haut des deux.
+   */
+  function withVigilance(alert, vig) {
+    if (!alert || !vig || alert.vigOnly || (alert.category || 'meteo') !== 'meteo' || !alert.phenomenon) return alert;
+    const t = Math.max(Date.now(), Date.parse(alert.startsAt || alert.startAt || '') || 0);
+    const extra = vigLevelsOf(vig, alert.phenomenon, t);
+    if (!Object.keys(extra).length) return alert;
+    const levels = coastLevelsOf(alert);
+    let added = false;
+    for (const [c, l] of Object.entries(extra)) { if (!levels[c] || l > levels[c]) added = true; levels[c] = Math.max(levels[c] || 0, l); }
+    return added ? { ...alert, depLevels: levels, withVigilance: true } : alert;
+  }
+  /**
+   * Vigilances Météo-France en cours, une « alerte » par phénomène (cartes et mini-cartes sans alerte
+   * M-Alert) : id « vig:<phénomène> », départements à leur couleur.
+   */
+  function vigAlerts(vig, names = {}) {
+    const p = vigPeriod(vig);
+    if (!p || !p.departments) return [];
+    const by = {};
+    for (const [code, d] of Object.entries(p.departments)) {
+      for (const ph of (d && d.phenomena) || []) {
+        if (!(ph.level >= 2)) continue;
+        const g = (by[ph.id] = by[ph.id] || { levels: {} });
+        g.levels[code] = Math.max(g.levels[code] || 0, Math.min(4, ph.level));
+      }
+    }
+    return Object.entries(by).map(([id, g]) => {
+      const level = Math.max(...Object.values(g.levels));
+      return {
+        id: `vig:${id}`, vigilance: true, vigOnly: true, category: 'meteo', phenomenon: Number(id), level,
+        departments: Object.keys(g.levels).sort(), depLevels: g.levels,
+        title: `Vigilance Météo-France — ${names[id] || (M && M.alertKind ? M.alertKind({ category: 'meteo', phenomenon: Number(id) }).name : `phénomène ${id}`)}`,
+        createdAt: p.begin, updatedAt: p.begin, expiresAt: p.end,
+      };
+    }).sort((x, y) => y.level - x.level || x.phenomenon - y.phenomenon);
   }
 
   /**
@@ -502,17 +562,20 @@
       ctx.fillText(names[l], lx + legendW * 0.27, y);
     });
     ctx.font = `700 ${Math.round(H * 0.034)}px ${FONT}`; ctx.textBaseline = 'top';
-    const title = surge ? `${(M && M.alertKind ? M.alertKind(alert).name : 'Vagues-submersion')} (M-Alert)` : 'Tsunami (M-Alert)';
+    // Source : M-Alert, vigilance Météo-France seule, ou les deux (alerte complétée par la vigilance).
+    const src = alert && alert.vigOnly ? '(Météo-France)' : alert && alert.withVigilance ? '(M-Alert + Météo-France)' : '(M-Alert)';
+    const title = surge ? `${(M && M.alertKind ? M.alertKind(alert).name : 'Vagues-submersion')} ${src}` : `Tsunami ${src}`;
     const ts = Math.round(H * 0.034);
     ctx.font = `700 ${ts}px ${FONT}`;
     if (ctx.measureText(title).width <= legendW * 0.86) ctx.fillText(title, lx + legendW * 0.08, H * 0.08);
     else {
-      // Titre long (vagues-submersion) : nom, puis « (M-Alert) » dessous.
-      const name = title.replace(/ \(M-Alert\)$/, '');
+      // Titre long (vagues-submersion) : nom, puis la source dessous.
+      const name = title.slice(0, -src.length - 1);
       fitText(ctx, name, legendW * 0.86, ts, 12);
       ctx.fillText(name, lx + legendW * 0.08, H * 0.08);
       ctx.font = `700 ${ts}px ${FONT}`;
-      ctx.fillText('(M-Alert)', lx + legendW * 0.08, H * 0.08 + ts * 1.25);
+      fitText(ctx, src, legendW * 0.86, ts, 10);
+      ctx.fillText(src, lx + legendW * 0.08, H * 0.08 + ts * 1.25);
     }
     return canvas;
   }
@@ -1035,9 +1098,9 @@
   const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
   const THERMO = '<rect x="64" y="10" width="16" height="58" rx="8"/><circle cx="72" cy="78" r="14"/>';
   const EVAC_ICON = {
-    tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/>${RUN}`,
+    tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g>`,
     seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
-    flood: `<path d="M24 56 L50 32 L76 56 V72 H24 Z" ${LINE} stroke-width="7"/><rect x="44" y="58" width="12" height="14"/><path d="M4 80 q8 -7 16 0 t16 0 t16 0 t16 0 t16 0 t16 0 V96 H4 Z"/>`,
+    flood: `<path d="M14 46 L50 12 L86 46 V68 H14 Z" ${LINE} stroke-width="8"/><rect x="41" y="50" width="18" height="18"/><path d="M0 88 q8 -8 16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 V100 H0 Z"/>`,
     crue: `<path d="M50 8 L34 30 H44 V48 H56 V30 H66 Z"/><path d="M8 62 q10 -8 21 0 t21 0 t21 0 t21 0 M8 78 q10 -8 21 0 t21 0 t21 0 t21 0 M8 94 q10 -8 21 0 t21 0 t21 0 t21 0" ${LINE} stroke-width="6"/>`,
     surge: `<path d="M72 28 V96 H96 V28 Z"/><path d="M2 96 C4 60 30 42 54 54 C42 54 36 66 42 76 C48 86 60 84 66 96 Z"/>`,
     houle: `<path d="M2 66 C10 40 34 34 46 48 C36 48 32 58 38 64 C44 70 52 66 56 60 C64 44 86 40 98 56 V96 H2 Z"/><path d="M14 24 q9 -7 18 0 t18 0" ${LINE} stroke-width="5"/>`,
@@ -1163,5 +1226,5 @@
   /** Nom français de chaque message (listes du sender). */
   const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
 
-  window.MAlertBanner = { drawShindoMap, evacHtml, evacPng, evacIconSvg, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, evacHtml, evacPng, evacIconSvg, vigLevelsOf, withVigilance, vigAlerts, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();

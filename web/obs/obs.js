@@ -112,6 +112,7 @@
   let magnitudeOn = true; // magnitude (« M5.7 ») sur la carte des intensités
   // Webcam et bandeau d'évacuation, choisis et placés dans M-Alert-sender.
   let webcamState = null;
+  let vig = null; // vigilance Météo-France (cartes et mini-cartes : départements du même phénomène)
   let evacState = null;
   /**
    * État de l'incrustation envoyé par M-Alert-sender (message « obs », et à la connexion). changed :
@@ -815,7 +816,9 @@
         || (coastTop(y) - coastTop(x)) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     const lastCoast = isCoast(lastAlert) ? lastAlert : null;
     // Alerte choisie dans M-Alert-sender, quelle qu'elle soit (toutes les alertes en carte et mini-carte).
-    const pinnedAny = coastPinned ? alerts.filter(wanted).find((x) => x.id === coastPinned) || null : null;
+    // « vig:<phénomène> » : vigilance Météo-France seule (sans alerte M-Alert), choisie dans le sender.
+    const pinnedAny = coastPinned ? alerts.filter(wanted).find((x) => x.id === coastPinned)
+      || (/^vig:/.test(coastPinned) ? B.vigAlerts(vig).find((x) => x.id === coastPinned) || null : null) : null;
     const tsu = manualMap === false ? null : manualMap === true ? pinnedAny || coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     if (a) markFirst(a.id);
@@ -870,7 +873,8 @@
     const stayOn = alerts.filter(wanted).some(stays);
     reduce(Boolean(((autoOn || phase > 0 || stayOn) && (Date.now() - firstAt >= reduceAfter * 1000 || prevScene)) || (cancelOn() && prevScene)));
     document.body.classList.toggle('show-tsunami', mapOn);
-    mapReq = mapOn ? tsu : null;
+    // Alerte météo complétée par la vigilance Météo-France du même phénomène (tous les départements concernés).
+    mapReq = mapOn ? B.withVigilance(tsu, vig) : null;
     document.body.classList.toggle('show-board', boardOn);
     if (boardOn) renderBoard(boardAlert);
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
@@ -881,7 +885,7 @@
     const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(tableAlert) : manualTable === false ? false : phase === 2 && Boolean(tableAlert));
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
-    miniReq = miniOn ? { alert: miniAlert, zoom: miniZoom, view: miniView } : null;
+    miniReq = miniOn ? { alert: B.withVigilance(miniAlert, vig), zoom: miniZoom, view: miniView } : null;
     drawMaps(true);
     if (tableOn) renderCoastTable(tableAlert);
     // Panneau « Alerte sismique précoce » à gauche : séisme en cours, écran réduit (ou tableau), ou à la main.
@@ -963,6 +967,10 @@
         loadLast();
         applyObs(msg.obs);
         sealevel = msg.sealevel || null;
+        vig = msg.vigilance || null;
+        break;
+      case 'vigilance':
+        vig = msg.vigilance || null;
         break;
       case 'sealevel':
         sealevel = msg.sealevel || null;
