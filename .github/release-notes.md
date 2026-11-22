@@ -6,4 +6,5 @@
 - **Vigilance Météo-France dans les cartes et mini-cartes de l'incrustation OBS** : une alerte météo montre aussi les départements en vigilance Météo-France pour le même phénomène (ex. alerte vagues-submersion orange en Corse et vigilance jaune de la côte sud-ouest), légende « M-Alert + Météo-France » ; une vigilance seule peut aussi être montrée depuis M-Alert-sender.
 - Pictogrammes inondation (plus grand, maison séparée de l'eau) et tsunami (personnage séparé de la vague) redessinés.
 - **Bandeau de consigne en alternance** : le changement de langue se referme vers le centre puis s'ouvre depuis le centre, comme à la NHK (plus d'effet de retournement).
+- **Script OBS : plugin activé / désactivé** : case « Plugin M-Alert activé » en tête des réglages du script (et raccourci clavier) ; désactivé, les sources M-Alert sont éteintes (plus d'alerte, de son ni d'écran réduit).
 - Script OBS mis à jour (version de la page 3.2.1) : remplacez `m-alert.lua` dans OBS.

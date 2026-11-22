@@ -15,6 +15,9 @@ bandeau en bas ; puis OBS revient à la scène d'avant. Aussi à la main : bouto
 activer / désactiver » ou raccourci clavier (Paramètres > Raccourcis clavier > « M-Alert : écran réduit »).
 À la main aussi : texte en haut seul (source « M-Alert (texte) », cachée au départ, sans réduire
 l'image) et bandeau de l'alerte en cours (affiché ou masqué), par bouton ou raccourci clavier.
+Plugin activé / désactivé : case « Plugin M-Alert activé » en tête des réglages (ou raccourci
+« M-Alert : plugin activé / désactivé ») ; désactivé, les sources M-Alert sont éteintes (plus
+d'alerte, de son ni d'écran réduit), gardées avec leurs réglages pour la réactivation.
 ]]
 
 obs = obslua
@@ -32,6 +35,14 @@ local ANIM_MS = 500
 -- Catégories des alertes M-Alert (comme dans l'application).
 local CATEGORIES = { "seisme", "tsunami", "meteo", "incendie", "pollution", "accident", "attentat", "greve", "blocus", "missile" }
 local settings_ref = nil
+-- Plugin activé (case « Plugin M-Alert activé » en tête des réglages, ou raccourci clavier) :
+-- désactivé, les sources M-Alert sont éteintes et les boutons et raccourcis sont sans effet.
+local function is_enabled() return settings_ref == nil or obs.obs_data_get_bool(settings_ref, "enabled") end
+local function disabled_log(what)
+  if is_enabled() then return false end
+  obs.script_log(obs.LOG_INFO, "M-Alert : plugin désactivé, « " .. what .. " » ignoré (case « Plugin M-Alert activé » dans les réglages du script)")
+  return true
+end
 
 local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%._~]", function(c) return string.format("%%%02X", string.byte(c)) end))
@@ -286,6 +297,7 @@ end
 
 local function on_event(event)
   if event ~= obs.OBS_FRONTEND_EVENT_SCENE_CHANGED then return end
+  if not is_enabled() then return end
   local cur = obs.obs_frontend_get_current_scene()
   if cur == nil then return end
   local name = obs.obs_source_get_name(cur)
@@ -308,6 +320,7 @@ end
 -- revient à la scène d'avant.
 local hotkey_id = nil
 local function toggle_reduced()
+  if disabled_log("écran réduit") then return end
   local cur = obs.obs_frontend_get_current_scene()
   if cur == nil then return end
   local name = obs.obs_source_get_name(cur)
@@ -371,6 +384,7 @@ end
 -- texte (commande « texte ») ; elle le montre aussi toute seule pendant une alerte (option).
 local send_overlay
 local function toggle_manual(m)
+  if disabled_log(m.label) then return end
   local scene_name = current_program_scene()
   if scene_name == nil then return end
   local scene = scene_by_name(scene_name)
@@ -389,6 +403,7 @@ end
 -- Commande envoyée à la page d'une source navigateur (événement JavaScript « malert ») : l'incrustation
 -- par défaut, ou une autre source (texte en haut).
 function send_overlay(cmd, target)
+  if disabled_log(cmd) then return end
   local name = target or overlay_name
   local src = name and obs.obs_get_source_by_name(name)
   if src == nil or not src then
@@ -425,6 +440,7 @@ local toggle_hotkeys = {}
 local map_hotkey = nil
 
 local function apply(st, demo)
+  if disabled_log("Ajouter / mettre à jour l'incrustation") then return end
   if not browser_available() then
     obs.script_log(obs.LOG_ERROR, "M-Alert : OBS n'a pas de « Navigateur » (source navigateur, obs-browser). " ..
       "Sous Arch, le paquet obs-studio n'en a pas : installez obs-studio-browser (AUR) ou OBS en Flatpak (com.obsproject.Studio).")
@@ -501,6 +517,8 @@ function script_properties()
     obs.obs_properties_add_group(p, name, title, obs.OBS_GROUP_NORMAL, g)
   end
 
+  tip(obs.obs_properties_add_bool(p, "enabled", "Plugin M-Alert activé"),
+    "Décochée : les sources M-Alert sont éteintes (plus d'alerte, de son ni d'écran réduit) et les boutons et raccourcis sont sans effet ; cochée : tout reprend. Aussi par raccourci clavier (« M-Alert : plugin activé / désactivé »).")
   obs.obs_properties_add_text(p, "server", "Serveur M-Alert", obs.OBS_TEXT_DEFAULT)
   obs.obs_properties_add_text(p, "base", "Page d'incrustation", obs.OBS_TEXT_DEFAULT)
   obs.obs_properties_add_button(p, "apply", "Ajouter / mettre à jour l'incrustation", function() apply(settings_ref) return true end)
@@ -566,6 +584,7 @@ end
 local loaded_at = nil
 local function refresh_sources()
   obs.timer_remove(refresh_sources)
+  if not is_enabled() then return end
   local st = settings_ref
   if st == nil or not browser_available() then return end
   local src = find_overlay()
@@ -594,7 +613,62 @@ local function refresh_sources()
   obs.script_log(obs.LOG_INFO, "M-Alert : réglages appliqués aux sources")
 end
 
+-- Plugin désactivé : sources M-Alert éteintes (page vide : plus d'alerte, de son ni de changement de
+-- scène ; masquées partout) et écran réduit quitté. Réactivé : elles reprennent leur page.
+local applied_enabled = nil
+local function plugin_source_names()
+  local names = { FOND_NAME }
+  local src, name = find_overlay()
+  if src ~= nil then obs.obs_source_release(src); table.insert(names, 1, name) end
+  for _, m in ipairs(MANUAL) do table.insert(names, m.name) end
+  return names
+end
+local function apply_enabled(on, force)
+  if applied_enabled == on and not force then return end
+  applied_enabled = on
+  if not on then
+    local cur = obs.obs_frontend_get_current_scene()
+    if cur ~= nil then
+      local name = obs.obs_source_get_name(cur)
+      obs.obs_source_release(cur)
+      if name == ALERT_SCENE then
+        local back = program_scene and obs.obs_get_source_by_name(program_scene)
+        if back ~= nil and back then obs.obs_frontend_set_current_scene(back); obs.obs_source_release(back) end
+      end
+    end
+    obs.timer_remove(anim_tick); anim = nil
+    restore_overlay()
+  end
+  for _, name in ipairs(plugin_source_names()) do
+    local src = obs.obs_get_source_by_name(name)
+    if src ~= nil then
+      if not on then
+        local d = obs.obs_data_create()
+        obs.obs_data_set_string(d, "url", "about:blank")
+        obs.obs_source_update(src, d)
+        obs.obs_data_release(d)
+      end
+      obs.obs_source_set_enabled(src, on)
+      obs.obs_source_release(src)
+    end
+  end
+  if on then refresh_sources() end
+  obs.script_log(obs.LOG_INFO, on and "M-Alert : plugin activé" or "M-Alert : plugin désactivé (sources éteintes)")
+end
+local plugin_hotkey = nil
+local function toggle_plugin()
+  if settings_ref == nil then return end
+  obs.obs_data_set_bool(settings_ref, "enabled", not is_enabled())
+  apply_enabled(is_enabled())
+end
+-- Au démarrage d'OBS : plugin laissé désactivé, sources éteintes une fois chargées.
+local function startup_check()
+  obs.timer_remove(startup_check)
+  if is_enabled() then applied_enabled = true else apply_enabled(false, true) end
+end
+
 function script_defaults(st)
+  obs.obs_data_set_default_bool(st, "enabled", true)
   obs.obs_data_set_default_string(st, "server", "https://m-alert-sender.onrender.com")
   obs.obs_data_set_default_string(st, "base", DEFAULT_BASE)
   for _, t in ipairs(CATEGORIES) do
@@ -621,6 +695,13 @@ function script_load(st)
   settings_ref = st
   loaded_at = obs.os_gettime_ns()
   obs.obs_frontend_add_event_callback(on_event)
+  plugin_hotkey = obs.obs_hotkey_register_frontend("malert_plugin", "M-Alert : plugin activé / désactivé", function(pressed)
+    if pressed then toggle_plugin() end
+  end)
+  local pk = obs.obs_data_get_array(st, "malert_plugin_hotkey")
+  obs.obs_hotkey_load(plugin_hotkey, pk)
+  obs.obs_data_array_release(pk)
+  obs.timer_add(startup_check, 2000)
   -- Raccourci clavier (Paramètres > Raccourcis clavier) : écran réduit à la main.
   hotkey_id = obs.obs_hotkey_register_frontend("malert_reduce", "M-Alert : écran réduit (activer / désactiver)", function(pressed)
     if pressed then toggle_reduced() end
@@ -671,6 +752,11 @@ function script_load(st)
 end
 
 function script_save(st)
+  if plugin_hotkey ~= nil then
+    local pk = obs.obs_hotkey_save(plugin_hotkey)
+    obs.obs_data_set_array(st, "malert_plugin_hotkey", pk)
+    obs.obs_data_array_release(pk)
+  end
   if hotkey_id == nil then return end
   local keys = obs.obs_hotkey_save(hotkey_id)
   obs.obs_data_set_array(st, "malert_reduce_hotkey", keys)
@@ -702,12 +788,15 @@ function script_save(st)
 end
 
 function script_unload()
+  obs.timer_remove(startup_check)
   obs.timer_remove(anim_tick)
   obs.timer_remove(refresh_sources)
   restore_overlay()
 end
 function script_update(st)
   settings_ref = st
+  -- Case « Plugin M-Alert activé » changée : tout de suite.
+  if applied_enabled ~= nil and applied_enabled ~= is_enabled() then apply_enabled(is_enabled()) return end
   -- Au chargement d'OBS (premier appel) : rien à refaire.
   if loaded_at == nil or obs.os_gettime_ns() - loaded_at < 3e9 then return end
   obs.timer_remove(refresh_sources)
