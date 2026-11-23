@@ -8,7 +8,8 @@
     /* Source navigateur OBS : 1920 × 1080, fond transparent. */
     html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
     #tsunami { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; }
-    #banner { position: fixed; left: 50%; bottom: 8vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; box-shadow: 0 0 24px rgba(0,0,0,.5); }
+    /* Bandeau d'alerte au premier plan (au-dessus du bandeau de consigne, z-index 8). */
+    #banner { position: fixed; left: 50%; bottom: 8vh; transform: translateX(-50%); width: var(--bw, 66vw); height: auto; display: none; z-index: 9; box-shadow: 0 0 24px rgba(0,0,0,.5); }
     body.top #banner { top: 3vh; bottom: auto; }
     /* Carte des tsunamis : bandeau (alerte sismique précoce) réduit en haut à gauche. */
     body.show-tsunami #banner { left: 1.5vw; top: 2vh; bottom: auto; transform: none; width: 30vw; }

@@ -882,7 +882,8 @@
     const coastAny = tsu || coastList[0] || lastCoast;
     const miniAlert = pinnedAny || coastAny;
     const tableAlert = isCoast(coastAny) ? coastAny : null;
-    const miniOn = !mapOn && !boardOn && (manualMini === true ? Boolean(miniAlert) : manualMini === false ? false : phase === 2);
+    // Mini-carte masquée tant que le bandeau d'alerte est affiché, puis de nouveau là quand il disparaît.
+    const miniOn = !bannerOn && !mapOn && !boardOn && (manualMini === true ? Boolean(miniAlert) : manualMini === false ? false : phase === 2);
     const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(tableAlert) : manualTable === false ? false : phase === 2 && Boolean(tableAlert));
     document.body.classList.toggle('show-mini', miniOn);
     document.body.classList.toggle('show-table', tableOn);
@@ -936,7 +937,7 @@
     }
     manualBanner = null;
     manualMap = null;
-    manualMini = null;
+    // Mini-carte affichée à la main : gardée (masquée seulement le temps du bandeau d'alerte).
     manualTable = null;
     manualEew = null;
     manualMissile = null;

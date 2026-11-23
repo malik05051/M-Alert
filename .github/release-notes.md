@@ -7,4 +7,5 @@
 - Pictogrammes inondation (plus grand, maison séparée de l'eau) et tsunami (personnage séparé de la vague) redessinés.
 - **Bandeau de consigne en alternance** : le changement de langue se referme vers le centre puis s'ouvre depuis le centre, comme à la NHK (plus d'effet de retournement).
 - **Script OBS : plugin activé / désactivé** : case « Plugin M-Alert activé » en tête des réglages du script (et raccourci clavier) ; désactivé, les sources M-Alert sont éteintes (plus d'alerte, de son ni d'écran réduit).
+- **Incrustation OBS** : bandeau d'alerte au premier plan (au-dessus du bandeau de consigne) ; la mini-carte se masque le temps du bandeau d'alerte puis revient (elle reste affichée à la main d'une alerte à l'autre).
 - Script OBS mis à jour (version de la page 3.2.1) : remplacez `m-alert.lua` dans OBS.
