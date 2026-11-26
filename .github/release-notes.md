@@ -1,11 +1,23 @@
-## M-Alert 3.2.1
+## M-Alert 3.3.0
 
-- **🔴 Webcams en direct (YouTube)** : dans « 📷 Webcams de la zone » de la bannière des alertes, les webcams qui diffusent en direct sur YouTube près de la zone (port, plage, ville…) en tête de liste, avec le badge « 🔴 Direct » ; un clic ouvre le direct. Les images Windy suivent.
-- **Incrustation OBS : webcam en direct** : un direct YouTube choisi dans M-Alert-sender s'affiche dans le cadre de la webcam (lecteur YouTube, son coupé, mention « Direct : YouTube »).
-- **Incrustation OBS : webcam en plein écran** (option « Taille : Plein écran » de M-Alert-sender), légende en bas par-dessus l'image.
-- **Vigilance Météo-France dans les cartes et mini-cartes de l'incrustation OBS** : une alerte météo montre aussi les départements en vigilance Météo-France pour le même phénomène (ex. alerte vagues-submersion orange en Corse et vigilance jaune de la côte sud-ouest), légende « M-Alert + Météo-France » ; une vigilance seule peut aussi être montrée depuis M-Alert-sender.
-- Pictogrammes inondation (plus grand, maison séparée de l'eau) et tsunami (personnage séparé de la vague) redessinés.
-- **Bandeau de consigne en alternance** : le changement de langue se referme vers le centre puis s'ouvre depuis le centre, comme à la NHK (plus d'effet de retournement).
-- **Script OBS : plugin activé / désactivé** : case « Plugin M-Alert activé » en tête des réglages du script (et raccourci clavier) ; désactivé, les sources M-Alert sont éteintes (plus d'alerte, de son ni d'écran réduit).
-- **Incrustation OBS** : bandeau d'alerte au premier plan (au-dessus du bandeau de consigne) ; la mini-carte se masque le temps du bandeau d'alerte puis revient (elle reste affichée à la main d'une alerte à l'autre).
-- Script OBS mis à jour (version de la page 3.2.1) : remplacez `m-alert.lua` dans OBS.
+- **Vigicrues** : bouton « Vigicrues » sur la carte pour passer à la carte de vigilance crues (tronçons de rivières colorés par niveau, d'après le service public Vigicrues) ; les alertes « Vigilance crues » de Vigicrues arrivent comme les autres alertes.
+- **Filtre de la carte par phénomène** (vent, pluie-inondation, orages, crues, neige-verglas, canicule, grand froid, avalanches, vagues-submersion…) et **filtre métropole / Nouvelle-Calédonie**.
+- **Nouvelle-Calédonie par communes** : la carte de la Nouvelle-Calédonie affiche ses communes au lieu d'un seul bloc.
+- **Vigilance infra-départementale** : les zones d'un département (ex. littoral, montagne) sont prises en charge et affichées dans les détails.
+- **Noms des niveaux au choix** : couleurs de vigilance habituelles (jaune, orange, rouge) ou niveaux M-Alert (Avis, Avertissement, Avertissement majeur), dans les réglages.
+- **Carte de vigilance en PDF** : bouton « PDF » sur la carte pour télécharger la carte de vigilance M-Alert (carte, niveaux par phénomène et par département), dans le style du PDF de Météo-France.
+- **Alertes géolocalisées** : une alerte peut viser une zone dessinée sur la carte ; avec « Utiliser ma position » (réglages), l'alerte n'est reçue que si l'appareil est dans la zone.
+- **Alertes critiques** : un avertissement de tsunami, de missile ou d'attentat, une alerte majeure ou une alerte mobile est reçu même au-dessous du niveau minimum choisi.
+- **Plus de rafale de notifications au lancement** : les alertes en cours sont regroupées en une seule notification, les messages manqués en un résumé.
+- **Vigilance Météo-France plus fiable** : plus de faux « la vigilance ne marche plus » lors d'une coupure brève du service, et plus de relance inutile des alertes quand il revient.
+- **Intensité maximale** des séismes corrigée (elle suit les intensités relevées).
+- **Webcams** : correction de l'erreur « Alerte inconnue » à l'ouverture des webcams depuis une notification.
+- **Incrustation OBS** :
+  - carte crues Vigicrues avec les mesures des rivières, et mini-carte des tronçons ;
+  - nouveau bandeau tsunami « Variations du niveau de la mer possibles, mais aucun risque de dégâts dus au tsunami » ;
+  - cadre bleu « alerte annulée » sur la carte des intensités, des côtes, du missile et sur la mini-carte ;
+  - style d'affichage au choix pour une alerte (bandeau, carte, mini-carte, tableau, texte) depuis M-Alert-sender ;
+  - bandeau de consigne : retournement vers le haut plus fluide, pictogramme qui remplit toute la case ;
+  - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).
+- **Accès contrôlé** : M-Alert envoie sa version et son empreinte ; le serveur peut exiger une version minimale et refuser une application modifiée (écran d'explication avec le lien de mise à jour).
+- Script OBS mis à jour (version de la page 3.3.0) : remplacez `m-alert.lua` dans OBS.
