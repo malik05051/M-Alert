@@ -583,7 +583,8 @@
         ctx.beginPath(); ctx.moveTo(2, -10); ctx.lineTo(-4, 1); ctx.lineTo(0.5, 1); ctx.lineTo(-2, 10); ctx.lineTo(5, -2); ctx.lineTo(0.5, -2); ctx.closePath(); ctx.fill();
         break;
       case 2: // pluie-inondation : nuage, gouttes, eau
-        cloud(-2); line([[-4, 4], [-5, 6]]); line([[0, 4], [-1, 6]]); line([[4, 4], [3, 6]]); wave(9, 7);
+        // Nuage et gouttes en haut, eau en bas, bien séparés.
+        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 7);
         break;
       case 4: // crues : vagues superposées
         wave(-4); wave(0); wave(4);
@@ -1614,5 +1615,5 @@
   /** Nom français de chaque message (listes du sender). */
   const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
 
-  window.MAlertBanner = { drawShindoMap, maxShindo, setRivers, isFloodMap, drawVigReport, vigilancePdf, pdfFromJpegs, evacHtml, evacPng, evacIconSvg, vigLevelsOf, withVigilance, vigAlerts, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, maxShindo, drawPicto, setRivers, isFloodMap, drawVigReport, vigilancePdf, pdfFromJpegs, evacHtml, evacPng, evacIconSvg, vigLevelsOf, withVigilance, vigAlerts, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();
