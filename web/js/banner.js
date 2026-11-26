@@ -1503,7 +1503,7 @@
     orages: `${CLOUD}<path d="M48 58 L36 80 H48 L42 98 L64 70 H52 L58 58 Z"/>`,
     neige: FLAKE(50, 50, 40, 7),
     canicule: `<circle cx="32" cy="34" r="13"/><path d="M32 8 V14 M32 54 V60 M6 34 H12 M52 34 H58 M14 16 l4 4 M46 48 l4 4 M14 52 l4 -4 M46 20 l4 -4" ${LINE} stroke-width="5"/>${THERMO}`,
-    froid: `${FLAKE(30, 40, 22, 5)}<path stroke="none" fill-rule="evenodd" d="M62 13 Q62 8 67 8 H77 Q82 8 82 13 V64 A18 18 0 1 1 62 64 Z M68 14 H76 V68 L83 74 H61 L68 68 Z"/>`,
+    froid: `${FLAKE(30, 40, 22, 5)}<path stroke="none" fill-rule="evenodd" d="M62 13 Q62 8 67 8 H77 Q82 8 82 13 V64 A18 18 0 1 1 62 64 Z M68 14 H76 V66 C76 70 82 71 82.5 73 C82.8 75 80 75 72 75 C64 75 61.2 75 61.5 73 C62 71 68 70 68 66 Z"/>`,
     avalanche: '<path d="M2 94 L40 26 L58 54 L68 42 L98 94 Z"/><circle cx="78" cy="26" r="7"/><circle cx="90" cy="42" r="5"/><circle cx="66" cy="14" r="4"/>',
     pollution: `${CLOUD}<circle cx="30" cy="76" r="5"/><circle cx="50" cy="84" r="5"/><circle cx="70" cy="76" r="5"/><circle cx="40" cy="94" r="4"/><circle cx="62" cy="94" r="4"/>`,
     accident: '<path d="M6 94 V54 L28 66 V54 L50 66 V30 H62 V66 L94 66 V94 Z"/><circle cx="68" cy="22" r="7"/><circle cx="82" cy="14" r="5"/>',
