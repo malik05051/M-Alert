@@ -1513,7 +1513,7 @@
     missile: `<path d="M66 6 L84 22 L50 56 L38 46 Z"/><path d="M38 46 L26 44 L36 34 Z M50 56 L52 68 L62 58 Z"/><path d="M12 94 V74 L34 60 L56 74 V94" ${LINE} stroke-width="6"/>`,
     greve: `<path d="M12 42 H28 L68 20 V80 L28 58 H12 Z"/><path d="M28 58 L34 84 H44 L40 60" /><path d="M80 36 q9 14 0 28" ${LINE} stroke-width="6"/>`,
     // Pieds dessinés d'abord : leur bout arrondi du haut reste caché sous la barrière (pas sur les bandes blanches).
-    blocus: '<path d="M22 50 V92 M78 50 V92" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="34" width="88" height="22"/><path d="M20 34 H32 L22 56 H10 Z M44 34 H56 L46 56 H34 Z M68 34 H80 L70 56 H58 Z M92 34 H94 V56 H82 Z" fill="#fff" stroke="none"/>',
+    blocus: '<path d="M22 50 V92 M78 50 V92" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="34" width="88" height="22"/><path d="M16 34 H27.14 L17.14 56 H6 Z M38.29 34 H49.43 L39.43 56 H28.29 Z M60.57 34 H71.71 L61.71 56 H50.57 Z M82.86 34 H94 L84 56 H72.86 Z" fill="#fff" stroke="none"/>',
     generic: `${RUN}<path d="M10 76 H36 M28 68 L38 76 L28 84" ${LINE} stroke-width="7"/>`,
   };
   // Recadrage de chaque pictogramme (contour mesuré à l'écran) : centré dans la case et à la même
