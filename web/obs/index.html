@@ -67,8 +67,10 @@
     .evac-txt { display: flex; flex-direction: column; justify-content: center; padding: .8vh 1vh .6vh; }
     .evac-sub { font-size: 2.3vh; line-height: 1.25; font-weight: 700; letter-spacing: .04em; opacity: .95; margin-bottom: .9vh; }
     .evac-main { font-size: 9vh; font-weight: 900; line-height: 1.2; letter-spacing: .02em; }
-    .evac-ico { width: 11vh; background: #fff; display: flex; align-items: center; justify-content: center; margin: .9vh 0; }
-    .evac-ico svg { width: 9vh; height: 9vh; }
+    /* Case blanche carrée, centrée en hauteur, entièrement occupée par le pictogramme. */
+    /* Case blanche carrée de toute la hauteur (largeur = hauteur, réglée par obs.js), pictogramme sur toute la case. */
+    .evac-ico { align-self: stretch; width: 14.2vh; margin: .9vh 0; background: #fff; display: flex; align-items: center; justify-content: center; }
+    .evac-ico svg { width: 95%; height: 95%; }
     /* Webcam choisie dans M-Alert-sender (Windy) : position et largeur réglées dans le sender. */
     #webcam { position: fixed; left: 70%; top: 4%; width: 28vw; display: none; z-index: 4; background: #000; border: .25vh solid rgba(255,255,255,.55); box-shadow: 0 .4vh 1.6vh rgba(0,0,0,.5); }
     body.show-webcam #webcam { display: block; }

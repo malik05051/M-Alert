@@ -1489,7 +1489,8 @@
   const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
   const THERMO = '<rect x="64" y="10" width="16" height="58" rx="8"/><circle cx="72" cy="78" r="14"/>';
   const EVAC_ICON = {
-    tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g>`,
+    // Pente, vague et personnage qui monte, agrandis pour occuper toute la surface du pictogramme.
+    tsunami: `<g transform="translate(-4.5 -4) scale(1.08)"><path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g></g>`,
     seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
     flood: `<path d="M14 46 L50 12 L86 46 V68 H14 Z" ${LINE} stroke-width="8"/><rect x="41" y="50" width="18" height="18"/><path d="M0 83 q8 -8 16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 V100 H0 Z"/>`,
     crue: `<path d="M50 8 L34 30 H44 V48 H56 V30 H66 Z"/><path d="M8 62 q10 -8 21 0 t21 0 t21 0 t21 0 M8 78 q10 -8 21 0 t21 0 t21 0 t21 0 M8 94 q10 -8 21 0 t21 0 t21 0 t21 0" ${LINE} stroke-width="6"/>`,
@@ -1563,8 +1564,9 @@
     const txtW = Math.max(wMain, wSub) + 2 * u;
     const txtH = 0.8 * u + subH + 9 * u * 1.2 + 0.6 * u;
     const withIcon = icon !== 'none';
-    const W = Math.ceil(1.6 * u + txtW + (withIcon ? 1.6 * u + 11 * u : 0) + 2.6 * u);
     const Hb = Math.ceil(2 * 1.3 * u + txtH);
+    const box = Hb - 2 * 1.3 * u - 1.8 * u; // case blanche carrée, de toute la hauteur
+    const W = Math.ceil(1.6 * u + txtW + (withIcon ? 1.6 * u + box : 0) + 2.6 * u);
     c.width = W; c.height = Hb;
     ctx = c.getContext('2d');
     // Fond rouge et filet blanc intérieur (comme les ombres internes du bandeau d'OBS).
@@ -1584,12 +1586,15 @@
     if (sub) { ctx.globalAlpha = 0.95; line(fSub, sub, 2.3 * u, 1.25, 2.3 * u * 0.04); ctx.globalAlpha = 1; y += 0.9 * u; }
     line(fMain, main, 9 * u, 1.2, 9 * u * 0.02);
     if (withIcon) {
-      const tx = W - 2.6 * u - 11 * u; const ty = 1.3 * u + 0.9 * u; const th = Hb - 2 * 1.3 * u - 1.8 * u;
-      ctx.fillStyle = '#fff'; ctx.fillRect(tx, ty, 11 * u, th);
+      // Case blanche carrée de toute la hauteur, comme dans OBS.
+      const tx = W - 2.6 * u - box; const th = box; const ty = (Hb - th) / 2;
+      ctx.fillStyle = '#fff'; ctx.fillRect(tx, ty, box, th);
       const img = new Image();
       img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(evacIconSvg(k, { icon }))}`;
       await img.decode();
-      ctx.drawImage(img, tx + u, ty + (th - 9 * u) / 2, 9 * u, 9 * u);
+      // Pictogramme sur toute la case blanche (petite marge de 0,3).
+      const isz = box * 0.95;
+      ctx.drawImage(img, tx + (box - isz) / 2, ty + (th - isz) / 2, isz, isz);
     }
     return new Promise((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error('Image impossible'))), 'image/png'));
   }

@@ -210,6 +210,9 @@
     const inner = $('evacIn');
     // Toujours entier dans l'image : réduit s'il est trop long, gardé loin des bords.
     const place = () => {
+      // Case du pictogramme carrée : sa largeur suit sa hauteur (celle du bandeau).
+      const ico = inner.querySelector('.evac-ico');
+      if (ico && ico.offsetHeight) ico.style.width = `${ico.offsetHeight}px`;
       const f = B.evacPlace(el, window.innerWidth, window.innerHeight, e);
       el.style.left = `${f.left}px`; el.style.top = `${f.top}px`;
       el.style.setProperty('--es', String(f.scale));
