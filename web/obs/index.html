@@ -175,15 +175,10 @@
     /* Cadre d'annulation (fausse alerte) au milieu de la carte affichée : bleu (vert à la NHK). */
     #voidBox { position: fixed; display: none; align-items: center; justify-content: center; pointer-events: none; z-index: 12; }
     body.show-void #voidBox { display: flex; }
-    #voidBox .vb-in { display: flex; align-items: center; gap: 1.3em; max-width: 72%; padding: 1.4em 2.2em 1.4em 1.6em; border-radius: 1.2em; text-align: left; color: #fff; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif;
-      background: linear-gradient(135deg, rgba(59,130,246,.94), rgba(29,78,216,.94)); border: 1px solid rgba(255,255,255,.38);
-      box-shadow: 0 1.4em 3.2em rgba(2,6,23,.55), 0 0 0 .35em rgba(59,130,246,.22), inset 0 1px 0 rgba(255,255,255,.4);
-      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); animation: vbIn .45s cubic-bezier(.2,.9,.3,1.2) both; }
-    @keyframes vbIn { from { opacity: 0; transform: translateY(.6em) scale(.96); } to { opacity: 1; transform: none; } }
-    #voidBox .vb-ico { flex: none; width: 2.5em; height: 2.5em; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #1d4ed8; font-weight: 900; font-size: 1.5em; box-shadow: 0 .3em .8em rgba(2,6,23,.35); }
-    #voidBox .vb-tag { display: inline-block; margin-bottom: .45em; padding: .18em .7em; border-radius: 99px; background: rgba(255,255,255,.2); font-size: .85em; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    #voidBox .vb-main { font-weight: 800; font-size: 2em; line-height: 1.18; letter-spacing: -.01em; }
-    #voidBox .vb-sub { margin-top: .45em; font-weight: 500; font-size: 1.1em; color: rgba(255,255,255,.86); }
+    /* Style plat : bleu uni, liseré blanc, sans dégradé ni ombre. */
+    #voidBox .vb-in { max-width: 64%; padding: 1.6em 2.4em; border: .22em solid #fff; border-radius: .7em; background: #2563eb; text-align: center; color: #fff; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
+    #voidBox .vb-main { font-weight: 800; font-size: 2.2em; line-height: 1.25; }
+    #voidBox .vb-sub { margin-top: .5em; font-weight: 600; font-size: 1.2em; opacity: .95; }
     /* Pendant le cadre d'annulation : pas de carte « Information » en double derrière. */
     body.show-void #info { display: none !important; }
     body.show-notsunami #quakeNotes .qn-tsu { display: block; background: rgba(18,20,28,.84); color: #fff; font-weight: 700; font-size: 4.6vh; line-height: 1.25; padding: .9vh 1.8vw; border-radius: .4vh; }
@@ -217,7 +212,7 @@
   <div id="missileAdvice"><span class="ma-tag"></span><span class="ma-text"></span></div>
   <div id="quakeFinal">Rapport final</div>
   <div id="quakeNotes"><div class="qn-tsu">Aucun risque de tsunami</div><div class="qn-sea">Variations du niveau de la mer possibles,<br>mais aucun risque de dégâts dus au tsunami</div></div>
-  <div id="voidBox"><div class="vb-in"><div class="vb-ico">✕</div><div><div class="vb-tag">Annulation</div><div class="vb-main"></div><div class="vb-sub"></div></div></div></div>
+  <div id="voidBox"><div class="vb-in"><div class="vb-main"></div><div class="vb-sub"></div></div></div>
   <div id="webcam"><div class="wc-view"><img alt="" referrerpolicy="no-referrer"><iframe title="Webcam" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe></div><div class="wc-cap"><span></span><span>Webcam : Windy.com</span></div></div>
   <div id="evac"><div class="evac" id="evacIn"></div></div>
   <div id="status"></div>
