@@ -1487,7 +1487,8 @@
   const LINE = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const CLOUD = '<path d="M22 58 a14 14 0 0 1 4 -27 a18 18 0 0 1 34 -6 a14 14 0 0 1 14 33 Z"/>';
   const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
-  const THERMO = '<rect x="64" y="10" width="16" height="58" rx="8"/><circle cx="72" cy="78" r="14"/>';
+  // Thermomètre : tube arrondi en haut seulement, qui entre dans le réservoir (pas d'encoche à la jonction).
+  const THERMO = '<path d="M64 18 A8 8 0 0 1 80 18 V76 H64 Z"/><circle cx="72" cy="78" r="14"/>';
   const EVAC_ICON = {
     tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g>`,
     seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
@@ -1502,7 +1503,7 @@
     orages: `${CLOUD}<path d="M48 58 L36 80 H48 L42 98 L64 70 H52 L58 58 Z"/>`,
     neige: FLAKE(50, 50, 40, 7),
     canicule: `<circle cx="32" cy="34" r="13"/><path d="M32 8 V14 M32 54 V60 M6 34 H12 M52 34 H58 M14 16 l4 4 M46 48 l4 4 M14 52 l4 -4 M46 20 l4 -4" ${LINE} stroke-width="5"/>${THERMO}`,
-    froid: `${FLAKE(30, 40, 22, 5)}<rect x="64" y="10" width="16" height="58" rx="8" fill="none" stroke-width="5"/><circle cx="72" cy="78" r="14"/>`,
+    froid: `${FLAKE(30, 40, 22, 5)}<path d="M64 72 V18 A8 8 0 0 1 80 18 V72" fill="none" stroke-width="5"/><circle cx="72" cy="78" r="14"/>`,
     avalanche: '<path d="M2 94 L40 26 L58 54 L68 42 L98 94 Z"/><circle cx="78" cy="26" r="7"/><circle cx="90" cy="42" r="5"/><circle cx="66" cy="14" r="4"/>',
     pollution: `${CLOUD}<circle cx="30" cy="76" r="5"/><circle cx="50" cy="84" r="5"/><circle cx="70" cy="76" r="5"/><circle cx="40" cy="94" r="4"/><circle cx="62" cy="94" r="4"/>`,
     accident: '<path d="M6 94 V54 L28 66 V54 L50 66 V30 H62 V66 L94 66 V94 Z"/><circle cx="68" cy="22" r="7"/><circle cx="82" cy="14" r="5"/>',
