@@ -1515,7 +1515,7 @@
     // Barrage K2 (instruction interministérielle sur la signalisation routière, 8e partie) : 7 bandes
     // verticales de même largeur, blanc aux deux bouts, coins arrondis (barre plus haute que le K2 pour remplir
     // la case). Pieds sous les bandes rouges.
-    blocus: '<path d="M24.86 28 V86 M75.14 28 V86" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="14" width="88" height="20" rx="1.6" fill="#fff" stroke-width="1.4"/><rect x="18.57" y="14" width="12.57" height="20" stroke="none"/><rect x="43.71" y="14" width="12.57" height="20" stroke="none"/><rect x="68.86" y="14" width="12.57" height="20" stroke="none"/><rect x="6" y="14" width="88" height="20" rx="1.6" fill="none" stroke-width="1.4"/>',
+    blocus: '<path d="M24.86 36 V86 M75.14 36 V86" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="22" width="88" height="20" rx="1.6" fill="#fff" stroke-width="1.4"/><rect x="18.57" y="22" width="12.57" height="20" stroke="none"/><rect x="43.71" y="22" width="12.57" height="20" stroke="none"/><rect x="68.86" y="22" width="12.57" height="20" stroke="none"/><rect x="6" y="22" width="88" height="20" rx="1.6" fill="none" stroke-width="1.4"/>',
     generic: `${RUN}<path d="M10 76 H36 M28 68 L38 76 L28 84" ${LINE} stroke-width="7"/>`,
   };
   // Recadrage de chaque pictogramme (contour mesuré à l'écran) : centré dans la case et à la même
