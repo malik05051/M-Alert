@@ -560,6 +560,62 @@
     ctx.restore();
   }
 
+  /**
+   * Pictogramme d'un phénomène au trait noir (pas d'émoji), dans une pastille de rayon r centrée en
+   * (x, y) : orages, pluie-inondation, crues, vent, vagues-submersion, canicule, neige-verglas,
+   * avalanches, grand froid.
+   */
+  function drawPicto(ctx, id, x, y, r) {
+    const u = r / 16;
+    ctx.save(); ctx.translate(x, y); ctx.scale(u, u);
+    ctx.strokeStyle = '#000'; ctx.fillStyle = '#000'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const line = (pts) => { ctx.beginPath(); pts.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.stroke(); };
+    const cloud = (dy) => { ctx.beginPath(); ctx.moveTo(-7, dy + 2); ctx.arc(-5, dy - 1, 3, Math.PI * 0.6, Math.PI * 1.5); ctx.arc(0, dy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(5, dy - 1, 3, Math.PI * 1.5, Math.PI * 0.4); ctx.closePath(); ctx.stroke(); };
+    const wave = (dy, w = 8) => { ctx.beginPath(); ctx.moveTo(-w, dy); for (let k = -w; k < w; k += 4) ctx.quadraticCurveTo(k + 2, dy - 2.4, k + 4, dy); ctx.stroke(); };
+    const thermo = (fill) => {
+      ctx.beginPath(); ctx.moveTo(-1.6, 3); ctx.lineTo(-1.6, -8); ctx.arc(0, -8, 1.6, Math.PI, 0); ctx.lineTo(1.6, 3); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 6, 3.2, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 6, 2, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(-0.6, fill, 1.2, 6 - fill);
+    };
+    const flake = (cx0, cy0, rr) => { for (let k = 0; k < 3; k++) { const t = (k * Math.PI) / 3; line([[cx0 - Math.cos(t) * rr, cy0 - Math.sin(t) * rr], [cx0 + Math.cos(t) * rr, cy0 + Math.sin(t) * rr]]); } };
+    switch (id) {
+      case 3: // orages : éclair
+        ctx.beginPath(); ctx.moveTo(2, -10); ctx.lineTo(-4, 1); ctx.lineTo(0.5, 1); ctx.lineTo(-2, 10); ctx.lineTo(5, -2); ctx.lineTo(0.5, -2); ctx.closePath(); ctx.fill();
+        break;
+      case 2: // pluie-inondation : nuage, gouttes, eau
+        cloud(-2); line([[-4, 4], [-5, 6]]); line([[0, 4], [-1, 6]]); line([[4, 4], [3, 6]]); wave(9, 7);
+        break;
+      case 4: // crues : vagues superposées
+        wave(-4); wave(0); wave(4);
+        break;
+      case 1: // vent violent : lignes et volutes
+        ctx.beginPath(); ctx.moveTo(-9, -3); ctx.lineTo(4, -3); ctx.arc(4, -6, 3, Math.PI / 2, -Math.PI * 0.9, true); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-9, 1); ctx.lineTo(7, 1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-9, 5); ctx.lineTo(2, 5); ctx.arc(2, 8, 3, -Math.PI / 2, Math.PI * 0.9); ctx.stroke();
+        break;
+      case 9: // vagues-submersion : vague qui déferle sur une digue
+        ctx.beginPath(); ctx.moveTo(-10, 6); ctx.quadraticCurveTo(-6, -8, 2, -6); ctx.quadraticCurveTo(-3, -3, 0, 1); ctx.quadraticCurveTo(4, -2, 6, 3); ctx.stroke();
+        ctx.fillRect(5, 1, 5, 7); line([[-10, 8], [10, 8]]);
+        break;
+      case 6: // canicule : thermomètre plein
+        thermo(-7);
+        break;
+      case 7: // grand froid : thermomètre bas et flocon
+        ctx.save(); ctx.translate(-3, 0); thermo(3); ctx.restore(); flake(6, -5, 3.5);
+        break;
+      case 5: // neige-verglas : flocon et sol glissant
+        flake(0, -2, 7); line([[-8, 9], [8, 9]]);
+        break;
+      case 8: // avalanches : montagne et coulée
+        line([[-10, 8], [-2, -7], [3, 1], [6, -3], [10, 8], [-10, 8]]);
+        ctx.beginPath(); ctx.arc(1, 4, 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-3, 6, 1.4, 0, Math.PI * 2); ctx.fill();
+        break;
+      default:
+        ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Petite couronne de Paris (encart agrandi, comme sur la carte de Météo-France).
   const IDF = ['75', '92', '93', '94'];
   const IDF_BOX = [48.72, 48.96, 2.14, 2.62];
@@ -671,9 +727,7 @@
       // Pastille du phénomène : couleur du niveau le plus fort, pictogramme.
       ctx.beginPath(); ctx.arc(cx + cw - 22, cy + 22, 16, 0, Math.PI * 2);
       ctx.fillStyle = off ? '#fff' : VIG_FILL[top]; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
-      const icon = ((M && M.PHENOMENA && M.PHENOMENA[p.id]) || {}).icon || '';
-      ctx.font = '15px "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
-      ctx.fillText(icon, cx + cw - 22, cy + 23);
+      drawPicto(ctx, p.id, cx + cw - 22, cy + 22, 16);
       const out = (c) => (p.mountain && !MOUNTAIN.has(c)) || p.coast || p.rivers;
       if (off) {
         drawFrance(ctx, cx + 22, cy + 40, cw - 44, chh - 52, () => '#fff', { line: 0 });
