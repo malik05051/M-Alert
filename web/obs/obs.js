@@ -221,8 +221,8 @@
       const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
       evacKey = key;
       if (roll) {
-        // Comme la NHK (variante « C » choisie) : le bandeau se referme vers son centre (≈ 0,08 s), un
-        // instant à plat, puis le suivant s'ouvre depuis le centre (≈ 0,09 s) ; origine de la
+        // Comme la NHK (variante « C » choisie) : le bandeau se referme vers son centre (≈ 0,12 s), un
+        // instant à plat, puis le suivant s'ouvre depuis le centre (≈ 0,13 s) ; origine de la
         // transformation au centre (.evac dans index.html). Une seule animation sans « fill » : à la fin
         // (ou si elle est interrompue), le bandeau retrouve toujours sa taille normale. Le texte change
         // quand l'animation elle-même est à plat (son horloge, pas une minuterie à part : dans OBS,
@@ -233,12 +233,12 @@
           { transform: 'scaleY(0.02)', offset: 0.42 },
           { transform: 'scaleY(0.02)', offset: 0.53, easing: 'ease-out' },
           { transform: 'scaleY(1)' },
-        ], { duration: 190 });
+        ], { duration: 280 }); // un peu plus lent (avant : 190 ms)
         let swapped = false;
         const swap = () => { if (!swapped) { swapped = true; inner.innerHTML = html; place(); } };
         const watch = () => {
           if (swapped || anim.playState === 'finished' || anim.playState === 'idle') return;
-          if ((anim.currentTime || 0) >= 82) swap(); else requestAnimationFrame(watch);
+          if ((anim.currentTime || 0) >= 130) swap(); // à plat (de 42 % à 53 % de l'animation) else requestAnimationFrame(watch);
         };
         requestAnimationFrame(watch);
         const done = () => { swap(); evacRolling = 0; };

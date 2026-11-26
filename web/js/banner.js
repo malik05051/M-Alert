@@ -570,7 +570,7 @@
     ctx.save(); ctx.translate(x, y); ctx.scale(u, u);
     ctx.strokeStyle = '#000'; ctx.fillStyle = '#000'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const line = (pts) => { ctx.beginPath(); pts.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.stroke(); };
-    const cloud = (dy) => { ctx.beginPath(); ctx.moveTo(-7, dy + 2); ctx.arc(-5, dy - 1, 3, Math.PI * 0.6, Math.PI * 1.5); ctx.arc(0, dy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(5, dy - 1, 3, Math.PI * 1.5, Math.PI * 0.4); ctx.closePath(); ctx.stroke(); };
+    const cloud = (dy) => { ctx.beginPath(); ctx.arc(-5, dy - 1, 3, Math.PI * 0.6, Math.PI * 1.5); ctx.arc(0, dy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(5, dy - 1, 3, Math.PI * 1.5, Math.PI * 0.4); ctx.closePath(); ctx.stroke(); };
     // Vague centrée : n ondulations de 4 unités, de -2n à +2n.
     const wave = (dy, w = 8, dx = 0) => { const n = Math.max(1, Math.round(w / 2)); const x0 = dx - 2 * n; ctx.beginPath(); ctx.moveTo(x0, dy); for (let k = 0; k < n; k++) ctx.quadraticCurveTo(x0 + k * 4 + 2, dy - 2.4, x0 + k * 4 + 4, dy); ctx.stroke(); };
     const thermo = (fill) => {
@@ -585,7 +585,8 @@
         break;
       case 2: // pluie-inondation : nuage, gouttes, eau
         // Nuage et gouttes en haut, eau en bas, bien séparés.
-        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 6, -1);
+        // Gouttes et rivière centrées sous le nuage (de -8 à +8).
+        cloud(-5); line([[-3.5, 0.5], [-4.5, 3]]); line([[0.5, 0.5], [-0.5, 3]]); line([[4.5, 0.5], [3.5, 3]]); wave(9.5, 8);
         break;
       case 4: // crues : vagues superposées
         wave(-4); wave(0); wave(4);
@@ -1562,7 +1563,7 @@
     const txtW = Math.max(wMain, wSub) + 2 * u;
     const txtH = 0.8 * u + subH + 9 * u * 1.2 + 0.6 * u;
     const withIcon = icon !== 'none';
-    const W = Math.ceil(2.6 * u + txtW + (withIcon ? 1.6 * u + 11 * u : 0) + 1.6 * u);
+    const W = Math.ceil(1.6 * u + txtW + (withIcon ? 1.6 * u + 11 * u : 0) + 2.6 * u);
     const Hb = Math.ceil(2 * 1.3 * u + txtH);
     c.width = W; c.height = Hb;
     ctx = c.getContext('2d');
@@ -1571,7 +1572,7 @@
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.35 * u;
     ctx.strokeRect(0.625 * u, 0.625 * u, W - 1.25 * u, Hb - 1.25 * u);
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    const x0 = 2.6 * u + 1 * u;
+    const x0 = 1.6 * u + 1 * u;
     let y = 1.3 * u + 0.8 * u;
     const line = (font, t, size, lh, ls) => {
       ctx.font = font; if ('letterSpacing' in ctx) ctx.letterSpacing = `${ls}px`;
@@ -1583,7 +1584,7 @@
     if (sub) { ctx.globalAlpha = 0.95; line(fSub, sub, 2.3 * u, 1.25, 2.3 * u * 0.04); ctx.globalAlpha = 1; y += 0.9 * u; }
     line(fMain, main, 9 * u, 1.2, 9 * u * 0.02);
     if (withIcon) {
-      const tx = W - 1.6 * u - 11 * u; const ty = 1.3 * u + 0.9 * u; const th = Hb - 2 * 1.3 * u - 1.8 * u;
+      const tx = W - 2.6 * u - 11 * u; const ty = 1.3 * u + 0.9 * u; const th = Hb - 2 * 1.3 * u - 1.8 * u;
       ctx.fillStyle = '#fff'; ctx.fillRect(tx, ty, 11 * u, th);
       const img = new Image();
       img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(evacIconSvg(k, { icon }))}`;
