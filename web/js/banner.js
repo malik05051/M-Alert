@@ -1483,7 +1483,9 @@
     generic: { fr: ['ÉVACUEZ IMMÉDIATEMENT', 'Suivez les consignes des autorités'], en: ['EVACUATE NOW', 'Follow the authorities\' instructions'], de: ['SOFORT EVAKUIEREN', 'Folgen Sie den Anweisungen der Behörden'], es: ['EVACUEN DE INMEDIATO', 'Siga las instrucciones de las autoridades'] },
   };
   // Pictogrammes dessinés pour M-Alert (rouge sur blanc, 100 × 100).
-  const RUN = '<circle cx="66" cy="22" r="7"/><path d="M62 31 L54 52 L66 62 L62 80 M54 52 L42 64 M60 36 L72 46 L80 42 M60 36 L46 40 L40 50" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>';
+  // Bonhomme : le tronc part du centre de la tête et le cou s'y raccorde par deux congés arrondis
+  // (pas d'encoche entre la tête et le tronc).
+  const RUN = '<circle cx="65.25" cy="22" r="7"/><path stroke="none" d="M67.48 28.63 A2.5 2.5 0 0 0 65.94 30.13 L65.02 32.58 L58.47 30.13 L59.39 27.67 A2.5 2.5 0 0 0 59.2 25.53 L65.25 22 Z"/><path d="M65.25 22 L54 52 L66 62 L62 80 M54 52 L42 64 M60 36 L72 46 L80 42 M60 36 L46 40 L40 50" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>';
   const LINE = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const CLOUD = '<path d="M22 58 a14 14 0 0 1 4 -27 a18 18 0 0 1 34 -6 a14 14 0 0 1 14 33 Z"/>';
   const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
@@ -1507,7 +1509,7 @@
     avalanche: '<path d="M2 94 L40 26 L58 54 L68 42 L98 94 Z"/><circle cx="78" cy="26" r="7"/><circle cx="90" cy="42" r="5"/><circle cx="66" cy="14" r="4"/>',
     pollution: `${CLOUD}<circle cx="30" cy="76" r="5"/><circle cx="50" cy="84" r="5"/><circle cx="70" cy="76" r="5"/><circle cx="40" cy="94" r="4"/><circle cx="62" cy="94" r="4"/>`,
     accident: '<path d="M6 94 V54 L28 66 V54 L50 66 V30 H62 V66 L94 66 V94 Z"/><circle cx="68" cy="22" r="7"/><circle cx="82" cy="14" r="5"/>',
-    attentat: `<path d="M10 16 H34 V94" ${LINE} stroke-width="6"/>${RUN}`,
+    attentat: `<path d="M6 16 H27 V94" ${LINE} stroke-width="6"/>${RUN}`,
     missile: `<path d="M66 6 L84 22 L50 56 L38 46 Z"/><path d="M38 46 L26 44 L36 34 Z M50 56 L52 68 L62 58 Z"/><path d="M12 94 V74 L34 60 L56 74 V94" ${LINE} stroke-width="6"/>`,
     greve: `<path d="M12 42 H28 L68 20 V80 L28 58 H12 Z"/><path d="M28 58 L34 84 H44 L40 60" /><path d="M80 36 q9 14 0 28" ${LINE} stroke-width="6"/>`,
     blocus: '<rect x="6" y="34" width="88" height="22"/><path d="M20 34 H32 L22 56 H10 Z M44 34 H56 L46 56 H34 Z M68 34 H80 L70 56 H58 Z" fill="#fff" stroke="none"/><path d="M22 56 V92 M78 56 V92" fill="none" stroke-width="8" stroke-linecap="round"/>',
@@ -1533,7 +1535,7 @@
     avalanche: 'translate(3.99 2.14) scale(0.9212)',
     pollution: 'translate(-2.51 -10.55) scale(1.0727)',
     accident: 'translate(-0.57 -2.09) scale(1.0124)',
-    attentat: 'translate(1.51 -8.95) scale(1.0727)',
+    attentat: 'translate(3.66 -8.95) scale(1.0727)',
     missile: 'translate(4.07 -0.10) scale(0.9815)',
     greve: 'translate(-8.64 -11.36) scale(1.1858)',
     blocus: 'translate(-0.57 -15.50) scale(1.0124)',
