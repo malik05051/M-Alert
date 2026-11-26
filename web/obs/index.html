@@ -61,7 +61,7 @@
     /* Bandeau d'évacuation (comme la NHK), placé et dimensionné depuis M-Alert-sender. */
     #evac { position: fixed; left: 50%; top: 62%; display: none; z-index: 8; transform: translate(-50%, -50%) scale(var(--es, 1)); transform-origin: center; }
     body.show-evac #evac { display: block; }
-    /* Changement de langue comme la NHK : le bandeau se referme vers son centre, puis le suivant s'ouvre depuis le centre. */
+    /* Changement de langue : rotation autour de l'axe horizontal, vers le haut (origine au centre). */
     .evac { display: flex; transform-origin: 50% 50%; align-items: stretch; gap: 1.6vh; padding: 1.3vh 2.6vh 1.3vh 1.6vh; /* marges égales : texte (1 vh en plus) et pictogramme à 2,6 vh des bords */ background: #d7141a; color: #fff; white-space: nowrap;
       box-shadow: inset 0 0 0 .45vh #d7141a, inset 0 0 0 .8vh #fff, 0 .6vh 2vh rgba(0,0,0,.45); font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
     .evac-txt { display: flex; flex-direction: column; justify-content: center; padding: .8vh 1vh .6vh; }

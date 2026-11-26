@@ -228,18 +228,22 @@
         // quand l'animation elle-même est à plat (son horloge, pas une minuterie à part : dans OBS,
         // l'animation peut démarrer en retard et le texte changeait alors avant l'écrasement).
         evacRolling = Date.now();
-        // Plus lent et plus fluide (comme la NHK) : 480 ms, départ et arrivée en douceur, à plat très bref.
+        // Rotation autour de l'axe horizontal, vers le haut (le bas du bandeau avance puis passe
+        // par-dessus) : la langue actuelle s'en va par le haut, la suivante arrive par le bas, comme
+        // un prisme qui tourne. 480 ms, départ et arrivée en douceur ; texte changé quand le bandeau
+        // est vu par la tranche (90°).
+        const P = 'perspective(1400px) ';
         const anim = inner.animate([
-          { transform: 'scaleY(1)', easing: 'cubic-bezier(.45, 0, .7, .6)' },
-          { transform: 'scaleY(0.02)', offset: 0.47 },
-          { transform: 'scaleY(0.02)', offset: 0.53, easing: 'cubic-bezier(.3, .4, .55, 1)' },
-          { transform: 'scaleY(1)' },
+          { transform: `${P}rotateX(0deg)`, easing: 'cubic-bezier(.45, 0, .8, .5)' },
+          { transform: `${P}rotateX(90deg)`, offset: 0.5 },
+          { transform: `${P}rotateX(-90deg)`, offset: 0.5, easing: 'cubic-bezier(.2, .5, .55, 1)' },
+          { transform: `${P}rotateX(0deg)` },
         ], { duration: 480 });
         let swapped = false;
         const swap = () => { if (!swapped) { swapped = true; inner.innerHTML = html; place(); } };
         const watch = () => {
           if (swapped || anim.playState === 'finished' || anim.playState === 'idle') return;
-          if ((anim.currentTime || 0) >= 232) swap(); // à plat (de 47 % à 53 % de l'animation) else requestAnimationFrame(watch);
+          if ((anim.currentTime || 0) >= 236) swap(); // vu par la tranche (milieu de l'animation) else requestAnimationFrame(watch);
         };
         requestAnimationFrame(watch);
         const done = () => { swap(); evacRolling = 0; };
