@@ -571,7 +571,8 @@
     ctx.strokeStyle = '#000'; ctx.fillStyle = '#000'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const line = (pts) => { ctx.beginPath(); pts.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.stroke(); };
     const cloud = (dy) => { ctx.beginPath(); ctx.moveTo(-7, dy + 2); ctx.arc(-5, dy - 1, 3, Math.PI * 0.6, Math.PI * 1.5); ctx.arc(0, dy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(5, dy - 1, 3, Math.PI * 1.5, Math.PI * 0.4); ctx.closePath(); ctx.stroke(); };
-    const wave = (dy, w = 8) => { ctx.beginPath(); ctx.moveTo(-w, dy); for (let k = -w; k < w; k += 4) ctx.quadraticCurveTo(k + 2, dy - 2.4, k + 4, dy); ctx.stroke(); };
+    // Vague centrée : n ondulations de 4 unités, de -2n à +2n.
+    const wave = (dy, w = 8) => { const n = Math.max(1, Math.round(w / 2)); ctx.beginPath(); ctx.moveTo(-2 * n, dy); for (let k = 0; k < n; k++) ctx.quadraticCurveTo(-2 * n + k * 4 + 2, dy - 2.4, -2 * n + k * 4 + 4, dy); ctx.stroke(); };
     const thermo = (fill) => {
       ctx.beginPath(); ctx.moveTo(-1.6, 3); ctx.lineTo(-1.6, -8); ctx.arc(0, -8, 1.6, Math.PI, 0); ctx.lineTo(1.6, 3); ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 6, 3.2, 0, Math.PI * 2); ctx.stroke();
@@ -584,7 +585,7 @@
         break;
       case 2: // pluie-inondation : nuage, gouttes, eau
         // Nuage et gouttes en haut, eau en bas, bien séparés.
-        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 7);
+        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 6);
         break;
       case 4: // crues : vagues superposées
         wave(-4); wave(0); wave(4);
