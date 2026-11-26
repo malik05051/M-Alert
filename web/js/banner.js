@@ -1489,8 +1489,7 @@
   const FLAKE = (cx, cy, r, w) => `<path d="M${cx} ${cy - r} V${cy + r} M${cx - r * 0.87} ${cy - r / 2} L${cx + r * 0.87} ${cy + r / 2} M${cx - r * 0.87} ${cy + r / 2} L${cx + r * 0.87} ${cy - r / 2}" ${LINE} stroke-width="${w}"/>`;
   const THERMO = '<rect x="64" y="10" width="16" height="58" rx="8"/><circle cx="72" cy="78" r="14"/>';
   const EVAC_ICON = {
-    // Pente, vague et personnage qui monte, agrandis pour occuper toute la surface du pictogramme.
-    tsunami: `<g transform="translate(-4.5 -4) scale(1.08)"><path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g></g>`,
+    tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g>`,
     seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
     flood: `<path d="M14 46 L50 12 L86 46 V68 H14 Z" ${LINE} stroke-width="8"/><rect x="41" y="50" width="18" height="18"/><path d="M0 83 q8 -8 16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 V100 H0 Z"/>`,
     crue: `<path d="M50 8 L34 30 H44 V48 H56 V30 H66 Z"/><path d="M8 62 q10 -8 21 0 t21 0 t21 0 t21 0 M8 78 q10 -8 21 0 t21 0 t21 0 t21 0 M8 94 q10 -8 21 0 t21 0 t21 0 t21 0" ${LINE} stroke-width="6"/>`,
@@ -1513,6 +1512,33 @@
     blocus: '<rect x="6" y="34" width="88" height="22"/><path d="M20 34 H32 L22 56 H10 Z M44 34 H56 L46 56 H34 Z M68 34 H80 L70 56 H58 Z" fill="#fff" stroke="none"/><path d="M22 56 V92 M78 56 V92" fill="none" stroke-width="8" stroke-linecap="round"/>',
     generic: `${RUN}<path d="M10 76 H36 M28 68 L38 76 L28 84" ${LINE} stroke-width="7"/>`,
   };
+  // Recadrage de chaque pictogramme (contour mesuré à l'écran) : centré dans la case et à la même
+  // taille (le plus grand côté fait 90 % de la case).
+  const EVAC_FIT = {
+    tsunami: 'translate(1.67 0.65) scale(0.9783)',
+    seisme: 'translate(2.12 -8.18) scale(0.9585)',
+    flood: 'translate(5.45 1.75) scale(0.8902)',
+    crue: 'translate(2.02 -1.92) scale(0.9605)',
+    surge: 'translate(3.67 -8.69) scale(0.9474)',
+    houle: 'translate(3.61 -3.13) scale(0.9288)',
+    fire: 'translate(-4.61 -17.68) scale(1.1936)',
+    tornade: 'translate(1.08 -1.86) scale(0.9793)',
+    tempete: 'translate(0.73 -10.46) scale(1.0664)',
+    vent: 'translate(0.23 4.47) scale(1.0601)',
+    orages: 'translate(-2.63 -10.59) scale(1.0753)',
+    neige: 'translate(-1.73 -1.73) scale(1.0357)',
+    canicule: 'translate(3.45 -0.70) scale(1.0357)',
+    froid: 'translate(-0.19 -2.95) scale(1.0601)',
+    avalanche: 'translate(3.99 2.14) scale(0.9212)',
+    pollution: 'translate(-2.51 -10.55) scale(1.0727)',
+    accident: 'translate(-0.57 -2.09) scale(1.0124)',
+    attentat: 'translate(1.51 -8.95) scale(1.0727)',
+    missile: 'translate(4.07 -0.10) scale(0.9815)',
+    greve: 'translate(-8.64 -11.36) scale(1.1858)',
+    blocus: 'translate(-0.57 -15.50) scale(1.0124)',
+    generic: 'translate(-2.61 -9.63) scale(1.1704)',
+  };
+  const icoBody = (k) => `<g transform="${EVAC_FIT[k] || ''}">${EVAC_ICON[k]}</g>`;
   const EVAC_LANGS = ['fr', 'en', 'de', 'es'];
   const EVAC_KINDS = Object.keys(EVAC);
   /** Bandeau qui va avec une alerte (catégorie, phénomène météo). */
@@ -1533,14 +1559,14 @@
     const [main, sub] = text && text.main ? [text.main, text.sub || ''] : EVAC[k][l];
     const ico = EVAC_ICON[icon] ? icon : k;
     return `<div class="evac-txt">${sub ? `<div class="evac-sub">${esc(sub)}</div>` : ''}<div class="evac-main">${esc(main)}</div></div>`
-      + (icon === 'none' ? '' : `<div class="evac-ico"><svg viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a" aria-hidden="true">${EVAC_ICON[ico]}</svg></div>`);
+      + (icon === 'none' ? '' : `<div class="evac-ico"><svg viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a" aria-hidden="true">${icoBody(ico)}</svg></div>`);
   }
   /** Pictogramme seul (SVG autonome, rouge, fond transparent ; carré blanc si tile). */
   function evacIconSvg(kind, { icon = '', tile = false } = {}) {
     const k = EVAC_ICON[icon] ? icon : EVAC_ICON[kind] ? kind : 'generic';
     return tile
-      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 120 120"><rect x="-10" y="-10" width="120" height="120" fill="#fff"/><g fill="#d7141a" stroke="#d7141a">${EVAC_ICON[k]}</g></svg>`
-      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a">${EVAC_ICON[k]}</svg>`;
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 120 120"><rect x="-10" y="-10" width="120" height="120" fill="#fff"/><g fill="#d7141a" stroke="#d7141a">${icoBody(k)}</g></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#d7141a" stroke="#d7141a">${icoBody(k)}</svg>`;
   }
   /**
    * Bandeau en image PNG (fond transparent), dessiné comme dans l'incrustation OBS pour une image de
