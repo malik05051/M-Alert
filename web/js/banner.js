@@ -1513,8 +1513,9 @@
     missile: `<path d="M66 6 L84 22 L50 56 L38 46 Z"/><path d="M38 46 L26 44 L36 34 Z M50 56 L52 68 L62 58 Z"/><path d="M12 94 V74 L34 60 L56 74 V94" ${LINE} stroke-width="6"/>`,
     greve: `<path d="M12 42 H28 L68 20 V80 L28 58 H12 Z"/><path d="M28 58 L34 84 H44 L40 60" /><path d="M80 36 q9 14 0 28" ${LINE} stroke-width="6"/>`,
     // Barrage K2 (instruction interministérielle sur la signalisation routière, 8e partie) : 7 bandes
-    // verticales carrées, blanc aux deux bouts (L = 7 H), coins arrondis. Pieds sous les bandes rouges.
-    blocus: '<path d="M24.86 36 V72 M75.14 36 V72" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="30" width="88" height="12.57" rx="1.6" fill="#fff" stroke-width="1.4"/><rect x="18.57" y="30" width="12.57" height="12.57" stroke="none"/><rect x="43.71" y="30" width="12.57" height="12.57" stroke="none"/><rect x="68.86" y="30" width="12.57" height="12.57" stroke="none"/><rect x="6" y="30" width="88" height="12.57" rx="1.6" fill="none" stroke-width="1.4"/>',
+    // verticales de même largeur, blanc aux deux bouts, coins arrondis (barre plus haute que le K2 pour remplir
+    // la case). Pieds sous les bandes rouges.
+    blocus: '<path d="M24.86 28 V86 M75.14 28 V86" fill="none" stroke-width="8" stroke-linecap="round"/><rect x="6" y="14" width="88" height="20" rx="1.6" fill="#fff" stroke-width="1.4"/><rect x="18.57" y="14" width="12.57" height="20" stroke="none"/><rect x="43.71" y="14" width="12.57" height="20" stroke="none"/><rect x="68.86" y="14" width="12.57" height="20" stroke="none"/><rect x="6" y="14" width="88" height="20" rx="1.6" fill="none" stroke-width="1.4"/>',
     generic: `${RUN}<path d="M10 76 H36 M28 68 L38 76 L28 84" ${LINE} stroke-width="7"/>`,
   };
   // Recadrage de chaque pictogramme (contour mesuré à l'écran) : centré dans la case et à la même
@@ -1540,7 +1541,7 @@
     attentat: 'translate(3.66 -8.95) scale(1.0727)',
     missile: 'translate(4.07 -0.10) scale(0.9815)',
     greve: 'translate(-8.64 -11.36) scale(1.1858)',
-    blocus: 'translate(-0.34 -3.01) scale(1.0078)',
+    blocus: 'translate(-0.34 4) scale(1.0078)',
     generic: 'translate(-2.61 -9.63) scale(1.1704)',
   };
   const icoBody = (k) => `<g transform="${EVAC_FIT[k] || ''}">${EVAC_ICON[k]}</g>`;
