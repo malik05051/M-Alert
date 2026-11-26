@@ -233,22 +233,30 @@
         // un prisme qui tourne. 480 ms, départ et arrivée en douceur ; texte changé quand le bandeau
         // est vu par la tranche (90°).
         const P = 'perspective(1400px) ';
-        const anim = inner.animate([
-          { transform: `${P}rotateX(0deg)`, easing: 'cubic-bezier(.45, 0, .8, .5)' },
-          { transform: `${P}rotateX(90deg)`, offset: 0.5 },
-          { transform: `${P}rotateX(-90deg)`, offset: 0.5, easing: 'cubic-bezier(.2, .5, .55, 1)' },
-          { transform: `${P}rotateX(0deg)` },
-        ], { duration: 480 });
+        // Deux temps : la face actuelle part vers le haut (0 → 90°) ; à la fin de ce temps, la
+        // traduction est posée, puis seulement la nouvelle face arrive par le bas (−90° → 0) : jamais
+        // l'ancienne langue sur la nouvelle face.
+        const half = 240;
         let swapped = false;
         const swap = () => { if (!swapped) { swapped = true; inner.innerHTML = html; place(); } };
-        const watch = () => {
-          if (swapped || anim.playState === 'finished' || anim.playState === 'idle') return;
-          if ((anim.currentTime || 0) >= 236) swap(); // vu par la tranche (milieu de l'animation) else requestAnimationFrame(watch);
-        };
-        requestAnimationFrame(watch);
         const done = () => { swap(); evacRolling = 0; };
-        anim.onfinish = done;
-        anim.oncancel = done;
+        const first = inner.animate([
+          { transform: `${P}rotateX(0deg)` },
+          { transform: `${P}rotateX(90deg)` },
+        ], { duration: half, easing: 'cubic-bezier(.45, 0, .8, .5)', fill: 'forwards' });
+        first.oncancel = done;
+        first.onfinish = () => {
+          swap();
+          const second = inner.animate([
+            { transform: `${P}rotateX(-90deg)` },
+            { transform: `${P}rotateX(0deg)` },
+          ], { duration: half, easing: 'cubic-bezier(.2, .5, .55, 1)' });
+          // La première (gardée à 90° par « fill ») est retirée : la seconde prend la main.
+          first.oncancel = null;
+          try { first.cancel(); } catch (_) { /* déjà retirée */ }
+          second.onfinish = done;
+          second.oncancel = done;
+        };
         return;
       }
       inner.innerHTML = html;
