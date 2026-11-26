@@ -572,7 +572,7 @@
     const line = (pts) => { ctx.beginPath(); pts.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.stroke(); };
     const cloud = (dy) => { ctx.beginPath(); ctx.moveTo(-7, dy + 2); ctx.arc(-5, dy - 1, 3, Math.PI * 0.6, Math.PI * 1.5); ctx.arc(0, dy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(5, dy - 1, 3, Math.PI * 1.5, Math.PI * 0.4); ctx.closePath(); ctx.stroke(); };
     // Vague centrée : n ondulations de 4 unités, de -2n à +2n.
-    const wave = (dy, w = 8) => { const n = Math.max(1, Math.round(w / 2)); ctx.beginPath(); ctx.moveTo(-2 * n, dy); for (let k = 0; k < n; k++) ctx.quadraticCurveTo(-2 * n + k * 4 + 2, dy - 2.4, -2 * n + k * 4 + 4, dy); ctx.stroke(); };
+    const wave = (dy, w = 8, dx = 0) => { const n = Math.max(1, Math.round(w / 2)); const x0 = dx - 2 * n; ctx.beginPath(); ctx.moveTo(x0, dy); for (let k = 0; k < n; k++) ctx.quadraticCurveTo(x0 + k * 4 + 2, dy - 2.4, x0 + k * 4 + 4, dy); ctx.stroke(); };
     const thermo = (fill) => {
       ctx.beginPath(); ctx.moveTo(-1.6, 3); ctx.lineTo(-1.6, -8); ctx.arc(0, -8, 1.6, Math.PI, 0); ctx.lineTo(1.6, 3); ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 6, 3.2, 0, Math.PI * 2); ctx.stroke();
@@ -585,7 +585,7 @@
         break;
       case 2: // pluie-inondation : nuage, gouttes, eau
         // Nuage et gouttes en haut, eau en bas, bien séparés.
-        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 6);
+        cloud(-5); line([[-4, 0.5], [-5, 3]]); line([[0, 0.5], [-1, 3]]); line([[4, 0.5], [3, 3]]); wave(9.5, 6, -1);
         break;
       case 4: // crues : vagues superposées
         wave(-4); wave(0); wave(4);
@@ -1490,7 +1490,7 @@
   const EVAC_ICON = {
     tsunami: `<path d="M6 94 L94 30 L94 94 Z" opacity=".25"/><path d="M4 94 C10 64 30 52 44 60 C34 60 28 70 34 78 C38 84 46 82 50 94 Z"/><g transform="translate(12 -8)">${RUN}</g>`,
     seisme: `<path d="M22 52 L50 28 L78 52 V86 H22 Z" ${LINE} stroke-width="7"/><path d="M52 34 L44 52 L56 62 L48 84" ${LINE} stroke-width="5"/><path d="M6 94 H94" ${LINE} stroke-width="6"/><path d="M8 40 l7 7 M8 62 l7 -7 M92 40 l-7 7 M92 62 l-7 -7" ${LINE} stroke-width="5"/>`,
-    flood: `<path d="M14 46 L50 12 L86 46 V68 H14 Z" ${LINE} stroke-width="8"/><rect x="41" y="50" width="18" height="18"/><path d="M0 88 q8 -8 16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 V100 H0 Z"/>`,
+    flood: `<path d="M14 46 L50 12 L86 46 V68 H14 Z" ${LINE} stroke-width="8"/><rect x="41" y="50" width="18" height="18"/><path d="M0 83 q8 -8 16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 t16.7 0 V100 H0 Z"/>`,
     crue: `<path d="M50 8 L34 30 H44 V48 H56 V30 H66 Z"/><path d="M8 62 q10 -8 21 0 t21 0 t21 0 t21 0 M8 78 q10 -8 21 0 t21 0 t21 0 t21 0 M8 94 q10 -8 21 0 t21 0 t21 0 t21 0" ${LINE} stroke-width="6"/>`,
     surge: `<path d="M72 28 V96 H96 V28 Z"/><path d="M2 96 C4 60 30 42 54 54 C42 54 36 66 42 76 C48 86 60 84 66 96 Z"/>`,
     houle: `<path d="M2 66 C10 40 34 34 46 48 C36 48 32 58 38 64 C44 70 52 66 56 60 C64 44 86 40 98 56 V96 H2 Z"/><path d="M14 24 q9 -7 18 0 t18 0" ${LINE} stroke-width="5"/>`,
