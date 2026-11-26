@@ -97,6 +97,20 @@ ipcMain.on('alert', (_e, { level, front }) => {
   setTimeout(() => win && win.flashFrame(false), 10000);
 });
 
+// Empreinte des fichiers de l'interface (même calcul que M.appIdentity et que le serveur) : la page,
+// chargée en file://, ne peut pas relire ses propres fichiers.
+ipcMain.handle('app-build', () => {
+  try {
+    const fs = require('fs');
+    const crypto = require('crypto');
+    const files = ['version.js', 'common.js', 'app.js', 'map.js', 'i18n.js', 'sound.js', 'banner.js'];
+    const parts = files.map((f) => `${f}\n${fs.readFileSync(path.join(__dirname, 'web', 'js', f), 'utf8').replace(/\r\n/g, '\n')}`);
+    return crypto.createHash('sha256').update(parts.join('\n\u0000\n'), 'utf8').digest('hex');
+  } catch (_) {
+    return null;
+  }
+});
+
 ipcMain.handle('get-native-settings', () => ({
   platform: process.platform,
   background: settings.background,

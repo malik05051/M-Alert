@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Fonctions natives exposées à l'interface web (window.malertNative).
 contextBridge.exposeInMainWorld('malertNative', {
   isElectron: true,
+  appBuild: () => ipcRenderer.invoke('app-build'),
   showWindow: () => ipcRenderer.send('show-window'),
   alert: (info) => ipcRenderer.send('alert', info),
   getSettings: () => ipcRenderer.invoke('get-native-settings'),

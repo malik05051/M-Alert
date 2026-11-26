@@ -135,7 +135,8 @@
     }
 
     // Le style n'est réappliqué que s'il a changé : chaque setStyle redessine la carte.
-    function refreshLayer(code) {
+    // eslint-disable-next-line prefer-const
+    let refreshLayer = function (code) {
       const layer = layers[code];
       if (!layer) return;
       const style = styleFor(code);
@@ -145,7 +146,7 @@
       layer.setStyle(style);
       // Les contours importants passent au premier plan pour rester visibles.
       if (state.alertLevels[code] || state.selected.has(code) || state.highlighted.has(code)) layer.bringToFront();
-    }
+    };
 
     function refreshAll() {
       Object.keys(layers).forEach(refreshLayer);
@@ -172,6 +173,48 @@
         });
       },
     }).addTo(map);
+
+    // Nouvelle-Calédonie par communes (contours data.gouv.nc) : dessinées dans l'encart à la place du
+    // bloc « 988 », de la couleur de la Nouvelle-Calédonie (vigilance et alertes de 988), nom de la
+    // commune au survol ; un clic choisit la Nouvelle-Calédonie (988).
+    const ncData = window.MALERT_NC_COMMUNES && window.MALERT_NC_COMMUNES.features ? window.MALERT_NC_COMMUNES : null;
+    let ncLayer = null;
+    if (ncData && layers['988']) {
+      layers['988'].setStyle({ fillOpacity: 0, opacity: 0 });
+      layers['988']._ncHidden = true;
+      const moved = { ...ncData, features: ncData.features.map((f) => ({ ...f, geometry: { ...f.geometry, coordinates: f.geometry.coordinates.map((poly) => poly.map((ring) => ring.map(([lon, lat]) => toMap(lat, lon).reverse()))) } })) };
+      ncLayer = L.geoJSON(moved, {
+        style: () => ({ ...styleFor('988'), weight: 0.6 }),
+        onEachFeature: (feature, layer) => {
+          layer.bindTooltip(() => {
+            const base = options.tooltip ? options.tooltip('988', 'Nouvelle-Calédonie') : 'Nouvelle-Calédonie';
+            return `<b>${M.escapeHtml(feature.properties.nom)}</b> · ${base}`;
+          }, { sticky: true, direction: 'top', className: 'dep-tooltip', offset: [0, -8] });
+          layer.on('mouseover', () => layer.setStyle({ weight: 2, color: '#ffffff' }));
+          layer.on('mouseout', () => layer.setStyle({ ...styleFor('988'), weight: 0.6 }));
+          layer.on('click', (e) => { if (options.onDepartmentClick) options.onDepartmentClick('988', 'Nouvelle-Calédonie', e); });
+        },
+      }).addTo(map);
+    }
+    const baseRefresh = refreshLayer;
+    refreshLayer = (code) => {
+      if (code === '988' && layers['988'] && layers['988']._ncHidden) {
+        const st = styleFor('988');
+        layers['988'].setStyle({ ...st, fillOpacity: 0, opacity: st.dashArray ? st.opacity : 0 });
+        if (ncLayer) ncLayer.setStyle({ ...st, weight: st.weight > 1.5 ? st.weight : 0.6 });
+        return;
+      }
+      baseRefresh(code);
+    };
+
+    // Vigicrues : tronçons de rivières colorés par niveau de vigilance crues (carte « Vigicrues »).
+    const vicPane = map.createPane('vigicrues');
+    vicPane.style.zIndex = 460;
+    vicPane.style.pointerEvents = 'none';
+    const vicGroup = L.layerGroup().addTo(map);
+    const zoneGroup = L.layerGroup().addTo(map); // zones des alertes géolocalisées
+    const drawGroup = L.layerGroup().addTo(map); // zone en cours de dessin (sender)
+    const VIC_COLORS = { 1: '#31aa35', 2: VIGILANCE[2].color, 3: VIGILANCE[3].color, 4: VIGILANCE[4].color };
 
     // Cadre et nom de l'encart.
     L.rectangle(INSET_BOX, { interactive: false, color: '#64748b', weight: 1, dashArray: '4 4', fill: false }).addTo(map);
@@ -500,8 +543,32 @@
       return mask;
     }
 
+    const METRO_BOUNDS = [[41.3, -5.3], [51.1, 9.6]];
     return {
       leaflet: map,
+
+      /** Zone affichée : 'all' (France entière), 'metro' (métropole) ou 'nc' (Nouvelle-Calédonie). */
+      setZone(zone) {
+        const b = zone === 'nc' ? L.latLngBounds(INSET_BOX).pad(0.08) : zone === 'metro' ? L.latLngBounds(METRO_BOUNDS) : L.latLngBounds(FRANCE_BOUNDS);
+        map.fitBounds(b, { animate: false });
+      },
+
+      /**
+       * Carte Vigicrues : { sections: [{ id, name, level, lines: [[[lon, lat]…]…] }] } ou null (retirée).
+       * Tronçons en vert fin, en jaune, orange ou rouge plus épais au-dessus.
+       */
+      setVigicrues(data) {
+        vicGroup.clearLayers();
+        if (!data || !Array.isArray(data.sections)) return;
+        const list = data.sections.slice().sort((x, y) => x.level - y.level);
+        for (const sec of list) {
+          if (!sec.lines || !sec.lines.length) continue;
+          const latlngs = sec.lines.map((line) => line.map(([lon, lat]) => toMap(lat, lon)));
+          const w = sec.level >= 2 ? 5 : 2.5;
+          if (sec.level >= 2) L.polyline(latlngs, { pane: 'vigicrues', color: '#0b1220', weight: w + 2.5, opacity: 0.85, interactive: false }).addTo(vicGroup);
+          L.polyline(latlngs, { pane: 'vigicrues', color: VIC_COLORS[sec.level] || VIC_COLORS[1], weight: w, opacity: 1, interactive: false }).addTo(vicGroup);
+        }
+      },
 
       /**
        * Vigilance du jour affiché ; date (AAAA-MM-JJ, heure de Paris) : jour affiché, pour ne montrer
@@ -536,6 +603,14 @@
 
       setAlerts(alerts) {
         state.alerts = alerts || [];
+        // Alertes géolocalisées : zone dessinée (contour de la couleur du niveau, hachuré).
+        zoneGroup.clearLayers();
+        for (const a of state.alerts) {
+          const z = a.geoZone;
+          if (!z || !Array.isArray(z.points) || z.points.length < 3) continue;
+          L.polygon(z.points.map(([la, lo]) => toMap(la, lo)), { pane: 'tsunami', color: '#ffffff', weight: 4, opacity: 0.9, fill: false, interactive: false }).addTo(zoneGroup);
+          L.polygon(z.points.map(([la, lo]) => toMap(la, lo)), { pane: 'tsunami', color: LEVELS[a.level].color, weight: 2.5, dashArray: '8 5', fillColor: LEVELS[a.level].color, fillOpacity: 0.35, interactive: false }).addTo(zoneGroup);
+        }
         blinkAdded(state.alerts);
         applyAlerts();
         renderEpicenters((alerts || []).filter((a) => a.epicenter));
@@ -645,6 +720,24 @@
       departmentAt(lat, lon) {
         const [y, x] = toMap(lat, lon);
         return Object.keys(layers).find((c) => containsPoint(layers[c].getLatLngs(), y, x)) || null;
+      },
+
+      /**
+       * Zone en cours de dessin (sender) : points [[lat, lon]…] en vraies coordonnées ; closed :
+       * polygone fermé (zone finie) ou ligne (en cours). null : retirée.
+       */
+      setDrawZone(points, { closed = false, level = 3 } = {}) {
+        drawGroup.clearLayers();
+        if (!points || !points.length) return;
+        const ll = points.map(([la, lo]) => toMap(la, lo));
+        const col = (LEVELS[level] || LEVELS[3]).color;
+        if (closed && ll.length >= 3) {
+          L.polygon(ll, { color: '#ffffff', weight: 4, fill: false, interactive: false }).addTo(drawGroup);
+          L.polygon(ll, { color: col, weight: 2.5, dashArray: '8 5', fillColor: col, fillOpacity: 0.3, interactive: false }).addTo(drawGroup);
+        } else {
+          L.polyline(ll, { color: '#22d3ee', weight: 3, dashArray: '6 4', interactive: false }).addTo(drawGroup);
+        }
+        for (const p of ll) L.circleMarker(p, { radius: 4, color: '#0b1220', weight: 1, fillColor: '#22d3ee', fillOpacity: 1, interactive: false }).addTo(drawGroup);
       },
 
       /** Point cliqué sur la carte -> vraies coordonnées (encart de la Nouvelle-Calédonie). */

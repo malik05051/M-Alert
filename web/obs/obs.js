@@ -103,7 +103,7 @@
   // « Aucun risque de tsunami » et « Rapport final » en bas à droite.
   let shindoMode = null;
   let shindoKey = '';
-  let noTsunamiOn = false;
+  let noTsunamiOn = false; // false, true (« Aucun risque de tsunami ») ou 'sea' (variations du niveau de la mer)
   let finalOn = false;
   // Choisis dans M-Alert-sender : séisme à montrer (sinon celui en cours) et vue de la carte.
   let shindoQuake = null;
@@ -145,7 +145,7 @@
       shindoQuake = o.shindo.quake && o.shindo.quake.epicenter ? { category: 'seisme', ...o.shindo.quake } : null;
       shindoView = o.shindo.view || null;
     }
-    if (typeof o.notsunami === 'boolean' && part('notsunami')) noTsunamiOn = o.notsunami;
+    if ((typeof o.notsunami === 'boolean' || o.notsunami === 'sea') && part('notsunami')) noTsunamiOn = o.notsunami;
     if (typeof o.final === 'boolean' && part('final')) finalOn = o.final;
     if (typeof o.epicenter === 'boolean' && part('epicenter')) epicenterOn = o.epicenter;
     if (typeof o.magnitude === 'boolean' && part('magnitude')) magnitudeOn = o.magnitude;
@@ -275,13 +275,17 @@
   let addedInfo = null; // { id, revision, codes, until }
   const addedNow = (x) => (x && addedInfo && addedInfo.id === x.id && Date.now() < addedInfo.until ? addedInfo.codes : null);
   const isCoast = (x) => Boolean(x) && (x.category === 'tsunami' || ((x.category || 'meteo') === 'meteo' && [9, 16].includes(Number(x.phenomenon))));
+  // Alertes à carte : côtes (tsunami, vagues-submersion, forte houle) et crues (rivières Vigicrues,
+  // hauteurs d'eau mesurées).
+  const isFlood = (x) => Boolean(B.isFloodMap && B.isFloodMap(x));
+  const isMap = (x) => isCoast(x) || isFlood(x);
   // Alerte annulée (fausse alerte) : cadre d'annulation en bas à la place du bandeau, texte du haut
   // « Alerte de … annulée », pendant « hold » secondes (l'écran réduit reste le temps de l'annonce).
   let cancelled = null; // { alert, until }
   const cancelOn = () => Boolean(cancelled && Date.now() < cancelled.until);
   function cancelLines(a) {
     const name = (M.alertKind(a || {}).name || 'alerte').replace(/^./, (c) => c.toLowerCase());
-    return [`Alerte de ${name} annulée`, 'Aucun danger est attendu.'];
+    return [`Alerte de ${name} annulée`, 'Aucun danger n\'est attendu.'];
   }
   // Durée de l'annonce d'annulation (secondes, paramètre cancelHold ; par défaut celle du bandeau).
   const cancelHold = q.has('cancelHold') ? Math.max(3, Number(q.get('cancelHold')) || 30) : (hold || 60);
@@ -290,6 +294,36 @@
     manualBanner = null;
     document.body.classList.add('cancelling');
     showInfo(B.cancelledInfo(a), cancelHold);
+  }
+
+  /**
+   * Cadre bleu « L'alerte sismique précoce a été annulée » au milieu de la carte affichée (intensités
+   * en plein écran ou en mini, carte des côtes, mini-carte, alerte missile), comme le cadre
+   * d'annulation de la NHK : pendant l'annonce d'annulation, sur la carte de l'alerte annulée.
+   */
+  function voidText(a) {
+    if (a.category === 'seisme') return ['L\'alerte sismique précoce a été annulée', 'Aucun danger n\'est attendu.'];
+    const label = M.alertLevelLabel(a) || 'Alerte';
+    const lower = label.replace(/^./, (c) => c.toLowerCase());
+    const fem = /^(alerte|vigilance)/i.test(label);
+    const head = /^[aeiouyéèh]/i.test(lower) ? `L'${lower}` : `La ${lower}`;
+    const coast = isCoast(a) ? (a.category === 'tsunami' ? 'Vous pouvez reprendre vos activités, en restant prudents près de la mer.' : 'Restez prudents près de la mer.') : 'Aucun danger n\'est attendu.';
+    return [`${head} a été ${fem ? 'annulée' : 'annulé'}`, coast];
+  }
+  function renderVoid(target) {
+    const box = $('voidBox');
+    if (!target || !target.alert || !target.el) { document.body.classList.remove('show-void'); box.dataset.k = ''; return; }
+    const r = target.el.getBoundingClientRect();
+    if (!r.width || !r.height) { document.body.classList.remove('show-void'); return; }
+    const k = `${target.alert.id}:${Math.round(r.left)}:${Math.round(r.top)}:${Math.round(r.width)}:${Math.round(r.height)}`;
+    if (box.dataset.k !== k) {
+      const [main, sub] = voidText(target.alert);
+      box.querySelector('.vb-main').textContent = main;
+      box.querySelector('.vb-sub').textContent = sub;
+      Object.assign(box.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, fontSize: `${Math.max(10, r.height / 22)}px` });
+      box.dataset.k = k;
+    }
+    document.body.classList.add('show-void');
   }
 
   /** Carte « Information(s) M-Alert » : alerte annulée ou notification, pendant « hold » secondes. */
@@ -495,7 +529,34 @@
   let sealevel = null;
   let gaugesOn = true; // mesures affichées (choix de M-Alert-sender)
   const seaOf = (code) => (gaugesOn && sealevel && sealevel.departments && sealevel.departments[code]) || null;
+  // Hauteurs d'eau mesurées (Hub'Eau) pendant les alertes crues, pluie-inondation, inondation.
+  let rivers = null;
+  function floodRows(a) {
+    const set = new Set(a.departments || []);
+    const lvOf = (code) => {
+      const r = ((a.forecastTable && a.forecastTable.rows) || []).find((x) => x.department === code);
+      return r ? r.level : a.level;
+    };
+    const out = [];
+    for (const [code, d] of Object.entries((gaugesOn && rivers && rivers.departments) || {})) {
+      if (!set.has('ALL') && !set.has(code)) continue;
+      for (const st of (d && d.stations) || []) {
+        if (typeof st.h !== 'number') continue;
+        const rise = typeof st.rise === 'number' ? (st.rise === 0 ? 'stable' : `${M.heightText(st.rise, { sign: true, digits: 2 })} en ${st.hours || 6} h`) : '';
+        out.push({ level: lvOf(code), name: `${st.name}`, sub: [st.river, rise].filter(Boolean).join(' · '), when: `mesuré ${hourText(st.at)}`, value: M.heightText(st.h, { digits: 2 }), h: typeof st.rise === 'number' ? st.rise : -1, measured: true });
+      }
+    }
+    // Sans mesure : niveaux prévus par département (tableau de l'alerte).
+    if (!out.length) {
+      for (const r of ((a.forecastTable && a.forecastTable.rows) || [])) {
+        if (!set.has('ALL') && !set.has(r.department)) continue;
+        out.push({ level: r.level, name: depName(r.department), when: r.at ? `pic ${hourText(r.at)}` : r.from ? `dès ${hourText(r.from)}` : '—', value: r.rain24 ? `${Math.round(r.rain24)} mm` : '', h: r.rain24 || 0 });
+      }
+    }
+    return out;
+  }
   function coastRows(a) {
+    if (isFlood(a)) return floodRows(a);
     if (a.category === 'tsunami') {
       return (a.tsunamiTable || []).map((r) => {
         // Heure corrigée par les marégraphes (arrivée mesurée, ou temps de trajet recalé).
@@ -556,7 +617,7 @@
     if (!pg) { el.innerHTML = ''; return; }
     const [name, bg, fg] = LV[pg.level] || ['', '#e60012', '#fff'];
     const esc = M.escapeHtml;
-    const html = `<div class="ct-title">${tsu ? 'Arrivée prévue du tsunami' : 'Vagues-submersion prévues'}</div>`
+    const html = `<div class="ct-title">${tsu ? 'Arrivée prévue du tsunami' : isFlood(a) ? 'Crues · hauteurs d\'eau mesurées' : 'Vagues-submersion prévues'}</div>`
       + `<div class="ct-level" style="background:${bg};color:${fg}">${esc(name)}</div>`
       + pg.rows.map((r) => `<div class="ct-row${r.measured ? ' measured' : ''}"><span class="ct-name">${esc(r.name)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span><span class="ct-when">${esc(r.when)}</span>`
         + `<span class="ct-val" style="background:${bg};color:${fg}">${esc(r.value)}</span></div>`).join('')
@@ -603,7 +664,7 @@
     const esc = M.escapeHtml;
     const pg = pages[boardPage] || [];
     const clock = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: M.timeZone ? M.timeZone() : undefined });
-    const html = `<div class="cb-title">${tsu ? 'Arrivée de la 1<sup>re</sup> vague · hauteur prévue' : 'Vagues-submersion · vagues prévues'}</div>`
+    const html = `<div class="cb-title">${tsu ? 'Arrivée de la 1<sup>re</sup> vague · hauteur prévue' : isFlood(a) ? 'Crues · hauteurs d\'eau mesurées (Hub\'Eau)' : 'Vagues-submersion · vagues prévues'}</div>`
       + `<div class="cb-body">`
       + pg.map((b) => {
         const [name, bg, fg] = LV[b.level] || ['', '#e60012', '#fff'];
@@ -812,15 +873,17 @@
     // Alerte choisie dans M-Alert-sender, sinon tsunami, puis la plus grave (niveau le plus haut d'une
     // côte : la vigilance orange passe avant les alertes jaunes plus récentes), puis la plus récente.
     const coastTop = (x) => Math.max(x.level || 0, ...Object.values(B.coastLevelsOf ? B.coastLevelsOf(x) : {}));
-    const coastList = alerts.filter(wanted).filter(isCoast)
+    const coastList = alerts.filter(wanted).filter(isMap)
       .sort((x, y) => forcedFirst(x, y) || ((y.id === coastPinned) - (x.id === coastPinned)) || ((y.category === 'tsunami') - (x.category === 'tsunami'))
         || (coastTop(y) - coastTop(x)) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
-    const lastCoast = isCoast(lastAlert) ? lastAlert : null;
+    const lastCoast = isMap(lastAlert) ? lastAlert : null;
     // Alerte choisie dans M-Alert-sender, quelle qu'elle soit (toutes les alertes en carte et mini-carte).
     // « vig:<phénomène> » : vigilance Météo-France seule (sans alerte M-Alert), choisie dans le sender.
     const pinnedAny = coastPinned ? alerts.filter(wanted).find((x) => x.id === coastPinned)
       || (/^vig:/.test(coastPinned) ? B.vigAlerts(vig).find((x) => x.id === coastPinned) || null : null) : null;
-    const tsu = manualMap === false ? null : manualMap === true ? pinnedAny || coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null;
+    // Alerte de la carte annulée (fausse alerte) : la carte reste le temps de l'annonce, avec le cadre bleu.
+    const voidCoast = cancelOn() && isMap(cancelled.alert) && cancelled.alert.id === coastId && manualMap !== false ? cancelled.alert : null;
+    const tsu = manualMap === false ? null : (manualMap === true ? pinnedAny || coastList[0] || lastCoast : tsunamiMap ? coastList[0] || null : null) || voidCoast;
     if (a && a.id !== shownId) { shownId = a.id; shownAt = Date.now(); }
     if (a) markFirst(a.id);
     if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
@@ -829,8 +892,9 @@
       .sort((x, y) => forcedFirst(x, y) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     // Toutes les alertes missile en cours sont affichées ensemble (niveaux différents).
     const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
+    const voidMissile = cancelOn() && cancelled.alert.category === 'missile' && cancelled.alert.id === missileId ? cancelled.alert : null;
     const missileList = manualMissile === false ? [] : missiles.length ? missiles
-      : (manualMissile === true || manualCard === true) && lastMissile ? [lastMissile] : [];
+      : (manualMissile === true || manualCard === true) && lastMissile ? [lastMissile] : voidMissile ? [voidMissile] : [];
     const missile = missileList[0] || null;
     if (missile && missile.id !== missileId) { missileId = missile.id; missileStart = Date.now(); }
     // Écran plein : cardSeconds au début (et à chaque mise à jour), ou affiché / masqué à la main.
@@ -851,11 +915,12 @@
       else if (hold === 0 || Date.now() - coastShownAt < hold * 1000 || stays(tsu)) phase = 2;
     }
     // Mesures plein écran : en phase 3, ou à la main (au-dessus de tout, sauf la carte à la main).
-    const boardAlert = manualBoard === true && manualMap !== true ? tsu || coastList[0] || lastCoast : phase === 3 ? tsu : null;
+    const pinnedMap = pinnedAny && isMap(pinnedAny) ? pinnedAny : null;
+    const boardAlert = manualBoard === true && manualMap !== true ? pinnedMap || tsu || coastList[0] || lastCoast : phase === 3 ? tsu : null;
     const boardOn = Boolean(boardAlert);
     const mapOn = phase === 1 && !boardOn;
     // Avec la carte des tsunamis : bandeau de la dernière autre alerte (le séisme), réduit en haut à gauche.
-    const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isCoast(x))
+    const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isMap(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
     // Carte plein écran ou tableau : pas de bandeau (le séisme est dans le panneau à gauche).
     const ba = phase > 0 || boardOn || mPhase > 0 || (a && a.category === 'missile') ? null : a;
@@ -881,7 +946,7 @@
     // Mini-carte et tableau : après la carte plein écran, ou à la main.
     const coastAny = tsu || coastList[0] || lastCoast;
     const miniAlert = pinnedAny || coastAny;
-    const tableAlert = isCoast(coastAny) ? coastAny : null;
+    const tableAlert = pinnedMap || (isMap(coastAny) ? coastAny : null);
     // Mini-carte masquée tant que le bandeau d'alerte est affiché, puis de nouveau là quand il disparaît.
     const miniOn = !bannerOn && !mapOn && !boardOn && (manualMini === true ? Boolean(miniAlert) : manualMini === false ? false : phase === 2);
     const tableOn = !mapOn && !boardOn && (manualTable === true ? Boolean(tableAlert) : manualTable === false ? false : phase === 2 && Boolean(tableAlert));
@@ -906,7 +971,10 @@
     // Séisme choisi dans M-Alert-sender : sa version à jour s'il est encore en cours (magnitude,
     // épicentre et intensités corrigés après coup, intensités PLUM), sinon celle reçue du sender.
     const liveChosen = shindoQuake && alerts.find((x) => x.id === shindoQuake.id && x.category === 'seisme');
-    const mapQuake = liveChosen || shindoQuake || quakeAny;
+    // Séisme annulé (fausse alerte) pendant que ses intensités sont affichées : carte gardée le temps
+    // de l'annonce, avec le cadre bleu « L'alerte sismique précoce a été annulée ».
+    const voidQuake = cancelOn() && cancelled.alert.category === 'seisme' ? cancelled.alert : null;
+    const mapQuake = liveChosen || shindoQuake || quakeAny || voidQuake;
     const smode = mapQuake ? shindoMode : null;
     for (const m of ['full', 'mini']) document.body.classList.toggle(`shindo-${m}`, smode === m);
     if (smode) {
@@ -918,7 +986,14 @@
         shindoKey = sk;
       }
     }
-    document.body.classList.toggle('show-notsunami', noTsunamiOn);
+    // Cadre d'annulation : sur la carte qui montre l'alerte annulée (intensités, côtes, mini-carte, missile).
+    const isVoid = (x) => Boolean(x && cancelOn() && x.id === cancelled.alert.id);
+    renderVoid(smode && isVoid(mapQuake) ? { el: $('shindoMap'), alert: mapQuake }
+      : mapOn && isVoid(tsu) ? { el: $('tsunami'), alert: tsu }
+        : miniOn && isVoid(miniAlert) ? { el: $('miniMap'), alert: miniAlert }
+          : mPhase === 1 && isVoid(missile) ? { el: $('missileCard'), alert: missile } : null);
+    document.body.classList.toggle('show-notsunami', noTsunamiOn === true);
+    document.body.classList.toggle('show-seavar', noTsunamiOn === 'sea');
     document.body.classList.toggle('show-final', finalOn);
     // En bas à droite : au-dessus du bandeau s'il est affiché.
     const notes = $('quakeNotes');
@@ -963,6 +1038,10 @@
 
   function handle(msg) {
     switch (msg.type) {
+      case 'refused':
+        refusedMsg = `⛔ ${msg.message || 'M-Alert refusé par le serveur.'}`;
+        status(refusedMsg);
+        break;
       case 'hello':
         alerts = (msg.alerts || []).filter(M.isActive);
         alerts.forEach(remember);
@@ -970,6 +1049,15 @@
         applyObs(msg.obs);
         sealevel = msg.sealevel || null;
         vig = msg.vigilance || null;
+        rivers = msg.rivers || null;
+        loadRivers();
+        break;
+      case 'rivers':
+        rivers = msg.rivers || null;
+        tableKey = '';
+        break;
+      case 'vigicrues':
+        loadRivers(true);
         break;
       case 'vigilance':
         vig = msg.vigilance || null;
@@ -994,10 +1082,20 @@
         if (!a || !M.isActive(a)) break;
         alerts = alerts.filter((x) => x.id !== a.id).concat(a);
         forcedId = a.id;
-        if (isCoast(a)) coastId = null; // carte plein écran à nouveau
+        if (isMap(a)) coastId = null; // carte plein écran à nouveau
         if (a.category === 'missile') missileId = null;
         remember(a);
         arrived(a);
+        // Style choisi dans M-Alert-sender pour cette alerte (sinon : comme à son arrivée).
+        if (msg.style && msg.style !== 'auto') {
+          manualBanner = msg.style === 'banner' ? true : false;
+          manualMap = msg.style === 'map' ? true : false;
+          manualMini = msg.style === 'mini' ? true : false;
+          manualBoard = msg.style === 'board' ? true : false;
+          manualTable = msg.style === 'table' ? true : false;
+          manualText = msg.style === 'text' ? true : null;
+          if (['map', 'mini', 'board', 'table'].includes(msg.style)) coastPinned = a.id;
+        }
         break;
       }
       case 'update': {
@@ -1066,7 +1164,8 @@
       const m = d.cmd === 'shindomini' ? 'mini' : 'full'; // plein écran : réduit avec l'écran
       shindoMode = shindoMode === m ? null : m;
     }
-    else if (d.cmd === 'notsunami') noTsunamiOn = !noTsunamiOn;
+    else if (d.cmd === 'notsunami') noTsunamiOn = noTsunamiOn === true ? false : true;
+    else if (d.cmd === 'seavar') noTsunamiOn = noTsunamiOn === 'sea' ? false : 'sea';
     else if (d.cmd === 'final') finalOn = !finalOn;
     else if (d.cmd === 'epicenter') epicenterOn = !epicenterOn;
     else if (d.cmd === 'magnitude') magnitudeOn = !magnitudeOn;
@@ -1086,13 +1185,35 @@
     render();
   });
 
+  // Tracés Vigicrues (rivières colorées sur la carte des crues) : relus au changement de niveaux.
+  let riversAt = 0;
+  async function loadRivers(force) {
+    if (!server || (!force && Date.now() - riversAt < 10 * 60000)) return;
+    riversAt = Date.now();
+    try {
+      const r = await fetch(`${server}/api/vigicrues?full=1`);
+      if (r.ok) { B.setRivers(await r.json()); drawMaps(true); }
+    } catch (_) { /* serveur plus ancien : départements seulement */ }
+  }
+
   let retry = 0;
+  let refusedMsg = '';
   function connect() {
     if (!server) { status('Pas de serveur (paramètre server=…)'); return; }
     const ws = new WebSocket(M.toWsUrl(server));
-    ws.onopen = () => { retry = 0; status(`Connecté à ${server}`); };
+    ws.onopen = () => {
+      retry = 0;
+      status(`Connecté à ${server}`);
+      // Version et empreinte de M-Alert (le serveur peut refuser une version trop ancienne ou modifiée).
+      M.appIdentity().then((app) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'subscribe', role: 'obs', departments: deps, all: !deps.length, app })); });
+    };
     ws.onmessage = (ev) => { try { handle(JSON.parse(ev.data)); } catch (_) { /* message illisible */ } };
-    ws.onclose = () => { status('Déconnecté — nouvelle tentative…'); setTimeout(connect, Math.min(30000, 1000 * 2 ** retry++)); };
+    ws.onclose = (ev) => {
+      // Refusée (version trop ancienne ou modifiée) : message, nouvel essai dans 15 minutes.
+      if (ev && ev.code === 4003) { status(refusedMsg || 'M-Alert refusé par le serveur : mettez à jour M-Alert.'); setTimeout(connect, 15 * 60000); return; }
+      status('Déconnecté — nouvelle tentative…');
+      setTimeout(connect, Math.min(30000, 1000 * 2 ** retry++));
+    };
   }
 
   // Aperçu sans serveur.

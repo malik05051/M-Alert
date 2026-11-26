@@ -183,7 +183,14 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         if server.lowercased().hasPrefix("http") { server = "ws" + server.dropFirst(4) }
         // Canal allégé : seulement les alertes et notifications qui sonnent (pas la vigilance, l'OBS,
         // les marégraphes…), pas de ping du serveur : moins de réveils, moins de batterie.
-        guard let url = URL(string: server + "/ws?lite=1") else { return }
+        // Version et empreinte de l'application (le serveur peut refuser une version trop ancienne).
+        var comps = URLComponents(string: server + "/ws")
+        comps?.queryItems = [
+            URLQueryItem(name: "lite", value: "1"),
+            URLQueryItem(name: "v", value: settings["appVersion"] as? String ?? ""),
+            URLQueryItem(name: "b", value: settings["appBuild"] as? String ?? ""),
+        ]
+        guard let url = comps?.url else { return }
         let t = session.webSocketTask(with: url)
         task = t
         t.resume()
@@ -279,6 +286,15 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         return false
     }
 
+    /** Alerte critique : même règle que M.isCritical (common.js). */
+    private func critical(_ a: [String: Any]) -> Bool {
+        if let c = a["critical"] as? Bool { return c }
+        let level = num(a["level"]) ?? 1
+        let cat = a["category"] as? String ?? "meteo"
+        if ["tsunami", "missile", "attentat"].contains(cat) { return level >= 4 }
+        return level >= 5 || (a["mobileAlert"] as? Bool ?? false)
+    }
+
     private func wanted(_ a: [String: Any]) -> Bool {
         if a["silent"] as? Bool == true || a["pending"] as? Bool == true { return false }
         if let c = a["cancelledAt"], !(c is NSNull) { return false }
@@ -287,7 +303,8 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         if (settings["categoriesOff"] as? [String] ?? []).contains(cat) { return false }
         let all = settings["all"] as? Bool ?? false
         if let q = Quake.wanted(a, settings: settings, mine: all || concernsMe(a)) { return q }
-        if level < (num(settings["minLevel"]) ?? 1) { return false }
+        // Alerte critique (avertissement de tsunami…) : même sous le niveau minimum choisi.
+        if level < (num(settings["minLevel"]) ?? 1) && !critical(a) { return false }
         if cat == "meteo" {
             let ph = num(a["phenomenon"]) ?? 0
             if (settings["phenomenaOff"] as? [Any] ?? []).contains(where: { num($0) == ph }) { return false }

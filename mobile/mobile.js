@@ -98,9 +98,12 @@
       backup(); // réglages d'une version précédente : première copie dans le trousseau
     }
   }
-  function push() {
+  async function push() {
     const target = plugin || (mobile.configure ? { configure: mobile.configure } : null);
     if (!target) return;
+    // Version et empreinte de l'application : le service de fond les donne au serveur (?v=…&b=…).
+    let app = null;
+    try { app = window.MAlert && window.MAlert.appIdentity ? await window.MAlert.appIdentity() : null; } catch (_) { app = null; }
     let s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { s = {}; }
     if (!s.serverUrl && window.MALERT_CONFIG) s.serverUrl = window.MALERT_CONFIG.serverUrl;
@@ -110,6 +113,7 @@
       s.notifLangs = window.MAlertI18n.notifLangs(s).filter(Boolean);
       s.kindNames = window.MAlertI18n.kindNames(s); // « L'alerte de <phénomène> … a été annulée »
     }
+    if (app) { s.appVersion = app.version || ''; s.appBuild = app.build || ''; }
     target.configure({ settings: JSON.stringify(s), background: s.mobileBackground !== false }).catch(() => {});
   }
   // Réglages enregistrés par la page : le service suit.

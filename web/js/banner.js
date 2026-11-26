@@ -469,6 +469,255 @@
     return { lat: (s + n) / 2, lon: (we + e) / 2, span: h / scale / 2 };
   }
 
+  // ---------- Rapport de vigilance M-Alert (PDF, une page par jour, comme le bulletin de Météo-France) ----------
+
+  const VIG_FILL = { 0: '#d9dde3', 1: '#31aa35', 2: '#fff200', 3: '#ff9300', 4: '#e0141e', 5: '#fe05fd' };
+  const VIG_WORD = { 1: 'Vert', 2: 'Jaune', 3: 'Orange', 4: 'Rouge', 5: 'Majeure' };
+  // Petites cartes : phénomène, nom, côtier (côtes seulement) ou montagne (départements concernés seulement).
+  const REPORT_PHEN = [
+    { id: 3, name: 'Orages' }, { id: 2, name: 'Pluie-inondation' }, { id: 4, name: 'Crues', rivers: true },
+    { id: 1, name: 'Vent violent' }, { id: 9, name: 'Vagues-submersion', coast: true }, { id: 6, name: 'Canicule' },
+    { id: 5, name: 'Neige-verglas' }, { id: 8, name: 'Avalanches', mountain: true }, { id: 7, name: 'Grand froid' },
+  ];
+  const MOUNTAIN = new Set(['01', '04', '05', '06', '09', '2A', '2B', '31', '38', '64', '65', '66', '73', '74']);
+  const METRO_BOX = [41.3, 51.15, -5.3, 9.65];
+
+  /**
+   * Niveaux d'une journée : { dep: { code: niveau }, ph: { id: { code: niveau } }, slots: { id: [{ begin, end, level }] } }
+   * d'après la vigilance Météo-France de la période et les alertes M-Alert en cours ce jour-là
+   * (la plus forte l'emporte, comme sur la carte de M-Alert).
+   */
+  function reportLevels(period, alerts, dayStart, dayEnd) {
+    const dep = {}; const ph = {}; const slots = {};
+    const up = (o, k, v) => { if (v > (o[k] || 0)) o[k] = v; };
+    for (const [code, d] of Object.entries((period && period.departments) || {})) {
+      up(dep, code, d.level || 1);
+      for (const x of d.phenomena || []) {
+        up((ph[x.id] = ph[x.id] || {}), code, x.level);
+        for (const sl of x.slots || []) (slots[x.id] = slots[x.id] || []).push(sl);
+        if (!(x.slots || []).length && x.level >= 2) (slots[x.id] = slots[x.id] || []).push({ begin: period.begin, end: period.end, level: x.level });
+      }
+    }
+    for (const a of alerts || []) {
+      const from = Date.parse(a.createdAt); const to = Date.parse(a.expiresAt);
+      if (!(from < dayEnd && (a.noEnd || to > dayStart)) || a.level < 2) continue;
+      const codes = (a.departments || []).includes('ALL') ? Object.keys(geoData().deps) : a.departments || [];
+      const rows = a.forecastTable && Array.isArray(a.forecastTable.rows) ? a.forecastTable.rows : null;
+      for (const c of codes) {
+        const r = rows && rows.find((x) => x.department === c);
+        const lv = r ? r.level : a.level;
+        up(dep, c, lv);
+        if ((a.category || 'meteo') === 'meteo') up((ph[a.phenomenon] = ph[a.phenomenon] || {}), c, lv);
+      }
+      if ((a.category || 'meteo') === 'meteo') (slots[a.phenomenon] = slots[a.phenomenon] || []).push({ begin: new Date(Math.max(from, dayStart)).toISOString(), end: new Date(a.noEnd ? dayEnd : Math.min(to, dayEnd)).toISOString(), level: a.level });
+    }
+    return { dep, ph, slots };
+  }
+
+  function drawFrance(ctx, x, y, w, h, colorOf, { line = 1, coastColor = null, rivers = null } = {}) {
+    const { deps, coasts } = geoData();
+    const P = projector(METRO_BOX, x, y, w, h);
+    for (const [code, d] of Object.entries(deps)) {
+      if (code === '988') continue;
+      ctx.beginPath();
+      for (const poly of d.polys) pathPoly(ctx, poly, P);
+      ctx.fillStyle = colorOf(code); ctx.fill('evenodd');
+      ctx.strokeStyle = '#111'; ctx.lineWidth = line; ctx.stroke();
+    }
+    if (coastColor) {
+      for (const [code, lines] of Object.entries(coasts)) {
+        const col = coastColor(code);
+        if (!col) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = line * 4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        for (const l of lines) { ctx.beginPath(); l.forEach(([la, lo], i) => { const [px, py] = P(la, lo); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); }
+      }
+    }
+    if (rivers) {
+      for (const sec of rivers.slice().sort((p, q) => p.level - q.level)) {
+        ctx.strokeStyle = sec.level >= 2 ? VIG_FILL[sec.level] : 'rgba(49,170,53,.8)'; ctx.lineWidth = sec.level >= 2 ? line * 3 : line * 0.8;
+        for (const l of sec.lines || []) { ctx.beginPath(); l.forEach(([lo, la], i) => { const [px, py] = P(la, lo); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); }
+      }
+    }
+    return P;
+  }
+
+  /**
+   * Une page du rapport (paysage, 2000 × 1414) : titre et date d'émission, grande carte (vigilance
+   * Météo-France + alertes M-Alert), chronologie des phénomènes en vigilance, 9 petites cartes par
+   * phénomène. opts : { period, alerts, dayLabel, dayStart, dayEnd, issued, rivers, outlook }.
+   */
+  function drawVigReport(canvas, o) {
+    const W = 2000; const H = 1414;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const L = reportLevels(o.period, o.alerts, o.dayStart, o.dayEnd);
+    const rr = (x, y, w, h, r) => {
+      ctx.beginPath();
+      if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    };
+    const card = (x, y, w, h, r = 22, fill = '#fff') => {
+      ctx.save(); ctx.shadowColor = 'rgba(15,23,42,.12)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6;
+      rr(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+      rr(x, y, w, h, r); ctx.strokeStyle = 'rgba(15,23,42,.08)'; ctx.lineWidth = 1.5; ctx.stroke();
+    };
+    const txt = (t, x, y, size, weight = 400, color = '#0f172a', align = 'left', max) => { ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; if (max) ctx.fillText(t, x, y, max); else ctx.fillText(t, x, y); };
+    const pill = (t, x, y, bg, fg, size = 24) => {
+      ctx.font = `700 ${size}px ${FONT}`;
+      const w = ctx.measureText(t).width + size * 1.3; const h = size * 1.7;
+      rr(x, y, w, h, h / 2); ctx.fillStyle = bg; ctx.fill();
+      ctx.fillStyle = fg; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, x + size * 0.65, y + h / 2 + 1);
+      return w;
+    };
+    const TXT_ON = { 1: '#fff', 2: '#1f2937', 3: '#1f2937', 4: '#fff', 5: '#fff' };
+    // Fond.
+    ctx.fillStyle = '#eef2f7'; ctx.fillRect(0, 0, W, H);
+    // En-tête sombre.
+    rr(40, 36, W - 80, 170, 28);
+    const gh = ctx.createLinearGradient(40, 0, W - 40, 0); gh.addColorStop(0, '#0b1220'); gh.addColorStop(1, '#1e293b');
+    ctx.fillStyle = gh; ctx.fill();
+    rr(72, 66, 110, 110, 24); const gm = ctx.createLinearGradient(0, 66, 0, 176); gm.addColorStop(0, '#fb923c'); gm.addColorStop(1, '#ea580c'); ctx.fillStyle = gm; ctx.fill();
+    txt('M', 127, 150, 76, 900, '#fff', 'center');
+    txt('Vigilance M-Alert', 214, 120, 52, 800, '#f8fafc');
+    txt(`Émise le ${o.issued}`, 214, 166, 28, 400, '#94a3b8');
+    for (let i = 1; i <= 4; i++) { rr(214 + (i - 1) * 54, 182, 46, 8, 4); ctx.fillStyle = VIG_FILL[i]; ctx.fill(); }
+    ctx.font = `800 34px ${FONT}`;
+    const dw = ctx.measureText(o.dayLabel).width + 56;
+    rr(W - 80 - dw, 92, dw, 64, 32); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
+    rr(W - 80 - dw, 92, dw, 64, 32); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+    txt(o.dayLabel, W - 80 - dw / 2, 136, 34, 800, '#fff', 'center');
+    // Grande carte.
+    card(40, 236, 1000, 1138);
+    txt('Carte de vigilance', 76, 296, 34, 800);
+    txt(o.outlook ? 'Prévision M-Alert (Météo-France ne publie pas au-delà de demain)' : 'Vigilance Météo-France et alertes M-Alert : la plus forte des deux', 76, 334, 22, 400, '#64748b');
+    drawFrance(ctx, 70, 360, 940, 800, (c) => VIG_FILL[L.dep[c] || 1], { line: 1.4 });
+    const { deps } = geoData();
+    if (deps['988']) {
+      card(76, 1006, 250, 170, 16, '#f8fafc');
+      txt('Nouvelle-Calédonie', 201, 1036, 19, 700, '#334155', 'center');
+      const PN = projector([-22.9, -19.5, 163.4, 168.3], 86, 1046, 230, 122);
+      ctx.beginPath(); for (const poly of deps['988'].polys) pathPoly(ctx, poly, PN);
+      ctx.fillStyle = VIG_FILL[L.dep['988'] || 1]; ctx.fill('evenodd'); ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    // Décompte : pastilles colorées.
+    const counts = {};
+    for (const [c, v] of Object.entries(L.dep)) if (v >= 2 && c !== '988') counts[v] = (counts[v] || 0) + 1;
+    let px = 76;
+    const shownLv = [5, 4, 3, 2].filter((l) => counts[l]);
+    if (!shownLv.length) pill('Aucun département en vigilance jaune ou plus', px, 1200, VIG_FILL[1], '#fff', 24);
+    for (const l of shownLv) px += pill(`${counts[l]} département${counts[l] > 1 ? 's' : ''} en ${VIG_WORD[l]}`, px, 1200, VIG_FILL[l], TXT_ON[l], 24) + 12;
+    // Légende.
+    let lx = 76;
+    for (const l of [1, 2, 3, 4, 5]) { rr(lx, 1290, 26, 26, 7); ctx.fillStyle = VIG_FILL[l]; ctx.fill(); txt(VIG_WORD[l], lx + 36, 1312, 22, 500, '#334155'); lx += 150; }
+    txt('Sources : Météo-France (vigilance), Vigicrues (crues), M-Alert (alertes et prévisions)', 76, 1352, 19, 400, '#94a3b8');
+    // Chronologie.
+    const crueLv = Math.max(1, ...((o.rivers || []).map((x) => x.level || 1)));
+    if (crueLv >= 2) { const m = (L.ph[4] = L.ph[4] || {}); m.__vic = crueLv; }
+    const month = new Date(o.dayStart + 3 * 3600000).getMonth() + 1;
+    const offSeason = { 6: !(month >= 6 && month <= 9), 7: !(month >= 11 || month <= 3) };
+    const topOf = (id) => Math.max(1, ...Object.values(L.ph[id] || {}));
+    const rows = REPORT_PHEN.filter((p) => topOf(p.id) >= 2 && !p.rivers);
+    card(1070, 236, 890, 330);
+    txt('Chronologie', 1102, 290, 30, 800);
+    const tx = 1310; const tw = 620; const ty = 312;
+    for (let hh = 0; hh <= 24; hh += 3) txt(String(hh % 24).padStart(2, '0'), tx + (tw * hh) / 24, ty + 18, 18, 500, '#64748b', 'center');
+    const now = Date.now();
+    rows.slice(0, 6).forEach((p, i) => {
+      const ry = ty + 34 + i * 36;
+      txt(p.name, tx - 16, ry + 22, 20, 500, '#334155', 'right');
+      for (let hh = 0; hh < 24; hh++) {
+        const t0 = o.dayStart + hh * 3600000; const t1 = t0 + 3600000;
+        let lv = 1;
+        for (const sl of L.slots[p.id] || []) if (Date.parse(sl.begin) < t1 && Date.parse(sl.end) > t0) lv = Math.max(lv, sl.level);
+        rr(tx + (tw * hh) / 24 + 1, ry, tw / 24 - 3, 28, 6);
+        ctx.fillStyle = t1 <= now ? '#e2e8f0' : VIG_FILL[lv]; ctx.fill();
+      }
+    });
+    if (!rows.length) txt('Aucun phénomène en vigilance ce jour-là.', 1515, 440, 24, 400, '#64748b', 'center');
+    // Petites cartes par phénomène.
+    const gx = 1070; const gy = 590; const gap = 16; const cw = (890 - 2 * gap) / 3; const ch = (784 - 2 * gap) / 3;
+    REPORT_PHEN.forEach((p, i) => {
+      const cx = gx + (i % 3) * (cw + gap); const cy = gy + Math.floor(i / 3) * (ch + gap);
+      card(cx, cy, cw, ch, 18);
+      const lv = L.ph[p.id] || {};
+      const off = Boolean(offSeason[p.id]) && topOf(p.id) < 2;
+      const top = p.rivers ? Math.max(crueLv, topOf(4)) : topOf(p.id);
+      txt(p.name, cx + 18, cy + 38, 22, 700, '#0f172a', 'left', cw - 70);
+      rr(cx + cw - 46, cy + 18, 28, 28, 14); ctx.fillStyle = off ? '#cbd5e1' : VIG_FILL[top]; ctx.fill();
+      const out = (c) => (p.mountain && !MOUNTAIN.has(c)) || p.coast;
+      drawFrance(ctx, cx + 14, cy + 54, cw - 28, ch - 66, (c) => (off ? '#f1f5f9' : out(c) || p.rivers ? '#f8fafc' : VIG_FILL[lv[c] || 1]), {
+        line: 0.6,
+        coastColor: p.coast ? (c) => ((geoData().coasts[c] || []).length ? VIG_FILL[lv[c] || 1] : null) : null,
+        rivers: p.rivers ? o.rivers || null : null,
+      });
+      if (off) pill(p.id === 6 ? 'Hors période canicule' : 'Hors période grand froid', cx + cw / 2 - 118, cy + ch / 2 - 4, '#0f172a', '#fff', 19);
+    });
+    return canvas;
+  }
+
+  /** PDF minimal : une image JPEG par page (paysage A4). images : [{ data: Uint8Array (JPEG), w, h }]. */
+  function pdfFromJpegs(images) {
+    const enc = new TextEncoder();
+    const chunks = []; const offsets = []; let size = 0;
+    const push = (b) => { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); size += u.length; };
+    push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    const n = images.length;
+    // Objets : 1 catalogue, 2 pages, puis par page : page, contenu, image.
+    const obj = (id, body) => { offsets[id] = size; push(`${id} 0 obj\n`); body(); push('\nendobj\n'); };
+    const PW = 842; const PH = 595;
+    obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+    obj(2, () => push(`<< /Type /Pages /Count ${n} /Kids [${images.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] >>`));
+    images.forEach((im, i) => {
+      const pid = 3 + i * 3; const cid = pid + 1; const iid = pid + 2;
+      obj(pid, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im${i} ${iid} 0 R >> >> /Contents ${cid} 0 R >>`));
+      const content = `q ${PW} 0 0 ${PH} 0 0 cm /Im${i} Do Q`;
+      obj(cid, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
+      obj(iid, () => { push(`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.data.length} >>\nstream\n`); push(im.data); push('\nendstream'); });
+    });
+    const xref = size;
+    const total = 3 + n * 3;
+    let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+    for (let id = 1; id < total; id++) x += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`;
+    push(x);
+    push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  /**
+   * Rapport PDF de la vigilance M-Alert : aujourd'hui, demain (et après-demain si la prévision M-Alert
+   * existe). vig : vigilance diffusée (periods, outlook, updatedAt) ; alerts : alertes en cours ;
+   * rivers : tracés Vigicrues (facultatif). Renvoie un Blob PDF.
+   */
+  async function vigilancePdf({ vig, alerts, rivers = null }) {
+    const tz = 'Europe/Paris';
+    const fmt = (d, opt) => new Date(d).toLocaleString('fr-FR', { timeZone: tz, ...opt });
+    const issued = fmt(vig && vig.updatedAt ? vig.updatedAt : Date.now(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
+    const pages = [];
+    const periods = ((vig && vig.periods) || []).slice(0, 2);
+    const names = ['Aujourd\'hui', 'Demain', 'Après-demain'];
+    const list = periods.map((p, i) => ({ p, i }));
+    if (vig && vig.outlook) list.push({ p: vig.outlook, i: 2, outlook: true });
+    for (const { p, i, outlook } of list) {
+      const start = p.begin ? Date.parse(p.begin) : Date.parse(`${p.date}T00:00:00+01:00`);
+      const end = p.end ? Date.parse(p.end) : start + 86400000;
+      const day = fmt(start + 3 * 3600000, { weekday: 'long', day: 'numeric', month: 'long' });
+      const c = document.createElement('canvas');
+      drawVigReport(c, { period: p, alerts, dayLabel: `${names[i]} : ${day}`, dayStart: start, dayEnd: end, issued, rivers, outlook });
+      const b64 = c.toDataURL('image/jpeg', 0.88).split(',')[1];
+      const bin = atob(b64); const data = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) data[k] = bin.charCodeAt(k);
+      pages.push({ data, w: c.width, h: c.height });
+    }
+    if (!pages.length) throw new Error('Vigilance pas encore reçue.');
+    return pdfFromJpegs(pages);
+  }
+
+  // Vigicrues : tronçons de rivières (tracés [lon, lat]) et leur niveau, dessinés sur la carte d'une
+  // alerte crues, pluie-inondation ou inondation (mini-carte et carte plein écran de l'OBS).
+  let riverSections = null;
+  function setRivers(data) { riverSections = data && Array.isArray(data.sections) ? data.sections : null; }
+  const isFloodMap = (a) => Boolean(a) && (a.category || 'meteo') === 'meteo' && [2, 4, 12].includes(Number(a.phenomenon));
+
   function drawTsunamiMap(canvas, alert, on = true, { width = 1920, height = 1080, zoom = null, view = null } = {}) {
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -505,6 +754,22 @@
       if (byDeps && levels[code]) { ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
     };
     for (const code of Object.keys(deps)) if (code !== '988') draw(code, P);
+    // Crues : rivières de Vigicrues (vert fin ; jaune, orange, rouge épais, qui clignotent).
+    if (riverSections && isFloodMap(alert)) {
+      const RC = { 1: 'rgba(47,158,68,0.45)', 2: LEVEL_FILL[2], 3: LEVEL_FILL[3], 4: LEVEL_FILL[4] };
+      for (const sec of riverSections.slice().sort((x, y) => x.level - y.level)) {
+        if (sec.level >= 2 && !on) continue;
+        const w = sec.level >= 2 ? Math.max(4, W / 300) : Math.max(1.2, W / 1200);
+        for (const [col, lw] of sec.level >= 2 ? [['rgba(0,0,0,.6)', w + 3], [RC[sec.level], w]] : [[RC[1], w]]) {
+          ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+          for (const line of sec.lines || []) {
+            ctx.beginPath();
+            line.forEach(([lo, la], i) => { const [x, y] = P(la, lo); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+            ctx.stroke();
+          }
+        }
+      }
+    }
     // Côtes en alerte de la métropole (encart ensuite, par-dessus).
     const strokeCoasts = (only) => {
       if (!on || byDeps) return;
@@ -531,6 +796,16 @@
     ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.round(H * 0.032)}px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     ctx.fillText('Nouvelle-Calédonie', inset.x + 6, inset.y + 6);
     draw('988', PN);
+    // Communes de la Nouvelle-Calédonie (limites fines).
+    const ncC = window.MALERT_NC_COMMUNES && window.MALERT_NC_COMMUNES.features;
+    if (ncC) {
+      ctx.strokeStyle = 'rgba(16,40,120,0.55)'; ctx.lineWidth = 1;
+      for (const f of ncC) for (const poly of f.geometry.coordinates) {
+        ctx.beginPath();
+        poly[0].forEach(([lo, la], i) => { const [x, y] = PN(la, lo); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+        ctx.closePath(); ctx.stroke();
+      }
+    }
     strokeCoasts(true);
     }
     if (alert && alert.epicenter && !nc) {
@@ -733,7 +1008,7 @@
       const head = [`Séisme vers ${at}`];
       if (typeof a.magnitude === 'number') head.push(`magnitude ${frNum(a.magnitude)}`);
       if (typeof a.depth === 'number') head.push(`profondeur ${frNum(a.depth, 0)} km`);
-      if (a.shindo) head.push(`intensité max ${a.shindo}`);
+      if (maxShindo(a)) head.push(`intensité max ${maxShindo(a)}`);
       const ints = quakeIntensities(a).map(([c, sh]) => `${shortName(c)} ${sh}`);
       return [head.join(' — '), ints.length ? `Intensités : ${listOf(ints)}` : (a.title || '')];
     }
@@ -788,7 +1063,7 @@
       const head = [`Séisme vers ${at}`];
       if (typeof a.magnitude === 'number') head.push(`magnitude ${frNum(a.magnitude)}`);
       if (typeof a.depth === 'number') head.push(`profondeur ${frNum(a.depth, 0)} km`);
-      if (a.shindo) head.push(`intensité max ${a.shindo}`);
+      if (maxShindo(a)) head.push(`intensité max ${maxShindo(a)}`);
       out.head.push(head.join(' — '));
       // Épicentre en mer : risque de tsunami.
       if (a.epicenter && !onLand(a.epicenter.lat, a.epicenter.lon)) out.head.push('Épicentre en mer : évitez les bords de mer, risque de tsunami');
@@ -921,6 +1196,20 @@
     return out;
   }
 
+  /**
+   * Intensité maximale d'un séisme : la plus forte des intensités affichées (corrigées à la main, PLUM,
+   * ou calculées par département), sinon l'intensité max de l'alerte. Suit les intensités quand elles
+   * changent (avant : l'intensité estimée à l'épicentre restait affichée).
+   */
+  function maxShindo(a) {
+    if (!a) return null;
+    let best = null;
+    try {
+      for (const sh of Object.values(allIntensities(a))) if (!best || ORDER.indexOf(sh) > ORDER.indexOf(best)) best = sh;
+    } catch (_) { /* contours pas encore chargés */ }
+    return best || (a.shindo != null && a.shindo !== '' ? String(a.shindo) : null);
+  }
+
   /** Case d'intensité : chiffre, et « − » / « + » en exposant (5⁻, 6⁺). */
   function shindoBadge(ctx, x, y, size, sh) {
     const [bg, fg, border] = NHK_SHINDO[sh] || NHK_SHINDO[1];
@@ -1008,58 +1297,86 @@
       shindoBadge(ctx, x, y, size, ints[c]);
     }
     // Encart « Intensité max » et heure, en haut à gauche.
-    const max = a.shindo && NHK_SHINDO[a.shindo] ? String(a.shindo) : codes.sort((x, y) => ORDER.indexOf(ints[y]) - ORDER.indexOf(ints[x])).map((c) => ints[c])[0];
+    // La plus forte des intensités affichées (elle suit leurs changements), sinon celle de l'alerte.
+    const top = codes.slice().sort((x, y) => ORDER.indexOf(ints[y]) - ORDER.indexOf(ints[x])).map((c) => ints[c])[0];
+    const max = top && NHK_SHINDO[top] ? top : a.shindo && NHK_SHINDO[a.shindo] ? String(a.shindo) : null;
     const pad = H * 0.025;
     const bw = W * (mini ? 0.22 : 0.15); const bh = H * (mini ? 0.17 : 0.13);
+    const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
+    // Rectangle arrondi (ctx.roundRect absent des navigateurs anciens).
+    const rr = (x, y, w, h, r) => {
+      ctx.beginPath();
+      if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    };
+    const shadow = (blur, dy) => { ctx.shadowColor = 'rgba(2,6,23,.45)'; ctx.shadowBlur = blur; ctx.shadowOffsetY = dy; };
+    const noShadow = () => { ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; };
+    // Carte « Intensité max » : coins arrondis, dégradé de la couleur de l'intensité, ombre douce.
     if (max) {
       const [bg, fg] = NHK_SHINDO[max];
-      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(pad + 4, pad + 4, bw, bh);
-      ctx.fillStyle = ['6-', '6+'].includes(max) ? '#f6c3d3' : max === '7' ? '#c41a1a' : bg; ctx.fillRect(pad, pad, bw, bh);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, H / 300); ctx.strokeRect(pad, pad, bw, bh);
+      const base = ['6-', '6+'].includes(max) ? '#f6c3d3' : max === '7' ? '#c41a1a' : bg;
       const tc = ['6-', '6+'].includes(max) ? '#b00020' : max === '7' ? '#fff' : fg;
+      const r = bh * 0.16;
+      shadow(bh * 0.22, bh * 0.06);
+      rr(pad, pad, bw, bh, r);
+      const g = ctx.createLinearGradient(0, pad, 0, pad + bh);
+      g.addColorStop(0, base); g.addColorStop(1, base);
+      ctx.fillStyle = g; ctx.fill();
+      noShadow();
+      // Reflet en haut et liseré clair.
+      const gl = ctx.createLinearGradient(0, pad, 0, pad + bh * 0.55);
+      gl.addColorStop(0, 'rgba(255,255,255,.35)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+      rr(pad, pad, bw, bh * 0.55, r); ctx.fillStyle = gl; ctx.fill();
+      rr(pad, pad, bw, bh, r); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, H / 420); ctx.stroke();
       ctx.fillStyle = tc; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `700 ${Math.round(bh * 0.22)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
-      ctx.fillText('Intensité max', pad + bw / 2, pad + bh * 0.22);
-      ctx.font = `900 ${Math.round(bh * 0.58)}px "Noto Sans", "Segoe UI", Arial, sans-serif`;
+      ctx.font = `800 ${Math.round(bh * 0.15)}px ${FONTS}`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(bh * 0.02)}px`;
+      ctx.fillText('INTENSITÉ MAX', pad + bw / 2, pad + bh * 0.2);
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      ctx.font = `900 ${Math.round(bh * 0.6)}px ${FONTS}`;
       const label = max.length > 1 ? `${max[0]}${max[1] === '-' ? '−' : '+'}` : max;
-      fitText(ctx, label, bw * 0.92, Math.round(bh * 0.58), Math.round(bh * 0.3), '900');
-      ctx.fillText(label, pad + bw / 2, pad + bh * 0.64);
+      fitText(ctx, label, bw * 0.9, Math.round(bh * 0.6), Math.round(bh * 0.3), '900');
+      ctx.fillText(label, pad + bw / 2, pad + bh * 0.62);
     }
-    // Heure du séisme et magnitude, comme la NHK (« 1日16時06分ごろ | M5.7 ») : deux cases côte à côte
-    // sur un bandeau bleu, l'heure en blanc, la magnitude en jaune (« M » plus petit).
+    // Heure du séisme et magnitude : pastille sombre et vitrée, heure en blanc, magnitude dans une
+    // puce jaune (« M5.8 »), comme les bandeaux d'information modernes.
     const t = new Date(a.originTime || a.createdAt || Date.now());
     const day = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: (M && M.timeZone && M.timeZone()) || undefined });
     const when = `Le ${day} vers ${hourOf(t.toISOString())}`;
-    // Magnitude « M5.7 » en un seul texte (comme la NHK et le reste de M-Alert), jaune plein.
     const mag = magnitude && typeof a.magnitude === 'number' && Number.isFinite(a.magnitude) ? `M${a.magnitude.toFixed(1)}` : '';
-    const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.42;
-    const FONTS = '"Noto Sans", "Segoe UI", Arial, sans-serif';
-    const fs = Math.round(th * 0.62);
-    const mfs = Math.round(th * 0.7);
+    const tx = pad + (max ? bw + pad * 0.6 : 0); const th = bh * 0.44;
+    const fs = Math.round(th * 0.5);
+    const mfs = Math.round(th * 0.56);
     ctx.font = `700 ${fs}px ${FONTS}`;
-    const ww = ctx.measureText(when).width + th * 0.9;
+    const ww = ctx.measureText(when).width;
     ctx.font = `900 ${mfs}px ${FONTS}`;
-    const mw = mag ? ctx.measureText(mag).width + th * 0.9 : 0;
-    const total = Math.min(W - tx - pad, ww + mw);
-    const cellW = mag ? Math.max(0, total - mw) : total;
-    const grd = ctx.createLinearGradient(0, pad, 0, pad + th);
-    grd.addColorStop(0, '#6d8ee6'); grd.addColorStop(0.5, '#3b5fc8'); grd.addColorStop(1, '#2a4bb0');
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(tx + 3, pad + 3, total, th);
-    ctx.fillStyle = grd; ctx.fillRect(tx, pad, total, th);
-    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1.5, H / 500);
-    ctx.strokeRect(tx, pad, cellW, th);
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const mw = mag ? ctx.measureText(mag).width + th * 0.7 : 0;
+    const dot = th * 0.26; // pastille « séisme »
+    const total = Math.min(W - tx - pad, th * 0.42 + dot + th * 0.3 + ww + th * 0.45 + (mag ? mw + th * 0.12 : th * 0.1));
+    shadow(th * 0.5, th * 0.12);
+    rr(tx, pad, total, th, th / 2);
+    const gp = ctx.createLinearGradient(0, pad, 0, pad + th);
+    gp.addColorStop(0, 'rgba(30,41,59,.94)'); gp.addColorStop(1, 'rgba(15,23,42,.94)');
+    ctx.fillStyle = gp; ctx.fill();
+    noShadow();
+    rr(tx, pad, total, th, th / 2); ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = Math.max(1, H / 600); ctx.stroke();
+    // Pastille rouge « en direct ».
+    const dx = tx + th * 0.42 + dot / 2; const dy = pad + th / 2;
+    ctx.beginPath(); ctx.arc(dx, dy, dot / 2, 0, Math.PI * 2); ctx.fillStyle = '#ef4444'; ctx.fill();
+    ctx.beginPath(); ctx.arc(dx, dy, dot / 2 + th * 0.07, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(239,68,68,.35)'; ctx.lineWidth = th * 0.06; ctx.stroke();
+    ctx.fillStyle = '#f8fafc'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.font = `700 ${fs}px ${FONTS}`;
-    ctx.fillText(when, tx + th * 0.45, pad + th / 2 + 1, cellW - th * 0.9);
+    const textX = dx + dot / 2 + th * 0.3;
+    ctx.fillText(when, textX, pad + th / 2 + 1, Math.max(10, total - (textX - tx) - (mag ? mw + th * 0.2 : th * 0.3)));
     if (mag) {
-      const mx = tx + cellW;
-      ctx.strokeStyle = 'rgba(255,255,255,.9)';
-      ctx.strokeRect(mx, pad, total - cellW, th);
+      const chipH = th * 0.7; const chipX = tx + total - mw - th * 0.15; const chipY = pad + (th - chipH) / 2;
+      rr(chipX, chipY, mw, chipH, chipH / 2);
+      const gc = ctx.createLinearGradient(0, chipY, 0, chipY + chipH);
+      gc.addColorStop(0, '#fde047'); gc.addColorStop(1, '#facc15');
+      ctx.fillStyle = gc; ctx.fill();
       ctx.font = `900 ${mfs}px ${FONTS}`;
-      ctx.textAlign = 'center';
-      const cx = mx + (total - cellW) / 2; const cy = pad + th / 2 + 1;
-      ctx.fillStyle = '#ffe600';
-      ctx.fillText(mag, cx, cy, total - cellW - th * 0.5);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#111827';
+      ctx.fillText(mag, chipX + mw / 2, pad + th / 2 + 1, mw - th * 0.2);
       ctx.textAlign = 'left';
     }
     return canvas;
@@ -1226,5 +1543,5 @@
   /** Nom français de chaque message (listes du sender). */
   const EVAC_NAMES = Object.fromEntries(Object.entries(EVAC).map(([k, v]) => [k, v.fr[0]]));
 
-  window.MAlertBanner = { drawShindoMap, evacHtml, evacPng, evacIconSvg, vigLevelsOf, withVigilance, vigAlerts, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
+  window.MAlertBanner = { drawShindoMap, maxShindo, setRivers, isFloodMap, drawVigReport, vigilancePdf, pdfFromJpegs, evacHtml, evacPng, evacIconSvg, vigLevelsOf, withVigilance, vigAlerts, evacText, evacPlace, evacKindOf, EVAC_KINDS, EVAC_LANGS, EVAC_NAMES, shindoView, allIntensities, drawBanner, drawTsunamiMap, coastView, coastLevelsOf, drawInfo, cancelledInfo, bannerBlob, headerOf, watchOf, placesOf, infoLines, infoParts, deptKm, onLand, shortName, drawZonesMap };
 })();

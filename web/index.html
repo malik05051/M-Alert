@@ -132,6 +132,8 @@
         </label>
         <div class="chips-picker" id="setExtra"></div>
         <label class="check"><input type="checkbox" id="setAll"> Recevoir les alertes de toute la France</label>
+        <label class="check"><input type="checkbox" id="setGeoloc"> 📍 Utiliser ma position pour les alertes géolocalisées (zone précise dessinée par M-Alert : alerté seulement si je suis dedans ; position gardée sur l'appareil, jamais envoyée)</label>
+        <p class="small muted" id="geoState" style="margin:0 0 6px"></p>
       </fieldset>
 
       <fieldset>
@@ -270,10 +272,13 @@
   <script src="config.js"></script>
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="data/departements.js"></script>
+  <script src="data/nc-communes.js"></script>
   <script src="data/cotes.js"></script>
+  <script src="js/version.js"></script>
   <script src="js/common.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/map.js"></script>
+  <script src="js/banner.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -42,6 +42,8 @@
     quakeShindo: '3', // intensité minimale chez moi (shindo)
     timeSensitive: true, // iOS : notifications urgentes
     streamer: false, // mode streamer : mon département n'apparaît nulle part à l'écran
+    geoloc: false, // position de l'appareil pour les alertes géolocalisées (zone dessinée dans le sender)
+    levelNames: 'vigilance', // noms des niveaux : 'vigilance' (Jaune, Orange, Rouge) ou 'malert' (Avis, Avertissement, Avertissement majeur)
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
@@ -54,6 +56,7 @@
   // Phénomènes météo proposés (l'incendie est une catégorie).
   const METEO_PHENOMENA = Object.entries(PHENOMENA).filter(([id]) => Number(id) !== M.FIRE_PHENOMENON);
   const saveSettings = () => M.storage.set('malert.settings', settings);
+  M.setLevelNames(settings.levelNames);
   window.MAlertSound.configure(settings.sounds);
 
   // ---------- Sons des alertes (réglages) ----------
@@ -300,10 +303,13 @@
 
   function phenRows(vig) {
     if (!vig || !vig.phenomena || !vig.phenomena.length) return '';
-    return vig.phenomena.map((p) => {
+    const rows = vig.phenomena.map((p) => {
       const ph = PHENOMENA[p.id] || PHENOMENA[0];
-      return `<div class="tt-row"><span class="sw" style="width:9px;height:9px;border-radius:2px;background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)}${escapeHtml(outlookValue(p))}</div>`;
+      return `<div class="tt-row"><span class="sw" style="width:9px;height:9px;border-radius:2px;background:${VIGILANCE[p.level].color}"></span>${ph.icon} ${escapeHtml(ph.name)}${p.infra ? ' <small>(une partie du département)</small>' : ''}${escapeHtml(outlookValue(p))}</div>`;
     }).join('');
+    // Vigilance infra-départementale de Météo-France : zones du département les plus touchées.
+    const zones = (vig.zones || []).filter((z) => z.level >= 2).map((z) => `<div class="tt-row" style="padding-left:12px"><span class="sw" style="width:9px;height:9px;border-radius:2px;background:${VIGILANCE[z.level].color}"></span>${escapeHtml(z.name)} : ${z.phenomena.map((x) => (PHENOMENA[x.id] || PHENOMENA[0]).icon).join(' ')}</div>`).join('');
+    return rows + (zones ? `<div class="tt-row" style="margin-top:3px;opacity:.8">Zones du département :</div>${zones}` : '');
   }
 
   function tooltipHtml(code, nom) {
@@ -320,12 +326,126 @@
     return html;
   }
 
+  // ---------- Carte : Vigilance / Vigicrues, phénomène, zone, noms des niveaux ----------
+
+  // Choix gardés sur l'appareil : carte (vigilance ou vigicrues), phénomène ('' : tous ; « ph:3 »
+  // phénomène météo ; « cat:seisme » catégorie), zone ('all', 'metro', 'nc').
+  const mapView = { mode: 'vigilance', phen: '', zone: 'all', ...M.storage.get('malert.mapView', {}) };
+  let vigicrues = null; // résumé Vigicrues (niveaux par tronçon et par département)
+  let vicFull = null; // tracés des tronçons (chargés à la demande)
+  let vicFullAt = 0;
+  const FLOOD = [2, 4, 12];
+
+  /** L'alerte correspond-elle au filtre de la carte ? */
+  function mapWants(a) {
+    if (mapView.mode === 'vigicrues') return (a.category || 'meteo') === 'meteo' && FLOOD.includes(Number(a.phenomenon));
+    if (!mapView.phen) return true;
+    const [kind, v] = mapView.phen.split(':');
+    if (kind === 'cat') return M.categoryOf(a) === v;
+    return (a.category || 'meteo') === 'meteo' && Number(a.phenomenon) === Number(v);
+  }
+  /** Vigilance filtrée : seulement le phénomène choisi (niveau du département recalculé). */
+  function mapDepartments(p) {
+    if (mapView.mode === 'vigicrues') {
+      const out = {};
+      for (const [code, d] of Object.entries((vigicrues && vigicrues.departments) || {})) out[code] = { level: d.level, phenomena: [{ id: 4, level: d.level, slots: [] }] };
+      return out;
+    }
+    const deps = p ? p.departments : {};
+    if (!mapView.phen) return deps;
+    const [kind, v] = mapView.phen.split(':');
+    if (kind !== 'ph') return {};
+    const out = {};
+    for (const [code, d] of Object.entries(deps)) {
+      const ph = (d.phenomena || []).filter((x) => Number(x.id) === Number(v));
+      out[code] = { level: ph.length ? Math.max(...ph.map((x) => x.level)) : 1, phenomena: ph };
+    }
+    return out;
+  }
+  async function loadVicFull() {
+    if (vicFull && Date.now() - vicFullAt < 5 * 60000) return;
+    try {
+      const res = await fetch(`${M.normalizeServerUrl(settings.serverUrl)}/api/vigicrues?full=1`);
+      vicFull = await res.json();
+      vicFullAt = Date.now();
+      if (mapView.mode === 'vigicrues') refreshMap();
+    } catch (_) { /* serveur injoignable : départements seulement */ }
+  }
+
   function refreshMap() {
     const p = periodData();
-    map.setVigilance(p ? p.departments : {}, M.periodDate(p, day));
-    map.setAlerts(alerts);
+    map.setVigilance(mapDepartments(p), M.periodDate(p, day));
+    map.setAlerts(mapView.mode === 'vigilance' && !mapView.phen ? alerts : alerts.filter(mapWants));
+    map.setVigicrues(mapView.mode === 'vigicrues' ? vicFull : null);
     map.setHighlighted(shownMine());
     renderIntensities();
+    renderMapTools();
+  }
+
+  /** Carte de la vigilance M-Alert en PDF (une page par jour, comme le bulletin de Météo-France). */
+  async function downloadVigPdf() {
+    const btn = $('mapPdf');
+    btn.disabled = true;
+    try {
+      await loadVicFull();
+      const blob = await window.MAlertBanner.vigilancePdf({ vig: vigilance, alerts: alerts.filter((a) => !a.test), rivers: vicFull && vicFull.sections });
+      const name = `vigilance-m-alert-${new Date().toISOString().slice(0, 10)}.pdf`;
+      // Application mobile : partage du fichier (enregistrer, envoyer…) ; ailleurs : téléchargement.
+      const file = typeof File === 'function' ? new File([blob], name, { type: 'application/pdf' }) : null;
+      if (window.MAlertMobile && file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Vigilance M-Alert' }); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (err) {
+      toast('PDF impossible', err.message, '#f87171');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderMapTools() {
+    let el = document.getElementById('mapTools');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'mapTools';
+      el.className = 'map-tools';
+      const opts = [['', 'Tous les phénomènes'], ...METEO_PHENOMENA.filter(([id]) => Number(id) > 0).map(([id, ph]) => [`ph:${id}`, `${ph.icon} ${ph.name}`]),
+        ...Object.entries(M.CATEGORIES).filter(([k]) => k !== 'meteo').map(([k, c]) => [`cat:${k}`, `${c.icon} ${c.name}`])];
+      el.innerHTML = `<div class="seg map-mode" role="tablist" aria-label="Carte">
+          <button type="button" data-map-mode="vigilance">Vigilance</button><button type="button" data-map-mode="vigicrues" title="Vigilance crues par rivière (Vigicrues)">Vigicrues</button>
+        </div>
+        <select id="mapPhen" aria-label="Phénomène affiché">${opts.map(([v, t]) => `<option value="${v}">${escapeHtml(t)}</option>`).join('')}</select>
+        <select id="mapZone" aria-label="Zone affichée"><option value="all">France entière</option><option value="metro">Métropole</option><option value="nc">Nouvelle-Calédonie</option></select>
+        <select id="mapLevels" aria-label="Noms des niveaux" title="Noms des niveaux d'alerte"><option value="vigilance">Niveaux : Jaune · Orange · Rouge</option><option value="malert">Niveaux : Avis · Avertissement · Avertissement majeur</option></select>
+        <button type="button" class="btn small" id="mapPdf" title="Carte de la vigilance M-Alert en PDF (aujourd'hui, demain, après-demain)">📄 PDF</button>`;
+      document.querySelector('.map-wrap').appendChild(el);
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-map-mode]');
+        if (!b) return;
+        mapView.mode = b.dataset.mapMode;
+        M.storage.set('malert.mapView', mapView);
+        if (mapView.mode === 'vigicrues') loadVicFull();
+        refreshMap();
+        renderAll();
+      });
+      $('mapPdf').addEventListener('click', downloadVigPdf);
+      $('mapPhen').addEventListener('change', () => { mapView.phen = $('mapPhen').value; M.storage.set('malert.mapView', mapView); refreshMap(); });
+      $('mapZone').addEventListener('change', () => { mapView.zone = $('mapZone').value; M.storage.set('malert.mapView', mapView); map.setZone(mapView.zone); renderAll(); });
+      $('mapLevels').addEventListener('change', () => {
+        settings.levelNames = M.setLevelNames($('mapLevels').value);
+        saveSettings();
+        renderAll();
+      });
+      if (mapView.zone !== 'all') setTimeout(() => map.setZone(mapView.zone), 0);
+      if (mapView.mode === 'vigicrues') loadVicFull();
+    }
+    el.querySelectorAll('[data-map-mode]').forEach((b) => b.classList.toggle('active', b.dataset.mapMode === mapView.mode));
+    $('mapPhen').value = mapView.phen;
+    $('mapPhen').disabled = mapView.mode === 'vigicrues';
+    $('mapZone').value = mapView.zone;
+    $('mapLevels').value = settings.levelNames === 'malert' ? 'malert' : 'vigilance';
   }
 
   /**
@@ -417,8 +537,34 @@
   }
 
   function isMine(alert) {
+    // Alerte géolocalisée et position connue : seulement si l'appareil est dans la zone dessinée.
+    const z = settings.geoloc ? M.inGeoZone(alert, myPos) : null;
+    if (z !== null) return z;
     if (alert.departments.includes('ALL')) return true;
     return alert.departments.some((d) => myDepartments().includes(d));
+  }
+
+  // ---------- Position de l'appareil (alertes géolocalisées) ----------
+
+  let myPos = settings.geoloc ? M.storage.get('malert.lastPos', null) : null;
+  // Position trop ancienne (plus de 12 h) : on ne s'y fie plus (départements de l'alerte).
+  if (myPos && Date.now() - (myPos.at || 0) > 12 * 3600000) myPos = null;
+  let geoWatch = null;
+  function startGeo() {
+    if (geoWatch !== null || !settings.geoloc || !navigator.geolocation) return;
+    geoWatch = navigator.geolocation.watchPosition((p) => {
+      myPos = { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, at: Date.now() };
+      M.storage.set('malert.lastPos', myPos);
+      if ($('geoState')) $('geoState').textContent = `📍 Position connue (précision ${Math.round(p.coords.accuracy)} m).`;
+    }, (err) => {
+      if ($('geoState')) $('geoState').textContent = `Position indisponible : ${err.code === 1 ? 'autorisation refusée' : 'pas de signal'} (les départements choisis servent à la place).`;
+    }, { enableHighAccuracy: false, maximumAge: 5 * 60000, timeout: 60000 });
+  }
+  function stopGeo() {
+    if (geoWatch !== null && navigator.geolocation) navigator.geolocation.clearWatch(geoWatch);
+    geoWatch = null;
+    myPos = null;
+    M.storage.set('malert.lastPos', null);
   }
 
   function alertItemHtml(a, mf = null) {
@@ -679,10 +825,10 @@
   }
 
   /** Affiche une notification reçue (une seule fois) : message dans l'application et notification système. */
-  function showNotice(n) {
-    if (noticeSeen.has(n.id)) return;
+  function showNotice(n, { quiet = false } = {}) {
+    if (noticeSeen.has(n.id)) return false;
     markNoticeSeen(n.id);
-    if (!noticeForMe(n)) return;
+    if (!noticeForMe(n)) return false;
     // Bandeau en haut (comme un séisme) ; derrière une alerte déjà affichée, il attend son tour.
     if (current && !current.__notice) {
       queue.push({ ...n, __notice: true });
@@ -690,6 +836,8 @@
     } else {
       showNoticeBanner(n);
     }
+    // Rattrapage de plusieurs notifications à l'ouverture : résumé unique (voir setNotices).
+    if (quiet) return true;
     // Notification qui déclenche l'alerte mobile (M-Alert-sender) : elle sonne comme une alerte (son
     // « Alerte mobile » sur les téléphones), notification urgente avec le titre et le texte tels quels
     // (« Sécurité Civile » / « Avis de tornade »).
@@ -702,7 +850,7 @@
       systemNotification(`${n.test ? '[TEST] ' : ''}${n.title}`, n.body || M.departmentsLabel(n.departments, 3),
         { tag: `notice-${n.id}`, urgent: true, level: 3, sound: 'alerte-mobile' });
       if (native) native.alert({ level: 3, front: settings.front });
-      return;
+      return true;
     }
     shortSound({ level: 1, category: 'meteo', phenomenon: 0 });
     // Persistante (comme les alertes orange et rouge) : une notification qui expire seule peut ne
@@ -710,6 +858,7 @@
     systemNotification(`${n.test ? '[TEST] ' : ''}🔔 ${n.title}`, n.body || M.departmentsLabel(n.departments, 3), { tag: `notice-${n.id}`, urgent: true });
     // Application de bureau : la fenêtre revient au premier plan, comme pour une alerte.
     if (native) native.alert({ level: 1, front: settings.front });
+    return true;
   }
 
   /**
@@ -822,6 +971,7 @@
     ov.querySelector('.alert-banner').scrollTop = 0;
     ov.querySelector('.alert-body').classList.remove('expanded');
     $('ovAck').focus({ preventScroll: true });
+    resetCams(current);
     if (!n.departments.includes('ALL')) focusAlert(n);
   }
 
@@ -835,7 +985,20 @@
       M.storage.set('malert.noticeSeen', [...noticeSeen]);
     }
     renderNotices();
-    notices.filter((n) => !noticeSeen.has(n.id)).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach(showNotice);
+    const missed = notices.filter((n) => !noticeSeen.has(n.id) && noticeForMe(n)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (missed.length <= 1) { missed.forEach((n) => showNotice(n)); return; }
+    // Plusieurs notifications manquées : toutes visibles (bandeaux à la suite), mais un seul son et
+    // une seule notification du système.
+    for (const n of missed) showNotice(n, { quiet: true });
+    const mobile = missed.some((n) => n.mobileAlert);
+    if (settings.sound) {
+      const what = mobile ? { level: 3, category: 'meteo', phenomenon: 0, mobileAlert: true } : { level: 1, category: 'meteo', phenomenon: 0 };
+      if (mobile && soundAllowed(what)) window.MAlertSound.play(what, { volume: settings.volume, loop: false, fadeIn: settings.fadeIn });
+      else if (!mobile) shortSound(what);
+    }
+    const lines = missed.slice(-6).reverse().map((n) => `${n.mobileAlert ? '📢' : '🔔'} ${n.title}`);
+    systemNotification(`🔔 ${missed.length} notifications de M-Alert`, lines.join('\n'), { tag: 'malert-notices', urgent: true, level: mobile ? 3 : 1, sound: mobile ? 'alerte-mobile' : null });
+    if (native) native.alert({ level: mobile ? 3 : 1, front: settings.front });
   }
 
   // ---------- Alerte en bannière, son et notification ----------
@@ -875,7 +1038,8 @@
     if (!wantsCategory(alert)) return false;
     const quake = quakeWanted(alert);
     if (quake !== null) return quake;
-    if (alert.level < settings.minLevel) return false;
+    // Alerte critique (avertissement de tsunami…) : même sous le niveau minimum choisi.
+    if (alert.level < settings.minLevel && !M.isCritical(alert)) return false;
     if (settings.all) return true;
     return isMine(alert);
   }
@@ -1116,6 +1280,16 @@
     return M.toShindo(M.estimateIntensity(alert.magnitude, Number(alert.depth) || 10, km));
   }
 
+  /** Intensité maximale : la plus forte des intensités par département (elle suit leurs changements). */
+  function quakeMaxShindo(alert) {
+    let best = null;
+    for (const { code } of M.departmentList()) {
+      const sh = deptIntensity(alert, code);
+      if (sh && M.SHINDO_ORDER.indexOf(String(sh)) >= 1 && (!best || M.SHINDO_ORDER.indexOf(String(sh)) > M.SHINDO_ORDER.indexOf(best))) best = String(sh);
+    }
+    return best || (alert.shindo ? String(alert.shindo) : null);
+  }
+
   function showOverlay(alert, { silent } = {}) {
     current = alert;
     $('ovMute').textContent = 'Couper le son';
@@ -1148,8 +1322,9 @@
     if (alert.category === 'seisme' && alert.aftershockOf && typeof alert.aftershockOf.mag === 'number') {
       quake.push(`<span class="aftershock">🔁 Réplique du séisme M${alert.aftershockOf.mag.toFixed(1)}${alert.aftershockOf.time ? ` du ${escapeHtml(M.formatDateTime(alert.aftershockOf.time))}` : ''}</span>`);
     }
-    if (alert.category === 'seisme' && alert.shindo && M.SHINDO[alert.shindo]) {
-      quake.push(`<span class="int-pair">${badge(alert.shindo, 'Intensité maximale (échelle shindo)')}<small>max</small></span>`);
+    const maxSh = alert.category === 'seisme' ? quakeMaxShindo(alert) : null;
+    if (maxSh && M.SHINDO[maxSh]) {
+      quake.push(`<span class="int-pair">${badge(maxSh, 'Intensité maximale (échelle shindo)')}<small>max</small></span>`);
     }
     // Intensité attendue dans mon département (estimée d'après magnitude, profondeur et distance).
     const local = streamer() ? null : localIntensity(alert);
@@ -1224,7 +1399,9 @@
   let camsFor = null;
   /** Nouvelle alerte en bannière : bouton « Webcams de la zone », images pas encore chargées. */
   function resetCams(alert) {
-    const ok = webcamsEnabled && !alert.__notice && (alert.departments || []).length + (alert.epicenter ? 1 : 0) > 0;
+    // Notifications (y compris « 📢 Alerte ») et vigilances : webcams cherchées par départements.
+    const deps = (alert.departments || []).filter((d) => d !== 'ALL');
+    const ok = webcamsEnabled && !alert.__void && deps.length + (alert.epicenter ? 1 : 0) > 0;
     $('ovCamsWrap').classList.toggle('hidden', !ok);
     if (camsFor === (alert.id || alert.title)) return;
     camsFor = alert.id || alert.title;
@@ -1240,8 +1417,10 @@
     const mine = shownMine().filter((d) => (alert.departments || []).includes(d));
     const q = new URLSearchParams();
     // Vigilance Météo-France (pas une alerte du serveur) : recherche par départements.
-    if (alert.__vig || !alert.id) {
-      q.set('deps', [...new Set([...mine, ...(alert.departments || [])])].slice(0, 5).join(','));
+    // Vigilance Météo-France ou notification de M-Alert (pas une alerte du serveur) : recherche par
+    // départements (sinon « Alerte inconnue »).
+    if (alert.__vig || alert.__notice || !alert.id) {
+      q.set('deps', [...new Set([...mine, ...(alert.departments || [])])].filter((d) => d !== 'ALL').slice(0, 5).join(','));
       q.set('kind', M.webcamKind(alert));
     } else {
       q.set('alert', alert.id);
@@ -1456,7 +1635,21 @@
     else showOverlay(alert);
     $('ovQueue').textContent = queue.length ? `+${queue.length} autre(s) alerte(s)` : '';
     focusAlert(alert);
+    // Rattrapage à l'ouverture (plusieurs alertes en cours) : un seul son et une seule notification
+    // pour toutes (voir catchUp), pas une rafale.
+    if (batching) {
+      batching.push({ alert, updated, ring });
+      markSeen(alert.id);
+      markAlerted(alert);
+      return;
+    }
+    announce(alert, { updated, ring });
+    markSeen(alert.id);
+    markAlerted(alert);
+  }
 
+  /** Son, notification du système et fenêtre au premier plan pour une alerte affichée. */
+  function announce(alert, { updated, ring } = {}) {
     if (settings.sound) {
       alertSound(alert);
       setTimeout(() => {
@@ -1483,10 +1676,54 @@
       },
     );
     if (native) native.alert({ level: alert.level, front: settings.front });
-    // L'identifiant est mémorisé à l'acquittement ; on le note aussi ici pour ne pas
-    // rejouer l'alerte si l'application est rechargée avant.
-    markSeen(alert.id);
-    markAlerted(alert);
+  }
+
+  /**
+   * Alertes en cours rattrapées à l'ouverture de l'application (ou au retour du réseau) : la plus
+   * grave s'affiche (les autres attendent leur tour derrière), un seul son et une seule notification
+   * résument le tout (« 3 alertes en cours dans vos départements »), au lieu d'une par alerte.
+   */
+  let batching = null;
+  function catchUp(list) {
+    // La plus grave d'abord (puis la plus récente).
+    const sorted = list.slice().sort((a, b) => (b.level - a.level) || b.createdAt.localeCompare(a.createdAt));
+    batching = [];
+    try {
+      for (const a of sorted) {
+        const updated = Boolean(a.__updated);
+        const ring = Boolean(a.__ring);
+        delete a.__updated;
+        delete a.__ring;
+        trigger(a, { updated, ring });
+      }
+    } finally {
+      const done = batching;
+      batching = null;
+      if (done.length === 1) announce(done[0].alert, done[0]);
+      else if (done.length > 1) announceMany(done);
+    }
+  }
+
+  function announceMany(items) {
+    const top = items[0].alert;
+    if (settings.sound) {
+      alertSound(current && items.some((x) => x.alert.id === current.id) ? current : top);
+      setTimeout(() => {
+        if (window.MAlertSound.isLocked() && current && items.some((x) => x.alert.id === current.id)) {
+          pendingSound = current;
+          $('soundHint').classList.remove('hidden');
+        }
+      }, 1000);
+    }
+    const level = Math.max(...items.map((x) => x.alert.level));
+    const test = items.every((x) => x.alert.test) ? '[TEST] ' : '';
+    const lines = items.slice(0, 6).map(({ alert: a }) => `${M.alertKind(a).icon} ${M.alertLevelLabel(a)} — ${alertText(a).title}`);
+    if (items.length > 6) lines.push(`… et ${items.length - 6} autre(s)`);
+    systemNotification(`${test}⚠️ ${items.length} alertes en cours${settings.all ? '' : ' dans vos départements'}`, lines.join('\n'), {
+      tag: 'malert-catchup', urgent: level >= 3 || items.some((x) => x.alert.mobileAlert), level,
+      sound: items.some((x) => x.alert.mobileAlert) ? 'alerte-mobile' : null,
+    });
+    if (native) native.alert({ level, front: settings.front });
   }
 
   // Alerte modifiée depuis M-Alert-sender.
@@ -1569,8 +1806,43 @@
     $('statusText').textContent = text;
   }
 
+  // Version et empreinte de l'application : envoyées au serveur, qui peut refuser une version trop
+  // ancienne ou une application modifiée (réglage de M-Alert-sender).
+  let appId = null;
+  const appIdReady = M.appIdentity().then((x) => { appId = x; return x; });
+  let refusal = null; // { reason, message, minVersion } : application refusée par le serveur
+
   function subscribeMessage() {
-    return JSON.stringify({ type: 'subscribe', role: 'receiver', departments: myDepartments(), all: settings.all });
+    return JSON.stringify({ type: 'subscribe', role: 'receiver', departments: myDepartments(), all: settings.all, app: appId });
+  }
+
+  /** Application refusée par le serveur : écran bloquant (mise à jour nécessaire ou application modifiée). */
+  function showRefusal(r) {
+    refusal = r;
+    let el = document.getElementById('refusal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'refusal';
+      el.setAttribute('role', 'alertdialog');
+      el.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(8,12,22,.96);color:#fff;font-family:inherit;text-align:center';
+      document.body.appendChild(el);
+    }
+    const update = r.reason === 'version';
+    el.innerHTML = `<div style="max-width:520px">
+      <div style="font-size:52px;line-height:1">${update ? '⬆️' : '⛔'}</div>
+      <h2 style="margin:12px 0 8px">${update ? 'Mise à jour de M-Alert nécessaire' : 'Application refusée par le serveur'}</h2>
+      <p style="white-space:pre-line;opacity:.9;line-height:1.45">${escapeHtml(r.message || '')}</p>
+      <p style="opacity:.6;font-size:13px">Version de cette application : ${escapeHtml((appId && appId.version) || 'inconnue')}${r.minVersion ? ` · version minimale : ${escapeHtml(r.minVersion)}` : ''}</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+        <a class="btn" style="background:#f97316;color:#111;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700" href="https://github.com/malik05051/M-Alert/releases/latest" target="_blank" rel="noopener">Télécharger M-Alert</a>
+        <button type="button" class="btn" id="refusalRetry" style="padding:10px 16px;border-radius:10px">Réessayer</button>
+      </div></div>`;
+    el.querySelector('#refusalRetry').addEventListener('click', () => {
+      // Page web : rechargée (dernière version publiée) ; applications : nouvelle tentative.
+      if (!native && !(window.MAlertMobile) && /^https?:/.test(location.protocol)) location.reload();
+      else { refusal = null; el.remove(); connect(); }
+    });
+    setStatus('offline', update ? 'Mise à jour nécessaire' : 'Application refusée');
   }
 
   function connect() {
@@ -1594,7 +1866,9 @@
     ws.onopen = () => {
       retry = 0;
       setStatus('online', 'Connecté');
-      ws.send(subscribeMessage());
+      const socket0 = ws;
+      // Version et empreinte d'abord (le serveur peut attendre ce message avant d'envoyer quoi que ce soit).
+      appIdReady.finally(() => { if (socket0.readyState === WebSocket.OPEN) socket0.send(subscribeMessage()); });
     };
     // Message périodique : garde la connexion (et un serveur gratuit) éveillée.
     const socket = ws;
@@ -1611,7 +1885,13 @@
       }
       handleMessage(msg);
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      // Refusée par le serveur (version trop ancienne, application modifiée) : nouvel essai dans 15 min.
+      if (refusal || (ev && ev.code === 4003)) {
+        if (!refusal) showRefusal({ reason: ev.reason === 'version' ? 'version' : 'modified', message: ev.reason === 'version' ? 'Cette version de M-Alert n\'est plus acceptée par le serveur : mettez à jour M-Alert.' : 'Cette application M-Alert est refusée par le serveur.' });
+        reconnectTimer = setTimeout(connect, 15 * 60000);
+        return;
+      }
       setStatus('offline', 'Déconnecté — nouvelle tentative…');
       const delay = Math.min(30000, 1000 * 2 ** retry++) + Math.random() * 1000;
       reconnectTimer = setTimeout(connect, delay);
@@ -1621,6 +1901,9 @@
 
   function handleMessage(msg) {
     switch (msg.type) {
+      case 'refused':
+        showRefusal(msg);
+        break;
       case 'sealevel':
         sealevel = msg.sealevel || null;
         if (current && !current.__notice) renderTsunamiBoard(current);
@@ -1633,6 +1916,11 @@
         renderAll();
         break;
       }
+      case 'vigicrues':
+        vigicrues = msg.vigicrues || null;
+        vicFull = null; // tracés relus (niveaux changés)
+        if (mapView.mode === 'vigicrues') { loadVicFull(); refreshMap(); }
+        break;
       case 'rivers':
         rivers = msg.rivers || null;
         if (current && !current.__notice) { renderTsunamiBoard(current); renderRivers(current); }
@@ -1642,19 +1930,15 @@
         vigilance = msg.vigilance;
         sealevel = msg.sealevel || null;
         rivers = msg.rivers || null;
+        vigicrues = msg.vigicrues || vigicrues;
         webcamsEnabled = Boolean(msg.webcams && msg.webcams.enabled);
         alerts = (msg.alerts || []).filter(M.isActive);
         renderAll();
         checkVigilanceChange(old, vigilance);
         // Alertes envoyées (ou étendues à mon département) pendant que l'application était fermée
         // ou hors ligne. Celles reçues application ouverte sont déjà marquées vues.
-        missedAlerts(alerts).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach((a) => {
-          const updated = Boolean(a.__updated);
-          const ring = Boolean(a.__ring);
-          delete a.__updated;
-          delete a.__ring;
-          trigger(a, { updated, ring });
-        });
+        // Plusieurs à la fois : la plus grave affichée, un seul son et une seule notification.
+        catchUp(missedAlerts(alerts));
         // Notifications manquées : après les alertes, qui passent devant.
         if (msg.notices) setNotices(msg.notices);
         break;
@@ -1793,6 +2077,7 @@
           excludedCategories: settings.categoriesOff,
           excludedPhenomena: settings.phenomenaOff || [],
           notices: settings.notices !== false,
+          app: await appIdReady,
         }),
       });
       if (!res.ok) throw new Error(`serveur HTTP ${res.status}`);
@@ -2014,6 +2299,7 @@
     $('setNotices').checked = settings.notices !== false;
     $('setTiles').checked = settings.tiles;
     $('setStreamer').checked = streamer();
+    $('setGeoloc').checked = Boolean(settings.geoloc);
     $('setIntensity').checked = settings.intensityMap !== false;
     $('setVigList').checked = settings.vigInList !== false;
     $('setServer').value = settings.serverUrl;
@@ -2090,6 +2376,7 @@
       notices: $('setNotices').checked,
       tiles: $('setTiles').checked,
       streamer: $('setStreamer').checked,
+      geoloc: $('setGeoloc').checked,
       intensityMap: $('setIntensity').checked,
       vigInList: $('setVigList').checked,
       serverUrl: M.normalizeServerUrl($('setServer').value) || DEFAULTS.serverUrl,
@@ -2102,6 +2389,7 @@
       });
     }
     saveSettings();
+    if (settings.geoloc) startGeo(); else stopGeo();
     const tzChanged = M.chosenTimeZone() !== $('setTimeZone').value;
     M.setTimeZone($('setTimeZone').value);
     if (tzChanged) renderAll(); // heures affichées dans le nouveau fuseau
@@ -2295,6 +2583,7 @@
   fillDepartmentInputs();
   map.setTiles(settings.tiles);
   renderAll();
+  startGeo();
   connect();
   if (pushSupported && settings.push) syncPush();
   // Service worker (notifications push) toujours à jour : sinon le navigateur ne le vérifie qu'à la

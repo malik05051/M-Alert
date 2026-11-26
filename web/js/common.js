@@ -239,6 +239,8 @@
     flood: { label: '🌧️ Prévision de pluie et de crues (Météo-France, ECMWF, GloFAS) · alerte validée par M-Alert', short: '🌧️ prévision' },
     'vigilance-auto': { label: '🤖 Alerte automatique · vigilance Météo-France', short: '🟠 automatique (vigilance)' },
     vigilance: { label: '🟠 Vigilance Météo-France · alerte validée par M-Alert', short: '🟠 vigilance' },
+    vigicrues: { label: '🌊 Vigilance crues de Vigicrues (validée dans M-Alert-sender)', short: '🌊 Vigicrues' },
+    'vigicrues-auto': { label: '🤖 Alerte automatique · vigilance crues de Vigicrues', short: '🌊 automatique (Vigicrues)' },
     'pollution-auto': { label: '🤖 Alerte automatique · prévision de qualité de l\'air (Copernicus CAMS)', short: '🌫️ automatique (prévision)' },
     pollution: { label: '🌫️ Prévision de qualité de l\'air (Copernicus CAMS) · alerte validée par M-Alert', short: '🌫️ prévision' },
     'tornado-auto': { label: '🤖 Alerte automatique · tornade (simulation des règles)', short: '🌪️ automatique' },
@@ -287,6 +289,58 @@
   function specialLevel(alert) {
     const levels = alert && CATEGORY_LEVELS[levelsKey(alert)];
     return (levels && levels[alert.level]) || null;
+  }
+
+  /**
+   * Alerte critique : elle passe outre le niveau minimum choisi dans les réglages (son, fenêtre,
+   * notification, alerte mobile). Choix du sender (critical true/false), sinon automatique :
+   * avertissement (ou plus) de tsunami ou de missile, alerte attentat, alerte majeure, alerte mobile.
+   */
+  function isCritical(alert) {
+    if (!alert) return false;
+    if (alert.critical === true) return true;
+    if (alert.critical === false) return false;
+    if (['tsunami', 'missile', 'attentat'].includes(alert.category)) return alert.level >= 4;
+    return alert.level >= 5 || Boolean(alert.mobileAlert);
+  }
+
+  // ---------- Alertes géolocalisées (zone dessinée dans M-Alert-sender) ----------
+
+  /** Point dans un polygone [[lat, lon]…] (lancer de rayon). */
+  function inPolygon(lat, lon, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [yi, xi] = pts[i];
+      const [yj, xj] = pts[j];
+      if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  /** Distance (km, approchée) d'un point au bord du polygone. */
+  function polygonEdgeKm(lat, lon, pts) {
+    const k = Math.cos(lat * Math.PI / 180) * 111.32;
+    let best = Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const ax = pts[j][1] * k; const ay = pts[j][0] * 110.57;
+      const bx = pts[i][1] * k; const by = pts[i][0] * 110.57;
+      const px = lon * k; const py = lat * 110.57;
+      const dx = bx - ax; const dy = by - ay;
+      const t = dx || dy ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
+      best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)));
+    }
+    return best;
+  }
+  /**
+   * Alerte géolocalisée : l'appareil (position { lat, lon, accuracy (m) }) est-il dans la zone ?
+   * true / false, ou null (alerte sans zone, ou position inconnue : départements de l'alerte).
+   * Marge : la précision de la position (500 m au moins, 5 km au plus).
+   */
+  function inGeoZone(alert, pos) {
+    const z = alert && alert.geoZone;
+    if (!z || !Array.isArray(z.points) || z.points.length < 3 || !pos || typeof pos.lat !== 'number') return null;
+    if (inPolygon(pos.lat, pos.lon, z.points)) return true;
+    const margin = Math.min(5, Math.max(0.5, (Number(pos.accuracy) || 0) / 1000));
+    return polygonEdgeKm(pos.lat, pos.lon, z.points) <= margin;
   }
 
   function isTsunami(alert) {
@@ -456,8 +510,24 @@
     return special ? special.name : LEVELS[alert.level].name;
   }
 
+  /**
+   * Noms des niveaux d'alerte : couleurs de vigilance (Jaune, Orange, Rouge, comme d'habitude) ou
+   * niveaux M-Alert (Avis, Avertissement, Avertissement majeur). Choix de l'utilisateur.
+   */
+  const LEVEL_NAMES = {
+    vigilance: { 2: 'Jaune', 3: 'Orange', 4: 'Rouge', 5: 'Majeure' },
+    malert: { 2: 'Avis', 3: 'Avertissement', 4: 'Avertissement majeur', 5: 'Alerte majeure' },
+  };
+  let levelNames = 'vigilance';
+  function setLevelNames(mode) {
+    levelNames = mode === 'malert' ? 'malert' : 'vigilance';
+    for (const k of [2, 3, 4, 5]) LEVELS[k].name = LEVEL_NAMES[levelNames][k];
+    return levelNames;
+  }
+
   function levelLabel(level) {
     if (level === 1) return 'Information';
+    if (levelNames === 'malert' && level >= 2) return LEVELS[level].name;
     if (level === 5) return 'Alerte majeure';
     return `Alerte ${LEVELS[level].name.toLowerCase()}`;
   }
@@ -678,9 +748,63 @@
     return null;
   }
 
+  // ---------- Identité de l'application (contrôle d'accès du serveur) ----------
+
+  // Dossier js/ de M-Alert (celui de common.js), pour relire ses propres fichiers.
+  const SELF_BASE = ((document.currentScript && document.currentScript.src) || '').replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+  // Mêmes fichiers, même calcul que le serveur (access.js) : empreinte SHA-256.
+  const INTEGRITY_FILES = ['version.js', 'common.js', 'app.js', 'map.js', 'i18n.js', 'sound.js', 'banner.js'];
+  function readOwn(url) {
+    return new Promise((resolve) => {
+      try {
+        const x = new XMLHttpRequest();
+        x.open('GET', url);
+        x.onload = () => resolve(x.status === 200 || (x.status === 0 && x.responseText) ? x.responseText : null);
+        x.onerror = () => resolve(null);
+        x.send();
+      } catch (_) { resolve(null); }
+    });
+  }
+  let identity = null;
+  /**
+   * { version, build } : version de M-Alert et empreinte de ses fichiers, envoyées au serveur quand
+   * l'application se connecte (le serveur peut refuser une version trop ancienne ou modifiée).
+   */
+  function appIdentity() {
+    if (identity) return identity;
+    identity = (async () => {
+      const version = window.MALERT_VERSION || null;
+      let build = null;
+      // Application de bureau (page en file://) : empreinte calculée par Electron.
+      if (window.malertNative && window.malertNative.appBuild) {
+        try { build = await window.malertNative.appBuild(); } catch (_) { build = null; }
+        if (build) return { version, build };
+      }
+      try {
+        const parts = [];
+        for (const f of INTEGRITY_FILES) {
+          let t = null;
+          try {
+            const r = await fetch(SELF_BASE + f, { cache: 'no-store' });
+            if (r.ok) t = await r.text();
+          } catch (_) { /* file:// : XMLHttpRequest */ }
+          if (t === null) t = await readOwn(SELF_BASE + f);
+          if (t === null) throw new Error(f);
+          parts.push(`${f}\n${t.replace(/\r\n/g, '\n')}`);
+        }
+        const data = new TextEncoder().encode(parts.join('\n\u0000\n'));
+        const h = await crypto.subtle.digest('SHA-256', data);
+        build = [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      } catch (_) { /* empreinte impossible : le serveur décide */ }
+      return { version, build };
+    })();
+    return identity;
+  }
+
   window.MAlert = {
+    appIdentity,
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
-    categoryOf, alertKind, adviceFor, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, isCritical, inGeoZone, inPolygon, setLevelNames, LEVEL_NAMES, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
     FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, quakeMethod, quakeMethodTag, QUAKE_METHODS, seaObsText, riverStationText, riverObsText, isFloodAlert, webcamKind, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
     TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,

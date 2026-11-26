@@ -109,6 +109,13 @@ public class AlertService extends Service {
         // Canal allégé : seulement les alertes et notifications qui sonnent, un ping par minute
         // (venant du téléphone) : moins de réveils de la radio, moins de batterie.
         String url = server.replaceFirst("^http", "ws") + "/ws?lite=1";
+        // Version et empreinte de l'application (le serveur peut refuser une version trop ancienne).
+        try {
+            url += "&v=" + java.net.URLEncoder.encode(settings.optString("appVersion", ""), "UTF-8")
+                + "&b=" + java.net.URLEncoder.encode(settings.optString("appBuild", ""), "UTF-8");
+        } catch (Exception ignored) {
+            // encodage UTF-8 toujours disponible
+        }
         ws = http.newWebSocket(new Request.Builder().url(url).build(), new WebSocketListener() {
             @Override
             public void onOpen(WebSocket s, Response r) {
@@ -202,11 +209,21 @@ public class AlertService extends Service {
         // Séisme : magnitude ou intensité chez moi, si choisies dans les réglages.
         Boolean quake = Quake.wanted(a, settings, settings.optBoolean("all") || concernsMe(a));
         if (quake != null) return quake;
-        if (level < settings.optInt("minLevel", 1)) return false;
+        // Alerte critique (avertissement de tsunami…) : même sous le niveau minimum choisi.
+        if (level < settings.optInt("minLevel", 1) && !critical(a)) return false;
         JSONArray phOff = settings.optJSONArray("phenomenaOff");
         if (phOff != null && "meteo".equals(cat)) for (int i = 0; i < phOff.length(); i++) if (a.optInt("phenomenon") == phOff.optInt(i)) return false;
         if (settings.optBoolean("all")) return true;
         return concernsMe(a);
+    }
+
+    /** Alerte critique : même règle que M.isCritical (common.js). */
+    private static boolean critical(JSONObject a) {
+        if (a.has("critical") && !a.isNull("critical")) return a.optBoolean("critical");
+        int level = a.optInt("level", 1);
+        String cat = a.optString("category", "meteo");
+        if ("tsunami".equals(cat) || "missile".equals(cat) || "attentat".equals(cat)) return level >= 4;
+        return level >= 5 || a.optBoolean("mobileAlert");
     }
 
     /** L'alerte concerne mon département ou un département suivi. */
