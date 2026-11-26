@@ -522,7 +522,7 @@
       ctx.beginPath();
       for (const poly of d.polys) pathPoly(ctx, poly, P);
       ctx.fillStyle = colorOf(code); ctx.fill('evenodd');
-      ctx.strokeStyle = '#111'; ctx.lineWidth = line; ctx.stroke();
+      if (line > 0) { ctx.strokeStyle = '#111'; ctx.lineWidth = line; ctx.stroke(); }
     }
     if (coastColor) {
       for (const [code, lines] of Object.entries(coasts)) {
@@ -534,7 +534,7 @@
     }
     if (rivers) {
       for (const sec of rivers.slice().sort((p, q) => p.level - q.level)) {
-        ctx.strokeStyle = sec.level >= 2 ? VIG_FILL[sec.level] : 'rgba(49,170,53,.8)'; ctx.lineWidth = sec.level >= 2 ? line * 3 : line * 0.8;
+        ctx.strokeStyle = sec.level >= 2 ? VIG_FILL[sec.level] : 'rgba(49,170,53,.85)'; ctx.lineWidth = sec.level >= 2 ? Math.max(line * 3, 1.8) : Math.max(line * 0.8, 0.5);
         for (const l of sec.lines || []) { ctx.beginPath(); l.forEach(([lo, la], i) => { const [px, py] = P(la, lo); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); }
       }
     }
@@ -546,110 +546,157 @@
    * Météo-France + alertes M-Alert), chronologie des phénomènes en vigilance, 9 petites cartes par
    * phénomène. opts : { period, alerts, dayLabel, dayStart, dayEnd, issued, rivers, outlook }.
    */
+  /** Logo de M-Alert (icône : fond sombre arrondi, triangle rouge, « M » blanc), en (x, y), côté size. */
+  function drawLogo(ctx, x, y, size) {
+    const k = size / 512;
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(0, 0, 512, 512, 112); else ctx.rect(0, 0, 512, 512);
+    ctx.fillStyle = '#0b1220'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(256, 70); ctx.lineTo(462, 430); ctx.lineTo(50, 430); ctx.closePath();
+    ctx.fillStyle = '#e0141e'; ctx.fill(); ctx.strokeStyle = '#0b1220'; ctx.lineWidth = 10; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(150, 390); ctx.lineTo(150, 230); ctx.lineTo(256, 322); ctx.lineTo(362, 230); ctx.lineTo(362, 390);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 44; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+
+  // Petite couronne de Paris (encart agrandi, comme sur la carte de Météo-France).
+  const IDF = ['75', '92', '93', '94'];
+  const IDF_BOX = [48.72, 48.96, 2.14, 2.62];
+
+  /**
+   * Une page du rapport, même mise en page que le bulletin de vigilance de Météo-France (paysage,
+   * 2000 × 1414) : titre et date d'émission, grande carte (vigilance Météo-France + alertes M-Alert)
+   * avec l'encart de la petite couronne, chronologie des phénomènes, 9 petites cartes par phénomène.
+   * opts : { period, alerts, dayLabel, dayTitle, dayStart, dayEnd, issued, rivers, outlook }.
+   */
   function drawVigReport(canvas, o) {
-    const W = 2000; const H = 1414;
+    const W = 2000; const H = 1414; const K = W / 1300; // dessin en unités de 1300 × 919
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.setTransform(K, 0, 0, K, 0, 0);
     const L = reportLevels(o.period, o.alerts, o.dayStart, o.dayEnd);
-    const rr = (x, y, w, h, r) => {
-      ctx.beginPath();
-      if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
-      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-    };
-    const card = (x, y, w, h, r = 22, fill = '#fff') => {
-      rr(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill(); // plat : sans ombre
-      rr(x, y, w, h, r); ctx.strokeStyle = 'rgba(15,23,42,.08)'; ctx.lineWidth = 1.5; ctx.stroke();
-    };
-    const txt = (t, x, y, size, weight = 400, color = '#0f172a', align = 'left', max) => { ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; if (max) ctx.fillText(t, x, y, max); else ctx.fillText(t, x, y); };
-    const pill = (t, x, y, bg, fg, size = 24) => {
-      ctx.font = `700 ${size}px ${FONT}`;
-      const w = ctx.measureText(t).width + size * 1.3; const h = size * 1.7;
-      rr(x, y, w, h, h / 2); ctx.fillStyle = bg; ctx.fill();
-      ctx.fillStyle = fg; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, x + size * 0.65, y + h / 2 + 1);
-      return w;
-    };
-    const TXT_ON = { 1: '#fff', 2: '#1f2937', 3: '#1f2937', 4: '#fff', 5: '#fff' };
-    // Fond.
-    ctx.fillStyle = '#eef2f7'; ctx.fillRect(0, 0, W, H);
-    // En-tête sombre.
-    rr(40, 36, W - 80, 170, 28);
-    ctx.fillStyle = '#0f172a'; ctx.fill();
-    rr(72, 66, 110, 110, 24); ctx.fillStyle = '#f97316'; ctx.fill();
-    txt('M', 127, 150, 76, 900, '#fff', 'center');
-    txt('Vigilance M-Alert', 214, 120, 52, 800, '#f8fafc');
-    txt(`Émise le ${o.issued}`, 214, 166, 28, 400, '#94a3b8');
-    for (let i = 1; i <= 4; i++) { rr(214 + (i - 1) * 54, 182, 46, 8, 4); ctx.fillStyle = VIG_FILL[i]; ctx.fill(); }
-    ctx.font = `800 34px ${FONT}`;
-    const dw = ctx.measureText(o.dayLabel).width + 56;
-    rr(W - 80 - dw, 92, dw, 64, 32); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
-    rr(W - 80 - dw, 92, dw, 64, 32); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
-    txt(o.dayLabel, W - 80 - dw / 2, 136, 34, 800, '#fff', 'center');
-    // Grande carte.
-    card(40, 236, 1000, 1138);
-    txt('Carte de vigilance', 76, 296, 34, 800);
-    txt(o.outlook ? 'Prévision M-Alert (Météo-France ne publie pas au-delà de demain)' : 'Vigilance Météo-France et alertes M-Alert : la plus forte des deux', 76, 334, 22, 400, '#64748b');
-    drawFrance(ctx, 70, 360, 940, 800, (c) => VIG_FILL[L.dep[c] || 1], { line: 1.4 });
+    const txt = (t, x, y, size, weight = 400, color = '#000', align = 'left', max) => { ctx.font = `${weight} ${size}px Arial, "Helvetica Neue", Helvetica, sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; if (max) ctx.fillText(t, x, y, max); else ctx.fillText(t, x, y); };
+    const BLUE = '#2a5885';
+    const crueLv = Math.max(1, ...((o.rivers || []).map((x) => x.level || 1)));
+    const month = new Date(o.dayStart + 3 * 3600000).getMonth() + 1;
+    const topOf = (id) => Math.max(1, ...Object.values(L.ph[id] || {}));
+    const offSeason = { 6: !(month >= 6 && month <= 9) && topOf(6) < 2, 7: !(month >= 11 || month <= 3) && topOf(7) < 2 };
+    // En-tête : logo M-Alert et « Vigilance ».
+    drawLogo(ctx, 72, 32, 98);
+    txt('M-Alert', 186, 84, 30, 700, '#0b1220');
+    txt('Vigilance', 186, 118, 26, 400, BLUE);
+    txt('Vigilance météorologique et crues', 80, 170, 24, 700);
+    txt(`Émise le ${o.issued}`, 80, 196, 18);
+    txt(o.dayTitle || o.dayLabel, 80, 240, 20, 700, BLUE);
+    // Grande carte, encart de la petite couronne au-dessus.
+    const dep = (c) => VIG_FILL[L.dep[c] || 1];
+    drawFrance(ctx, 120, 280, 400, 390, dep, { line: 0.9 });
+    txt('Paris - Petite couronne', 256, 261, 13, 400, '#000', 'center');
+    ctx.fillStyle = '#fff'; ctx.fillRect(230, 265, 53, 53);
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(230, 265, 53, 53);
     const { deps } = geoData();
+    const PI = projector(IDF_BOX, 233, 268, 47, 47);
+    for (const c of IDF) { const d = deps[c]; if (!d) continue; ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, PI); ctx.fillStyle = dep(c); ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.7; ctx.stroke(); }
+    // Nouvelle-Calédonie (M-Alert) : petit encart en bas à gauche de la carte.
     if (deps['988']) {
-      card(76, 1006, 250, 170, 16, '#f8fafc');
-      txt('Nouvelle-Calédonie', 201, 1036, 19, 700, '#334155', 'center');
-      const PN = projector([-22.9, -19.5, 163.4, 168.3], 86, 1046, 230, 122);
+      txt('Nouvelle-Calédonie', 136, 596, 11, 400, '#000', 'center');
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(84, 600, 104, 66);
+      const PN = projector([-22.9, -19.5, 163.4, 168.3], 86, 602, 100, 62);
       ctx.beginPath(); for (const poly of deps['988'].polys) pathPoly(ctx, poly, PN);
-      ctx.fillStyle = VIG_FILL[L.dep['988'] || 1]; ctx.fill('evenodd'); ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = dep('988'); ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.stroke();
     }
-    // Décompte : pastilles colorées.
+    // Décompte et couleurs.
     const counts = {};
     for (const [c, v] of Object.entries(L.dep)) if (v >= 2 && c !== '988') counts[v] = (counts[v] || 0) + 1;
-    let px = 76;
-    const shownLv = [5, 4, 3, 2].filter((l) => counts[l]);
-    if (!shownLv.length) pill('Aucun département en vigilance jaune ou plus', px, 1200, VIG_FILL[1], '#fff', 24);
-    for (const l of shownLv) px += pill(`${counts[l]} département${counts[l] > 1 ? 's' : ''} en ${VIG_WORD[l]}`, px, 1200, VIG_FILL[l], TXT_ON[l], 24) + 12;
-    // Légende.
-    let lx = 76;
-    for (const l of [1, 2, 3, 4, 5]) { rr(lx, 1290, 26, 26, 7); ctx.fillStyle = VIG_FILL[l]; ctx.fill(); txt(VIG_WORD[l], lx + 36, 1312, 22, 500, '#334155'); lx += 150; }
-    txt('Sources : Météo-France (vigilance), Vigicrues (crues), M-Alert (alertes et prévisions)', 76, 1352, 19, 400, '#94a3b8');
+    const lvls = [5, 4, 3, 2].filter((l) => counts[l]);
+    let cx0 = 80;
+    if (!lvls.length) txt('Aucun département en vigilance', 80, 705, 12);
+    lvls.forEach((l, i) => {
+      const n = String(counts[l]);
+      txt(n, cx0, 705, 12, 700); ctx.font = '700 12px Arial'; cx0 += ctx.measureText(n).width + 4;
+      const rest = ` département${counts[l] > 1 ? 's' : ''} en ${VIG_WORD[l]}${i < lvls.length - 1 ? ',' : ''}`;
+      txt(rest, cx0, 705, 12); ctx.font = '400 12px Arial'; cx0 += ctx.measureText(rest).width + 6;
+    });
+    txt('▶ Définition des couleurs', 460, 686, 14, 400, '#1a0dab');
+    txt('de la Vigilance', 460, 704, 14, 400, '#1a0dab');
+    [[1, 'Vert : pas de vigilance particulière'], [2, 'Jaune : soyez attentifs'], [3, 'Orange : soyez très vigilants'], [4, 'Rouge : vigilance absolue']].forEach(([l, t], i) => {
+      ctx.fillStyle = VIG_FILL[l]; ctx.fillRect(460, 716 + i * 18, 12, 12); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5; ctx.strokeRect(460, 716 + i * 18, 12, 12);
+      txt(t, 478, 726 + i * 18, 11);
+    });
+    if (o.outlook) txt('Après-demain : prévision M-Alert (vent, vagues-submersion, pluie-inondation).', 80, 800, 12, 400, '#444');
+    txt('Vigilance Météo-France et alertes M-Alert (la plus forte des deux) · crues : Vigicrues', 80, 820, 11, 400, '#666');
     // Chronologie.
-    const crueLv = Math.max(1, ...((o.rivers || []).map((x) => x.level || 1)));
-    if (crueLv >= 2) { const m = (L.ph[4] = L.ph[4] || {}); m.__vic = crueLv; }
-    const month = new Date(o.dayStart + 3 * 3600000).getMonth() + 1;
-    const offSeason = { 6: !(month >= 6 && month <= 9), 7: !(month >= 11 || month <= 3) };
-    const topOf = (id) => Math.max(1, ...Object.values(L.ph[id] || {}));
-    const rows = REPORT_PHEN.filter((p) => topOf(p.id) >= 2 && !p.rivers);
-    card(1070, 236, 890, 330);
-    txt('Chronologie', 1102, 290, 30, 800);
-    const tx = 1310; const tw = 620; const ty = 312;
-    for (let hh = 0; hh <= 24; hh += 3) txt(String(hh % 24).padStart(2, '0'), tx + (tw * hh) / 24, ty + 18, 18, 500, '#64748b', 'center');
+    const rows = REPORT_PHEN.filter((p) => (p.rivers ? Math.max(crueLv, topOf(4)) : topOf(p.id)) >= 2);
+    const tx = 812; const tw = 335; const ty = 45;
+    const nRows = Math.max(1, rows.length);
+    ctx.fillStyle = '#000'; ctx.fillRect(tx - 1.5, ty, 3, 30 + nRows * 20 + 4); ctx.fillRect(tx + tw - 1.5, ty, 3, 30 + nRows * 20 + 4);
+    txt(o.dayLabel, tx + tw / 2, ty + 11, 12, 700, BLUE, 'center');
+    for (let hh = 0; hh <= 24; hh += 3) {
+      const xx = tx + (tw * hh) / 24;
+      txt(String(hh % 24).padStart(2, '0'), xx, ty + 32, 12, 400, '#000', 'center');
+      ctx.fillStyle = '#000'; ctx.fillRect(xx - 1, ty + 34, 2, 6);
+    }
     const now = Date.now();
-    rows.slice(0, 6).forEach((p, i) => {
-      const ry = ty + 34 + i * 36;
-      txt(p.name, tx - 16, ry + 22, 20, 500, '#334155', 'right');
+    rows.forEach((p, i) => {
+      const ry = ty + 40 + i * 20;
+      ctx.fillStyle = i % 2 ? '#fff' : '#f2f2f2'; ctx.fillRect(670, ry, tx - 670, 20);
+      txt(p.name, 674, ry + 14, 12);
+      if (p.rivers) {
+        ctx.fillStyle = '#fffbd6'; ctx.fillRect(tx, ry + 1, tw, 18);
+        ctx.strokeStyle = VIG_FILL[Math.max(crueLv, topOf(4))]; ctx.lineWidth = 1.5; ctx.strokeRect(tx, ry + 1, tw, 18);
+        txt('Chronologie détaillée : voir Vigicrues', tx + tw / 2, ry + 14, 12, 400, '#1a0dab', 'center');
+        return;
+      }
       for (let hh = 0; hh < 24; hh++) {
         const t0 = o.dayStart + hh * 3600000; const t1 = t0 + 3600000;
         let lv = 1;
         for (const sl of L.slots[p.id] || []) if (Date.parse(sl.begin) < t1 && Date.parse(sl.end) > t0) lv = Math.max(lv, sl.level);
-        rr(tx + (tw * hh) / 24 + 1, ry, tw / 24 - 3, 28, 6);
-        ctx.fillStyle = t1 <= now ? '#e2e8f0' : VIG_FILL[lv]; ctx.fill();
+        ctx.fillStyle = t1 <= now ? '#cccccc' : VIG_FILL[lv];
+        ctx.fillRect(tx + (tw * hh) / 24, ry + 1, tw / 24, 18);
+        ctx.fillStyle = hh % 3 === 0 ? '#000' : '#666'; ctx.fillRect(tx + (tw * hh) / 24, ry + (hh % 3 === 0 ? 1 : 3), hh % 3 === 0 ? 1.2 : 0.8, hh % 3 === 0 ? 18 : 12);
       }
     });
-    if (!rows.length) txt('Aucun phénomène en vigilance ce jour-là.', 1515, 440, 24, 400, '#64748b', 'center');
-    // Petites cartes par phénomène.
-    const gx = 1070; const gy = 590; const gap = 16; const cw = (890 - 2 * gap) / 3; const ch = (784 - 2 * gap) / 3;
+    if (!rows.length) txt('Aucun phénomène en vigilance', tx + tw / 2, ty + 55, 12, 400, '#444', 'center');
+    // Petites cartes (3 × 3).
+    const gx = 670; const gy = 268; const cw = 191; const chh = 191;
     REPORT_PHEN.forEach((p, i) => {
-      const cx = gx + (i % 3) * (cw + gap); const cy = gy + Math.floor(i / 3) * (ch + gap);
-      card(cx, cy, cw, ch, 18);
+      const cx = gx + (i % 3) * cw; const cy = gy + Math.floor(i / 3) * chh;
       const lv = L.ph[p.id] || {};
-      const off = Boolean(offSeason[p.id]) && topOf(p.id) < 2;
+      const off = Boolean(offSeason[p.id]);
       const top = p.rivers ? Math.max(crueLv, topOf(4)) : topOf(p.id);
-      txt(p.name, cx + 18, cy + 38, 22, 700, '#0f172a', 'left', cw - 70);
-      rr(cx + cw - 46, cy + 18, 28, 28, 14); ctx.fillStyle = off ? '#cbd5e1' : VIG_FILL[top]; ctx.fill();
-      const out = (c) => (p.mountain && !MOUNTAIN.has(c)) || p.coast;
-      drawFrance(ctx, cx + 14, cy + 54, cw - 28, ch - 66, (c) => (off ? '#f1f5f9' : out(c) || p.rivers ? '#f8fafc' : VIG_FILL[lv[c] || 1]), {
-        line: 0.6,
-        coastColor: p.coast ? (c) => ((geoData().coasts[c] || []).length ? VIG_FILL[lv[c] || 1] : null) : null,
-        rivers: p.rivers ? o.rivers || null : null,
-      });
-      if (off) pill(p.id === 6 ? 'Hors période canicule' : 'Hors période grand froid', cx + cw / 2 - 118, cy + ch / 2 - 4, '#0f172a', '#fff', 19);
+      txt(p.name, cx + cw / 2 - 12, cy + 24, 14, 400, '#000', 'center', cw - 60);
+      // Pastille du phénomène : couleur du niveau le plus fort, pictogramme.
+      ctx.beginPath(); ctx.arc(cx + cw - 22, cy + 22, 16, 0, Math.PI * 2);
+      ctx.fillStyle = off ? '#fff' : VIG_FILL[top]; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+      const icon = ((M && M.PHENOMENA && M.PHENOMENA[p.id]) || {}).icon || '';
+      ctx.font = '15px "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      ctx.fillText(icon, cx + cw - 22, cy + 23);
+      const out = (c) => (p.mountain && !MOUNTAIN.has(c)) || p.coast || p.rivers;
+      if (off) {
+        drawFrance(ctx, cx + 22, cy + 40, cw - 44, chh - 52, () => '#fff', { line: 0 });
+        txt('Hors Période', cx + cw / 2, cy + chh / 2 + 8, 11, 400, '#000', 'center');
+        txt(p.id === 6 ? 'Canicule' : 'Grand Froid', cx + cw / 2, cy + chh / 2 + 22, 11, 400, '#000', 'center');
+      } else {
+        drawFrance(ctx, cx + 14, cy + 40, cw - 28, chh - 50, (c) => (out(c) ? '#fff' : VIG_FILL[lv[c] || 1]), {
+          line: 0.45,
+          coastColor: p.coast ? (c) => ((geoData().coasts[c] || []).length ? VIG_FILL[lv[c] || 1] : null) : null,
+          rivers: p.rivers ? o.rivers || null : null,
+        });
+        // Petite couronne (sauf côtes, montagne, crues).
+        if (!p.coast && !p.mountain && !p.rivers) {
+          txt('Paris - Petite couronne', cx + 30, cy + 34, 5, 400, '#000', 'center');
+          ctx.fillStyle = '#fff'; ctx.fillRect(cx + 20, cy + 36, 18, 18); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.strokeRect(cx + 20, cy + 36, 18, 18);
+          const Pi = projector(IDF_BOX, cx + 21, cy + 37, 16, 16);
+          for (const c of IDF) { const d = deps[c]; if (!d) continue; ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, Pi); ctx.fillStyle = VIG_FILL[lv[c] || 1]; ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.3; ctx.stroke(); }
+        }
+      }
+      ctx.strokeStyle = '#cfcfcf'; ctx.lineWidth = 2; ctx.strokeRect(cx, cy, cw, chh);
     });
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2; ctx.strokeRect(gx, gy, cw * 3, chh * 3);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     return canvas;
   }
 
@@ -689,7 +736,7 @@
   async function vigilancePdf({ vig, alerts, rivers = null }) {
     const tz = 'Europe/Paris';
     const fmt = (d, opt) => new Date(d).toLocaleString('fr-FR', { timeZone: tz, ...opt });
-    const issued = fmt(vig && vig.updatedAt ? vig.updatedAt : Date.now(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
+    const issued = fmt(vig && vig.updatedAt ? vig.updatedAt : Date.now(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
     const pages = [];
     const periods = ((vig && vig.periods) || []).slice(0, 2);
     const names = ['Aujourd\'hui', 'Demain', 'Après-demain'];
@@ -700,7 +747,8 @@
       const end = p.end ? Date.parse(p.end) : start + 86400000;
       const day = fmt(start + 3 * 3600000, { weekday: 'long', day: 'numeric', month: 'long' });
       const c = document.createElement('canvas');
-      drawVigReport(c, { period: p, alerts, dayLabel: `${names[i]} : ${day}`, dayStart: start, dayEnd: end, issued, rivers, outlook });
+      const full = fmt(start + 3 * 3600000, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      drawVigReport(c, { period: p, alerts, dayTitle: `${names[i]} : ${day}`, dayLabel: `${names[i]} ${full}`, dayStart: start, dayEnd: end, issued, rivers, outlook });
       const b64 = c.toDataURL('image/jpeg', 0.88).split(',')[1];
       const bin = atob(b64); const data = new Uint8Array(bin.length);
       for (let k = 0; k < bin.length; k++) data[k] = bin.charCodeAt(k);
@@ -975,7 +1023,7 @@
   const hourOf = (iso) => {
     if (!iso) return '';
     const t = M && M.formatTime ? M.formatTime(new Date(iso).toISOString()) : new Date(iso).toTimeString().slice(0, 5);
-    return t.replace(':', ' h ');
+    return t.replace(':', 'h');
   };
   const listOf = (items, max = 6) => items.slice(0, max).join(' · ') + (items.length > max ? ' …' : '');
 
