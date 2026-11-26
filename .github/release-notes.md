@@ -11,11 +11,12 @@
 - **Plus de rafale de notifications au lancement** : les alertes en cours sont regroupées en une seule notification, les messages manqués en un résumé.
 - **Vigilance Météo-France plus fiable** : plus de faux « la vigilance ne marche plus » lors d'une coupure brève du service, et plus de relance inutile des alertes quand il revient.
 - **Intensité maximale** des séismes corrigée (elle suit les intensités relevées).
-- **Webcams** : correction de l'erreur « Alerte inconnue » à l'ouverture des webcams depuis une notification.
+- **Webcams** : les 15 caméras de circulation Criter de la Métropole de Lyon (image chaque minute) et les caméras partenaires ajoutées dans M-Alert-sender s'ajoutent aux webcams de la zone, avec leur source ; correction de l'erreur « Alerte inconnue » à l'ouverture des webcams depuis une notification.
 - **Incrustation OBS** :
   - carte crues Vigicrues avec les mesures des rivières, et mini-carte des tronçons ;
   - nouveau bandeau tsunami « Variations du niveau de la mer possibles, mais aucun risque de dégâts dus au tsunami » ;
   - cadre bleu « alerte annulée » sur la carte des intensités, des côtes, du missile et sur la mini-carte ;
+  - webcam Criter ou partenaire (image rafraîchie chaque minute, crédit de la source) ;
   - style d'affichage au choix pour une alerte (bandeau, carte, mini-carte, tableau, texte) depuis M-Alert-sender ;
   - bandeau de consigne : retournement vers le haut plus fluide, pictogramme qui remplit toute la case ;
   - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).

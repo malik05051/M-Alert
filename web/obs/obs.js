@@ -157,7 +157,7 @@
     try {
       const r = await fetch(`${server}/api/webcams/${encodeURIComponent(id)}`);
       const j = await r.json();
-      if (j && j.webcam && webcamState && webcamState.id === id) { webcamData = { ...j.webcam, at: Date.now() }; renderWebcam(); }
+      if (j && j.webcam && webcamState && webcamState.id === id) { webcamData = { ...j.webcam, credit: j.credit || null, at: Date.now() }; renderWebcam(); }
     } catch (_) { /* nouvel essai au prochain rafraîchissement */ }
   }
   function renderWebcam() {
@@ -171,8 +171,9 @@
     el.classList.toggle('full', Boolean(w.full));
     el.style.left = w.full ? '' : `${w.x}%`; el.style.top = w.full ? '' : `${w.y}%`; el.style.width = w.full ? '' : `${w.w}vw`;
     el.querySelector('.wc-cap span').textContent = [w.title, w.city].filter(Boolean).join(' · ');
-    // Liens des images valables 10 minutes : nouvelle demande toutes les 5 minutes.
-    if (!webcamData || webcamData.id !== w.id || Date.now() - webcamData.at > 5 * 60000) { loadWebcam(w.id); }
+    // Liens des images Windy valables 10 minutes : nouvelle demande toutes les 5 minutes ; caméras
+    // Criter et partenaires (nouvelle image chaque minute) : toutes les minutes.
+    if (!webcamData || webcamData.id !== w.id || Date.now() - webcamData.at > (webcamData.refreshMs || 5 * 60000) - 2000) { loadWebcam(w.id); }
     webcamTimer = setTimeout(renderWebcam, 60000);
     if (!webcamData || webcamData.id !== w.id) return;
     const frameUrl = w.mode === 'live' ? webcamData.live || webcamData.day : w.mode === 'day' ? webcamData.day : null;
@@ -182,7 +183,7 @@
     // Direct YouTube : le lecteur intégré de YouTube demande l'adresse de la page (sinon « erreur 153 »).
     const yt = /^yt:/.test(w.id);
     fr.setAttribute('referrerpolicy', yt ? 'strict-origin-when-cross-origin' : 'no-referrer');
-    el.querySelector('.wc-cap span:last-child').textContent = yt ? 'Direct : YouTube' : 'Webcam : Windy.com';
+    el.querySelector('.wc-cap span:last-child').textContent = (webcamData.credit && webcamData.credit.text) || (yt ? 'Direct : YouTube' : 'Webcam : Windy.com');
     if (frameUrl && fr.getAttribute('src') !== frameUrl) fr.setAttribute('src', frameUrl);
     if (!frameUrl && fr.getAttribute('src')) fr.removeAttribute('src');
     const img = el.querySelector('img');
