@@ -221,24 +221,25 @@
       const roll = evacKey && e.lang === 'cycle' && inner.animate && !evacRolling;
       evacKey = key;
       if (roll) {
-        // Comme la NHK (variante « C » choisie) : le bandeau se referme vers son centre (≈ 0,12 s), un
-        // instant à plat, puis le suivant s'ouvre depuis le centre (≈ 0,13 s) ; origine de la
+        // Comme la NHK (variante « C » choisie) : le bandeau se referme vers son centre (≈ 0,23 s), un
+        // instant à plat, puis le suivant s'ouvre depuis le centre (≈ 0,23 s) ; origine de la
         // transformation au centre (.evac dans index.html). Une seule animation sans « fill » : à la fin
         // (ou si elle est interrompue), le bandeau retrouve toujours sa taille normale. Le texte change
         // quand l'animation elle-même est à plat (son horloge, pas une minuterie à part : dans OBS,
         // l'animation peut démarrer en retard et le texte changeait alors avant l'écrasement).
         evacRolling = Date.now();
+        // Plus lent et plus fluide (comme la NHK) : 480 ms, départ et arrivée en douceur, à plat très bref.
         const anim = inner.animate([
-          { transform: 'scaleY(1)', easing: 'ease-in' },
-          { transform: 'scaleY(0.02)', offset: 0.42 },
-          { transform: 'scaleY(0.02)', offset: 0.53, easing: 'ease-out' },
+          { transform: 'scaleY(1)', easing: 'cubic-bezier(.45, 0, .7, .6)' },
+          { transform: 'scaleY(0.02)', offset: 0.47 },
+          { transform: 'scaleY(0.02)', offset: 0.53, easing: 'cubic-bezier(.3, .4, .55, 1)' },
           { transform: 'scaleY(1)' },
-        ], { duration: 280 }); // un peu plus lent (avant : 190 ms)
+        ], { duration: 480 });
         let swapped = false;
         const swap = () => { if (!swapped) { swapped = true; inner.innerHTML = html; place(); } };
         const watch = () => {
           if (swapped || anim.playState === 'finished' || anim.playState === 'idle') return;
-          if ((anim.currentTime || 0) >= 130) swap(); // à plat (de 42 % à 53 % de l'animation) else requestAnimationFrame(watch);
+          if ((anim.currentTime || 0) >= 232) swap(); // à plat (de 47 % à 53 % de l'animation) else requestAnimationFrame(watch);
         };
         requestAnimationFrame(watch);
         const done = () => { swap(); evacRolling = 0; };
