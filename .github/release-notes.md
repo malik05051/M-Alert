@@ -4,7 +4,7 @@
 - **Filtre de la carte par phénomène** (vent, pluie-inondation, orages, crues, neige-verglas, canicule, grand froid, avalanches, vagues-submersion…) et **filtre métropole / Nouvelle-Calédonie**.
 - **Nouvelle-Calédonie par communes** : la carte de la Nouvelle-Calédonie affiche ses communes au lieu d'un seul bloc.
 - **Vigilance infra-départementale** : les zones d'un département (ex. littoral, montagne) sont prises en charge et affichées dans les détails.
-- **Noms des niveaux au choix** : couleurs de vigilance habituelles (jaune, orange, rouge) ou niveaux M-Alert (Avis, Avertissement, Avertissement majeur), dans les réglages.
+- **Noms des niveaux** : selon l'alerte, couleurs de vigilance habituelles (jaune, orange, rouge) ou niveaux M-Alert (Avis, Avertissement, Avertissement majeur), au choix de l'émetteur.
 - **Carte de vigilance en PDF** : bouton « PDF » sur la carte pour télécharger la carte de vigilance M-Alert (carte, niveaux par phénomène et par département), dans le style du PDF de Météo-France.
 - **Alertes géolocalisées** : une alerte peut viser une zone dessinée sur la carte ; avec « Utiliser ma position » (réglages), l'alerte n'est reçue que si l'appareil est dans la zone.
 - **Sons par défaut choisis par M-Alert** : les sons et volumes réglés dans M-Alert-sender s'appliquent là où vous avez gardé « Par défaut » (votre propre choix l'emporte), y compris des sons d'alerte propres à M-Alert, envoyés depuis M-Alert-sender (son d'origine en secours hors ligne).

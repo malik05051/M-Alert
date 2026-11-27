@@ -510,7 +510,7 @@
     alert = own(alert);
     if (isTornado(alert)) return `Tornade EF${alert.ef}`;
     const special = specialLevel(alert);
-    return special ? special.label : levelLabel(alert.level);
+    return special ? special.label : levelLabel(alert.level, alert.levelNames);
   }
 
   /** Nom court du niveau, pour les étiquettes : « Rouge », « Avertissement », « Faible »… */
@@ -518,12 +518,16 @@
     alert = own(alert);
     if (isTornado(alert)) return `EF${alert.ef}`;
     const special = specialLevel(alert);
-    return special ? special.name : LEVELS[alert.level].name;
+    if (special) return special.name;
+    // Noms choisis dans le sender pour cette alerte : Avis, Avertissement, Avertissement majeur.
+    if (alert.levelNames === 'malert' && LEVEL_NAMES.malert[alert.level]) return LEVEL_NAMES.malert[alert.level];
+    return LEVELS[alert.level].name;
   }
 
   /**
    * Noms des niveaux d'alerte : couleurs de vigilance (Jaune, Orange, Rouge, comme d'habitude) ou
-   * niveaux M-Alert (Avis, Avertissement, Avertissement majeur). Choix de l'utilisateur.
+   * niveaux M-Alert (Avis, Avertissement, Avertissement majeur), choisis dans le sender pour chaque
+   * alerte (champ levelNames : 'malert').
    */
   const LEVEL_NAMES = {
     vigilance: { 2: 'Jaune', 3: 'Orange', 4: 'Rouge', 5: 'Majeure' },
@@ -536,9 +540,9 @@
     return levelNames;
   }
 
-  function levelLabel(level) {
+  function levelLabel(level, names = levelNames) {
     if (level === 1) return 'Information';
-    if (levelNames === 'malert' && level >= 2) return LEVELS[level].name;
+    if (names === 'malert' && level >= 2) return LEVEL_NAMES.malert[level];
     if (level === 5) return 'Alerte majeure';
     return `Alerte ${LEVELS[level].name.toLowerCase()}`;
   }
