@@ -753,7 +753,8 @@
   // ---------- Identité de l'application (contrôle d'accès du serveur) ----------
 
   // Dossier js/ de M-Alert (celui de common.js), pour relire ses propres fichiers.
-  const SELF_BASE = ((document.currentScript && document.currentScript.src) || '').replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+  // (typeof : ce fichier est aussi chargé par le serveur, sans document, pour traduire les consignes)
+  const SELF_BASE = ((typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '').replace(/[?#].*$/, '').replace(/[^/]*$/, '');
   // Mêmes fichiers, même calcul que le serveur (access.js) : empreinte SHA-256.
   const INTEGRITY_FILES = ['version.js', 'common.js', 'app.js', 'map.js', 'i18n.js', 'sound.js', 'banner.js'];
   function readOwn(url) {
