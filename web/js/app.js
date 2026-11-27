@@ -395,7 +395,10 @@
     btn.disabled = true;
     try {
       await loadVicFull();
-      const blob = await window.MAlertBanner.vigilancePdf({ vig: vigilance, alerts: alerts.filter((a) => !a.test), rivers: vicFull && vicFull.sections });
+      // Filtres de la carte appliqués au PDF : phénomène (ou type d'alerte) et zone.
+      const sel = $('mapPhen');
+      const filter = { phen: mapView.phen || '', zone: mapView.zone === 'nc' ? 'nc' : 'all', label: mapView.phen && sel ? sel.options[sel.selectedIndex].text.replace(/^\S+\s/, '') : '' };
+      const blob = await window.MAlertBanner.vigilancePdf({ vig: vigilance, alerts: alerts.filter((a) => !a.test), rivers: vicFull && vicFull.sections, filter });
       const name = `vigilance-m-alert-${new Date().toISOString().slice(0, 10)}.pdf`;
       // Application mobile : partage du fichier (enregistrer, envoyer…) ; ailleurs : téléchargement.
       const file = typeof File === 'function' ? new File([blob], name, { type: 'application/pdf' }) : null;
@@ -424,7 +427,7 @@
           <button type="button" data-map-mode="vigilance">Vigilance</button><button type="button" data-map-mode="vigicrues" title="Vigilance crues par rivière (Vigicrues)">Vigicrues</button>
         </div>
         <select id="mapPhen" aria-label="Phénomène affiché">${opts.map(([v, t]) => `<option value="${v}">${escapeHtml(t)}</option>`).join('')}</select>
-        <select id="mapZone" aria-label="Zone affichée"><option value="all">France entière</option><option value="metro">Métropole</option><option value="nc">Nouvelle-Calédonie</option></select>
+        <select id="mapZone" aria-label="Zone affichée"><option value="all">France entière</option><option value="nc">Nouvelle-Calédonie</option></select>
         <select id="mapLevels" aria-label="Noms des niveaux" title="Noms des niveaux d'alerte"><option value="vigilance">Niveaux : Jaune · Orange · Rouge</option><option value="malert">Niveaux : Avis · Avertissement · Avertissement majeur</option></select>
         <button type="button" class="btn small" id="mapPdf" title="Carte de la vigilance M-Alert en PDF (aujourd'hui, demain, après-demain)">📄 PDF</button>`;
       document.querySelector('.map-wrap').appendChild(el);

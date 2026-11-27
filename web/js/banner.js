@@ -488,7 +488,7 @@
    * (la plus forte l'emporte, comme sur la carte de M-Alert).
    */
   function reportLevels(period, alerts, dayStart, dayEnd) {
-    const dep = {}; const ph = {}; const slots = {};
+    const dep = {}; const ph = {}; const slots = {}; const cat = {};
     const up = (o, k, v) => { if (v > (o[k] || 0)) o[k] = v; };
     for (const [code, d] of Object.entries((period && period.departments) || {})) {
       up(dep, code, d.level || 1);
@@ -508,15 +508,37 @@
         const lv = r ? r.level : a.level;
         up(dep, c, lv);
         if ((a.category || 'meteo') === 'meteo') up((ph[a.phenomenon] = ph[a.phenomenon] || {}), c, lv);
+        else up((cat[a.category] = cat[a.category] || {}), c, lv);
       }
       if ((a.category || 'meteo') === 'meteo') (slots[a.phenomenon] = slots[a.phenomenon] || []).push({ begin: new Date(Math.max(from, dayStart)).toISOString(), end: new Date(a.noEnd ? dayEnd : Math.min(to, dayEnd)).toISOString(), level: a.level });
     }
-    return { dep, ph, slots };
+    return { dep, ph, slots, cat };
   }
 
-  function drawFrance(ctx, x, y, w, h, colorOf, { line = 1, coastColor = null, rivers = null } = {}) {
+  /** Nouvelle-Calédonie seule (filtre « Nouvelle-Calédonie ») : île colorée et limites des communes. */
+  function drawNC(ctx, x, y, w, h, colorOf, { line = 1 } = {}) {
+    const { deps } = geoData();
+    const d = deps['988'];
+    if (!d) return null;
+    const P = projector([-22.9, -19.5, 163.4, 168.3], x, y, w, h);
+    ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, P);
+    ctx.fillStyle = colorOf('988'); ctx.fill('evenodd');
+    const ncC = window.MALERT_NC_COMMUNES && window.MALERT_NC_COMMUNES.features;
+    if (ncC && line > 0) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = line * 0.5;
+      for (const f of ncC) for (const poly of f.geometry.coordinates) { ctx.beginPath(); poly[0].forEach(([lo, la], i) => { const [px, py] = P(la, lo); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); ctx.stroke(); }
+    }
+    if (line > 0) { ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, P); ctx.strokeStyle = '#111'; ctx.lineWidth = line; ctx.stroke(); }
+    return P;
+  }
+
+  function drawFrance(ctx, x, y, w, h, colorOf, { line = 1, coastColor = null, rivers = null, zone = 'all' } = {}) {
+    if (zone === 'nc') return drawNC(ctx, x, y, w, h, colorOf, { line });
     const { deps, coasts } = geoData();
     const P = projector(METRO_BOX, x, y, w, h);
+    // PDF vectoriel : points des petites cartes trop proches pour se voir sautés (fichier plus léger).
+    const simp = 'simplify' in ctx ? ctx.simplify : null;
+    if (simp !== null) ctx.simplify = line < 0.6 ? 1.1 : 0.35;
     for (const [code, d] of Object.entries(deps)) {
       if (code === '988') continue;
       ctx.beginPath();
@@ -538,6 +560,7 @@
         for (const l of sec.lines || []) { ctx.beginPath(); l.forEach(([lo, la], i) => { const [px, py] = P(la, lo); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); }
       }
     }
+    if (simp !== null) ctx.simplify = simp;
     return P;
   }
 
@@ -637,6 +660,12 @@
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     ctx.setTransform(K, 0, 0, K, 0, 0);
     const L = reportLevels(o.period, o.alerts, o.dayStart, o.dayEnd);
+    // Filtres de la carte (comme dans M-Alert) : phénomène (« ph:3 ») ou type d'alerte (« cat:seisme »),
+    // zone (« all » : France entière, « nc » : Nouvelle-Calédonie seule).
+    const fl = o.filter || {};
+    const zone = fl.zone === 'nc' ? 'nc' : 'all';
+    const fPh = /^ph:(\d+)$/.exec(fl.phen || ''); const fCat = /^cat:(\w+)$/.exec(fl.phen || '');
+    const big = fPh ? L.ph[fPh[1]] || {} : fCat ? L.cat[fCat[1]] || {} : L.dep;
     const txt = (t, x, y, size, weight = 400, color = '#000', align = 'left', max) => { ctx.font = `${weight} ${size}px Arial, "Helvetica Neue", Helvetica, sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; if (max) ctx.fillText(t, x, y, max); else ctx.fillText(t, x, y); };
     const BLUE = '#2a5885';
     const crueLv = Math.max(1, ...((o.rivers || []).map((x) => x.level || 1)));
@@ -650,13 +679,15 @@
     txt('Vigilance météorologique et crues', 80, 170, 24, 700);
     txt(`Émise le ${o.issued}`, 80, 196, 18);
     txt(o.dayTitle || o.dayLabel, 80, 240, 20, 700, BLUE);
+    if (fl.label || zone === 'nc') txt(`Filtre : ${[fl.label, zone === 'nc' ? 'Nouvelle-Calédonie' : ''].filter(Boolean).join(' · ')}`, 80, 216, 14, 700, '#555', 'left', 560);
     // Grande carte, encart de la petite couronne au-dessus.
-    const dep = (c) => VIG_FILL[L.dep[c] || 1];
-    drawFrance(ctx, 120, 280, 400, 390, dep, { line: 0.9 });
+    const dep = (c) => VIG_FILL[big[c] || 1];
+    drawFrance(ctx, 120, 280, 400, 390, dep, { line: 0.9, zone });
+    const { deps } = geoData();
+    if (zone !== 'nc') {
     txt('Paris - Petite couronne', 256, 261, 13, 400, '#000', 'center');
     ctx.fillStyle = '#fff'; ctx.fillRect(230, 265, 53, 53);
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(230, 265, 53, 53);
-    const { deps } = geoData();
     const PI = projector(IDF_BOX, 233, 268, 47, 47);
     for (const c of IDF) { const d = deps[c]; if (!d) continue; ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, PI); ctx.fillStyle = dep(c); ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.7; ctx.stroke(); }
     // Nouvelle-Calédonie (M-Alert) : petit encart en bas à gauche de la carte.
@@ -667,19 +698,26 @@
       ctx.beginPath(); for (const poly of deps['988'].polys) pathPoly(ctx, poly, PN);
       ctx.fillStyle = dep('988'); ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.stroke();
     }
+    }
     // Décompte et couleurs.
     const counts = {};
-    for (const [c, v] of Object.entries(L.dep)) if (v >= 2 && c !== '988') counts[v] = (counts[v] || 0) + 1;
+    for (const [c, v] of Object.entries(big)) if (v >= 2 && (zone === 'nc' ? c === '988' : c !== '988')) counts[v] = (counts[v] || 0) + 1;
     const lvls = [5, 4, 3, 2].filter((l) => counts[l]);
     let cx0 = 80;
-    if (!lvls.length) txt('Aucun département en vigilance', 80, 705, 12);
+    if (!lvls.length) txt(zone === 'nc' ? 'Pas de vigilance en Nouvelle-Calédonie' : 'Aucun département en vigilance', 80, 705, 12);
+    // Décompte sur une ou plusieurs lignes, sans déborder sur la légende des couleurs (x = 460).
+    let cy1 = 705;
     lvls.forEach((l, i) => {
       const n = String(counts[l]);
-      txt(n, cx0, 705, 12, 700); ctx.font = '700 12px Arial'; cx0 += ctx.measureText(n).width + 4;
-      const rest = ` département${counts[l] > 1 ? 's' : ''} en ${VIG_WORD[l]}${i < lvls.length - 1 ? ',' : ''}`;
-      txt(rest, cx0, 705, 12); ctx.font = '400 12px Arial'; cx0 += ctx.measureText(rest).width + 6;
+      const rest = zone === 'nc' ? `en ${VIG_WORD[l]}` : ` département${counts[l] > 1 ? 's' : ''} en ${VIG_WORD[l]}${i < lvls.length - 1 ? ',' : ''}`;
+      if (zone === 'nc') { txt(`Nouvelle-Calédonie ${rest}`, 80, cy1, 12, 700); return; }
+      ctx.font = '700 12px Arial'; const wn = ctx.measureText(n).width;
+      ctx.font = '400 12px Arial'; const wr = ctx.measureText(rest).width;
+      if (cx0 > 80 && cx0 + wn + 4 + wr > 450) { cx0 = 80; cy1 += 16; }
+      txt(n, cx0, cy1, 12, 700); cx0 += wn + 4;
+      txt(rest, cx0, cy1, 12); cx0 += wr + 6;
     });
-    txt('▶ Définition des couleurs', 460, 686, 14, 400, '#1a0dab');
+    txt('» Définition des couleurs', 460, 686, 14, 400, '#1a0dab');
     txt('de la Vigilance', 460, 704, 14, 400, '#1a0dab');
     [[1, 'Vert : pas de vigilance particulière'], [2, 'Jaune : soyez attentifs'], [3, 'Orange : soyez très vigilants'], [4, 'Rouge : vigilance absolue']].forEach(([l, t], i) => {
       ctx.fillStyle = VIG_FILL[l]; ctx.fillRect(460, 716 + i * 18, 12, 12); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5; ctx.strokeRect(460, 716 + i * 18, 12, 12);
@@ -688,7 +726,7 @@
     if (o.outlook) txt('Après-demain : prévision M-Alert (vent, vagues-submersion, pluie-inondation).', 80, 800, 12, 400, '#444');
     txt('Vigilance Météo-France et alertes M-Alert (la plus forte des deux) · crues : Vigicrues', 80, 820, 11, 400, '#666');
     // Chronologie.
-    const rows = REPORT_PHEN.filter((p) => (p.rivers ? Math.max(crueLv, topOf(4)) : topOf(p.id)) >= 2);
+    const rows = fCat ? [] : REPORT_PHEN.filter((p) => (!fPh || String(p.id) === fPh[1]) && (p.rivers ? Math.max(crueLv, topOf(4)) : topOf(p.id)) >= 2);
     const tx = 812; const tw = 335; const ty = 45;
     const nRows = Math.max(1, rows.length);
     ctx.fillStyle = '#000'; ctx.fillRect(tx - 1.5, ty, 3, 30 + nRows * 20 + 4); ctx.fillRect(tx + tw - 1.5, ty, 3, 30 + nRows * 20 + 4);
@@ -718,7 +756,7 @@
         ctx.fillStyle = hh % 3 === 0 ? '#000' : '#666'; ctx.fillRect(tx + (tw * hh) / 24, ry + (hh % 3 === 0 ? 1 : 3), hh % 3 === 0 ? 1.2 : 0.8, hh % 3 === 0 ? 18 : 12);
       }
     });
-    if (!rows.length) txt('Aucun phénomène en vigilance', tx + tw / 2, ty + 55, 12, 400, '#444', 'center');
+    if (!rows.length) txt(fCat ? 'Chronologie : phénomènes météo seulement' : 'Aucun phénomène en vigilance', tx + tw / 2, ty + 55, 12, 400, '#444', 'center');
     // Petites cartes (3 × 3).
     const gx = 670; const gy = 268; const cw = 191; const chh = 191;
     REPORT_PHEN.forEach((p, i) => {
@@ -733,24 +771,26 @@
       drawPicto(ctx, p.id, cx + cw - 22, cy + 22, 16);
       const out = (c) => (p.mountain && !MOUNTAIN.has(c)) || p.coast || p.rivers;
       if (off) {
-        drawFrance(ctx, cx + 22, cy + 40, cw - 44, chh - 52, () => '#fff', { line: 0 });
+        drawFrance(ctx, cx + 22, cy + 40, cw - 44, chh - 52, () => '#fff', { line: 0, zone });
         txt('Hors Période', cx + cw / 2, cy + chh / 2 + 8, 11, 400, '#000', 'center');
         txt(p.id === 6 ? 'Canicule' : 'Grand Froid', cx + cw / 2, cy + chh / 2 + 22, 11, 400, '#000', 'center');
       } else {
-        drawFrance(ctx, cx + 14, cy + 40, cw - 28, chh - 50, (c) => (out(c) ? '#fff' : VIG_FILL[lv[c] || 1]), {
-          line: 0.45,
+        drawFrance(ctx, cx + 14, cy + 40, cw - 28, chh - 50, (c) => (out(c) && zone !== 'nc' ? '#fff' : VIG_FILL[lv[c] || 1]), {
+          line: 0.45, zone,
           coastColor: p.coast ? (c) => ((geoData().coasts[c] || []).length ? VIG_FILL[lv[c] || 1] : null) : null,
           rivers: p.rivers ? o.rivers || null : null,
         });
         // Petite couronne (sauf côtes, montagne, crues).
-        if (!p.coast && !p.mountain && !p.rivers) {
+        if (!p.coast && !p.mountain && !p.rivers && zone !== 'nc') {
           txt('Paris - Petite couronne', cx + 30, cy + 34, 5, 400, '#000', 'center');
           ctx.fillStyle = '#fff'; ctx.fillRect(cx + 20, cy + 36, 18, 18); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.strokeRect(cx + 20, cy + 36, 18, 18);
           const Pi = projector(IDF_BOX, cx + 21, cy + 37, 16, 16);
           for (const c of IDF) { const d = deps[c]; if (!d) continue; ctx.beginPath(); for (const poly of d.polys) pathPoly(ctx, poly, Pi); ctx.fillStyle = VIG_FILL[lv[c] || 1]; ctx.fill('evenodd'); ctx.strokeStyle = '#000'; ctx.lineWidth = 0.3; ctx.stroke(); }
         }
       }
-      ctx.strokeStyle = '#cfcfcf'; ctx.lineWidth = 2; ctx.strokeRect(cx, cy, cw, chh);
+      // Phénomène filtré : sa petite carte encadrée.
+      const sel = fPh && String(p.id) === fPh[1];
+      ctx.strokeStyle = sel ? BLUE : '#cfcfcf'; ctx.lineWidth = sel ? 3 : 2; ctx.strokeRect(cx, cy, cw, chh);
     });
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2; ctx.strokeRect(gx, gy, cw * 3, chh * 3);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -785,12 +825,210 @@
     return new Blob(chunks, { type: 'application/pdf' });
   }
 
+
+  // ---------- PDF vectoriel (net à tous les zooms) ----------
+  // Contexte de dessin « PDF » : mêmes appels que le canevas 2D (tracés, arcs, textes, transformations),
+  // traduits en commandes PDF au lieu de pixels. Polices standard du PDF (Helvetica, Helvetica-Bold,
+  // codage WinAnsi), largeurs des lettres d'Adobe pour mesurer et centrer les textes comme le canevas.
+  const HELV = [278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 0, 556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, 667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500];
+  const HELV_B = [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 0, 556, 0, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611, 722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278, 611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556];
+  const WIN_EXTRA = { 8364: 128, 8218: 130, 402: 131, 8222: 132, 8230: 133, 8224: 134, 8225: 135, 710: 136, 8240: 137, 352: 138, 8249: 139, 338: 140, 381: 142, 8216: 145, 8217: 146, 8220: 147, 8221: 148, 8226: 149, 8211: 150, 8212: 151, 732: 152, 8482: 153, 353: 154, 8250: 155, 339: 156, 382: 158, 376: 159, 0x202f: 160, 0x2009: 32, 0x25b6: 187 };
+  const winCode = (ch) => {
+    const c = ch.codePointAt(0);
+    if ((c >= 32 && c < 127) || (c >= 160 && c <= 255)) return c;
+    return WIN_EXTRA[c] || 63; // « ? » pour un caractère hors du codage
+  };
+  const cssColor = (v) => {
+    const s = String(v || '#000').trim();
+    let m = /^#([0-9a-f]{3})$/i.exec(s);
+    if (m) return [...m[1]].map((h) => parseInt(h + h, 16) / 255).concat(1);
+    m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(s);
+    if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).concat(m[2] ? parseInt(m[2], 16) / 255 : 1);
+    m = /^rgba?\(([^)]+)\)$/i.exec(s);
+    if (m) { const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255, p.length > 3 ? p[3] : 1]; }
+    if (/^white$/i.test(s)) return [1, 1, 1, 1];
+    return [0, 0, 0, 1];
+  };
+  const f2 = (v) => (Math.round(v * 100) / 100).toString();
+
+  class PdfContext {
+    constructor() {
+      this.out = []; this.alphas = new Map(); this.path = []; this.pts = [];
+      this.st = { m: [1, 0, 0, 1, 0, 0], fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1 };
+      this.stack = []; this.cur = null; this.start = null; this.simplify = 0;
+      for (const k of ['fillStyle', 'strokeStyle', 'lineWidth', 'lineCap', 'lineJoin', 'font', 'textAlign', 'textBaseline', 'globalAlpha']) {
+        Object.defineProperty(this, k, { get: () => this.st[k], set: (v) => { this.st[k] = v; } });
+      }
+    }
+    save() { this.stack.push({ ...this.st, m: this.st.m.slice() }); }
+    restore() { if (this.stack.length) this.st = this.stack.pop(); }
+    setTransform(a, b, c, d, e, f) { this.st.m = [a, b, c, d, e, f]; }
+    transform(a, b, c, d, e, f) {
+      const [A, B, C, D, E, F] = this.st.m;
+      this.st.m = [A * a + C * b, B * a + D * b, A * c + C * d, B * c + D * d, A * e + C * f + E, B * e + D * f + F];
+    }
+    translate(x, y) { this.transform(1, 0, 0, 1, x, y); }
+    scale(x, y) { this.transform(x, 0, 0, y, 0, 0); }
+    rotate(t) { this.transform(Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0); }
+    tp(x, y) { const m = this.st.m; return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+    scaleOf() { const m = this.st.m; return Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1; }
+    beginPath() { this.path = []; this.cur = null; this.start = null; this.last = null; }
+    moveTo(x, y) { const p = this.tp(x, y); this.path.push(`${f2(p[0])} ${f2(p[1])} m`); this.cur = [x, y]; this.start = [x, y]; this.last = p; }
+    lineTo(x, y) {
+      if (!this.cur) { this.moveTo(x, y); return; }
+      const p = this.tp(x, y);
+      this.cur = [x, y];
+      // Contours des petites cartes : points trop proches (moins d'un dixième de pixel imprimé) sautés.
+      if (this.simplify && this.last && Math.abs(p[0] - this.last[0]) < this.simplify && Math.abs(p[1] - this.last[1]) < this.simplify) return;
+      this.path.push(`${f2(p[0])} ${f2(p[1])} l`); this.last = p;
+    }
+    bezierCurveTo(a, b, c, d, x, y) {
+      if (!this.cur) this.moveTo(a, b);
+      const p1 = this.tp(a, b); const p2 = this.tp(c, d); const p = this.tp(x, y);
+      this.path.push(`${f2(p1[0])} ${f2(p1[1])} ${f2(p2[0])} ${f2(p2[1])} ${f2(p[0])} ${f2(p[1])} c`); this.cur = [x, y]; this.last = p;
+    }
+    quadraticCurveTo(cx, cy, x, y) {
+      if (!this.cur) this.moveTo(cx, cy);
+      const [x0, y0] = this.cur;
+      this.bezierCurveTo(x0 + (2 / 3) * (cx - x0), y0 + (2 / 3) * (cy - y0), x + (2 / 3) * (cx - x), y + (2 / 3) * (cy - y), x, y);
+    }
+    arc(x, y, r, a0, a1, ccw = false) {
+      let d = a1 - a0;
+      if (!ccw) { if (d < 0 || (d === 0 && a1 !== a0)) d = (d % (2 * Math.PI)) + 2 * Math.PI; if (a1 - a0 >= 2 * Math.PI) d = 2 * Math.PI; } else { if (d > 0) d = (d % (2 * Math.PI)) - 2 * Math.PI; if (a0 - a1 >= 2 * Math.PI) d = -2 * Math.PI; }
+      const sx = x + r * Math.cos(a0); const sy = y + r * Math.sin(a0);
+      if (this.cur) this.lineTo(sx, sy); else this.moveTo(sx, sy);
+      const n = Math.max(1, Math.ceil(Math.abs(d) / (Math.PI / 2) - 1e-9));
+      const step = d / n; const k = (4 / 3) * Math.tan(step / 4);
+      let t = a0;
+      for (let i = 0; i < n; i++) {
+        const t2 = t + step;
+        const c1 = [x + r * (Math.cos(t) - k * Math.sin(t)), y + r * (Math.sin(t) + k * Math.cos(t))];
+        const c2 = [x + r * (Math.cos(t2) + k * Math.sin(t2)), y + r * (Math.sin(t2) - k * Math.cos(t2))];
+        this.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], x + r * Math.cos(t2), y + r * Math.sin(t2));
+        t = t2;
+      }
+    }
+    closePath() { this.path.push('h'); if (this.start) { this.cur = this.start.slice(); this.last = this.tp(...this.start); } }
+    rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); }
+    roundRect(x, y, w, h, r = 0) {
+      r = Math.min(Number(r) || 0, w / 2, h / 2);
+      this.moveTo(x + r, y); this.lineTo(x + w - r, y); this.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+      this.lineTo(x + w, y + h - r); this.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+      this.lineTo(x + r, y + h); this.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+      this.lineTo(x, y + r); this.arc(x + r, y + r, r, Math.PI, Math.PI * 1.5); this.closePath();
+    }
+    gs(alpha) {
+      if (alpha >= 0.999) return '';
+      const a = Math.round(alpha * 100) / 100;
+      if (!this.alphas.has(a)) this.alphas.set(a, `A${this.alphas.size}`);
+      return `/${this.alphas.get(a)} gs `;
+    }
+    paint(op, style, path = this.path) {
+      if (!path.length) return;
+      const [r, g, b, a] = cssColor(style);
+      const alpha = a * (this.st.globalAlpha ?? 1);
+      if (alpha <= 0) return;
+      let pre = this.gs(alpha);
+      if (op === 'S') {
+        const cap = { butt: 0, round: 1, square: 2 }[this.st.lineCap] || 0;
+        const join = { miter: 0, round: 1, bevel: 2 }[this.st.lineJoin] || 0;
+        pre += `${f2(this.st.lineWidth * this.scaleOf())} w ${cap} J ${join} j ${f2(r)} ${f2(g)} ${f2(b)} RG `;
+      } else pre += `${f2(r)} ${f2(g)} ${f2(b)} rg `;
+      this.out.push(`q ${pre}\n${path.join('\n')}\n${op} Q`);
+    }
+    fill(rule) { this.paint(rule === 'evenodd' ? 'f*' : 'f', this.st.fillStyle); }
+    stroke() { this.paint('S', this.st.strokeStyle); }
+    clip() { /* le rapport n'en a pas besoin */ }
+    clearRect() {}
+    fillRect(x, y, w, h) { const keep = [this.path, this.cur, this.start, this.last]; this.beginPath(); this.rect(x, y, w, h); this.fill(); [this.path, this.cur, this.start, this.last] = keep; }
+    strokeRect(x, y, w, h) { const keep = [this.path, this.cur, this.start, this.last]; this.beginPath(); this.rect(x, y, w, h); this.stroke(); [this.path, this.cur, this.start, this.last] = keep; }
+    fontOf() {
+      const f = String(this.st.font);
+      const size = Number((/([\d.]+)px/.exec(f) || [])[1]) || 10;
+      const w = /(^|\s)(bold|[6-9]00)(\s|$)/.test(f);
+      return { size, bold: w };
+    }
+    measureText(t) {
+      const { size, bold } = this.fontOf();
+      const W = bold ? HELV_B : HELV;
+      let u = 0;
+      for (const ch of String(t)) { const c = winCode(ch); u += W[c - 32] || 556; }
+      return { width: (u * size) / 1000, actualBoundingBoxAscent: size * 0.72, actualBoundingBoxDescent: size * 0.21 };
+    }
+    fillText(t, x, y, max) {
+      t = String(t);
+      if (!t) return;
+      const { size, bold } = this.fontOf();
+      let w = this.measureText(t).width;
+      let hz = 1;
+      if (max && w > max) { hz = max / w; w = max; }
+      const al = this.st.textAlign;
+      if (al === 'center') x -= w / 2; else if (al === 'right' || al === 'end') x -= w;
+      const bl = this.st.textBaseline;
+      if (bl === 'middle') y += size * 0.35; else if (bl === 'top' || bl === 'hanging') y += size * 0.76; else if (bl === 'bottom' || bl === 'ideographic') y -= size * 0.21;
+      const [px, py] = this.tp(x, y);
+      const s = this.scaleOf();
+      const [r, g, b, a] = cssColor(this.st.fillStyle);
+      let str = '';
+      for (const ch of t) {
+        const c = winCode(ch);
+        str += c === 40 || c === 41 || c === 92 ? `\\${String.fromCharCode(c)}` : c < 127 ? String.fromCharCode(c) : `\\${c.toString(8).padStart(3, '0')}`;
+      }
+      this.out.push(`q ${this.gs(a * (this.st.globalAlpha ?? 1))}${f2(r)} ${f2(g)} ${f2(b)} rg BT /${bold ? 'F2' : 'F1'} ${f2(size * s)} Tf ${f2(hz * 100)} Tz 1 0 0 -1 ${f2(px)} ${f2(py)} Tm (${str}) Tj ET Q`);
+    }
+    strokeText() {}
+    content() { return this.out.join('\n'); }
+  }
+
+  /**
+   * PDF vectoriel : une page par contexte (paysage A4, dessin de W × H unités ramené à la page).
+   * pages : [{ ctx: PdfContext, w, h }]. Contenu compressé (deflate) si le navigateur le permet.
+   */
+  async function pdfFromVector(pages) {
+    const enc = new TextEncoder();
+    const deflate = async (u8) => {
+      if (typeof CompressionStream !== 'function') return null;
+      try {
+        const cs = new CompressionStream('deflate');
+        const buf = await new Response(new Blob([u8]).stream().pipeThrough(cs)).arrayBuffer();
+        return new Uint8Array(buf);
+      } catch (_) { return null; }
+    };
+    const chunks = []; const offsets = []; let size = 0;
+    const push = (b) => { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); size += u.length; };
+    push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    const obj = (id, body) => { offsets[id] = size; push(`${id} 0 obj\n`); body(); push('\nendobj\n'); };
+    const PW = 842; const PH = 595;
+    const n = pages.length;
+    // 1 catalogue, 2 pages, 3 et 4 polices, puis par page : page, contenu.
+    obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+    obj(2, () => push(`<< /Type /Pages /Count ${n} /Kids [${pages.map((_, i) => `${5 + i * 2} 0 R`).join(' ')}] >>`));
+    obj(3, () => push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'));
+    obj(4, () => push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'));
+    for (let i = 0; i < n; i++) {
+      const pg = pages[i];
+      const k = Math.min(PW / pg.w, PH / pg.h);
+      const alphas = [...pg.ctx.alphas.entries()].map(([a, name]) => `/${name} << /ca ${a} /CA ${a} >>`).join(' ');
+      obj(5 + i * 2, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${alphas ? ` /ExtGState << ${alphas} >>` : ''} >> /Contents ${6 + i * 2} 0 R >>`));
+      const raw = enc.encode(`${f2(k)} 0 0 ${f2(-k)} ${f2((PW - pg.w * k) / 2)} ${f2(PH - (PH - pg.h * k) / 2)} cm\n${pg.ctx.content()}`);
+      const z = await deflate(raw);
+      obj(6 + i * 2, () => { push(`<< /Length ${(z || raw).length}${z ? ' /Filter /FlateDecode' : ''} >>\nstream\n`); push(z || raw); push('\nendstream'); });
+    }
+    const xref = size;
+    const total = 5 + n * 2;
+    let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+    for (let id = 1; id < total; id++) x += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`;
+    push(x);
+    push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
   /**
    * Rapport PDF de la vigilance M-Alert : aujourd'hui, demain (et après-demain si la prévision M-Alert
    * existe). vig : vigilance diffusée (periods, outlook, updatedAt) ; alerts : alertes en cours ;
    * rivers : tracés Vigicrues (facultatif). Renvoie un Blob PDF.
    */
-  async function vigilancePdf({ vig, alerts, rivers = null }) {
+  async function vigilancePdf({ vig, alerts, rivers = null, filter = null }) {
     const tz = 'Europe/Paris';
     const fmt = (d, opt) => new Date(d).toLocaleString('fr-FR', { timeZone: tz, ...opt });
     const issued = fmt(vig && vig.updatedAt ? vig.updatedAt : Date.now(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
@@ -803,16 +1041,15 @@
       const start = p.begin ? Date.parse(p.begin) : Date.parse(`${p.date}T00:00:00+01:00`);
       const end = p.end ? Date.parse(p.end) : start + 86400000;
       const day = fmt(start + 3 * 3600000, { weekday: 'long', day: 'numeric', month: 'long' });
-      const c = document.createElement('canvas');
+      // Page vectorielle : tracés et textes du PDF (nets à tous les zooms), pas une image.
+      const ctx = new PdfContext();
+      const c = { width: 0, height: 0, getContext: () => ctx };
       const full = fmt(start + 3 * 3600000, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      drawVigReport(c, { period: p, alerts, dayTitle: `${names[i]} : ${day}`, dayLabel: `${names[i]} ${full}`, dayStart: start, dayEnd: end, issued, rivers, outlook });
-      const b64 = c.toDataURL('image/jpeg', 0.88).split(',')[1];
-      const bin = atob(b64); const data = new Uint8Array(bin.length);
-      for (let k = 0; k < bin.length; k++) data[k] = bin.charCodeAt(k);
-      pages.push({ data, w: c.width, h: c.height });
+      drawVigReport(c, { period: p, alerts, dayTitle: `${names[i]} : ${day}`, dayLabel: `${names[i]} ${full}`, dayStart: start, dayEnd: end, issued, rivers, outlook, filter });
+      pages.push({ ctx, w: c.width, h: c.height });
     }
     if (!pages.length) throw new Error('Vigilance pas encore reçue.');
-    return pdfFromJpegs(pages);
+    return pdfFromVector(pages);
   }
 
   // Vigicrues : tronçons de rivières (tracés [lon, lat]) et leur niveau, dessinés sur la carte d'une
