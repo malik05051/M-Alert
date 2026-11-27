@@ -172,7 +172,7 @@
     el.style.left = w.full ? '' : `${w.x}%`; el.style.top = w.full ? '' : `${w.y}%`; el.style.width = w.full ? '' : `${w.w}vw`;
     el.querySelector('.wc-cap span').textContent = [w.title, w.city].filter(Boolean).join(' · ');
     // Liens des images Windy valables 10 minutes : nouvelle demande toutes les 5 minutes ; caméras
-    // Criter et partenaires (nouvelle image chaque minute) : toutes les minutes.
+    // Criter (nouvelle image chaque minute) : toutes les minutes.
     if (!webcamData || webcamData.id !== w.id || Date.now() - webcamData.at > (webcamData.refreshMs || 5 * 60000) - 2000) { loadWebcam(w.id); }
     webcamTimer = setTimeout(renderWebcam, 60000);
     if (!webcamData || webcamData.id !== w.id) return;
