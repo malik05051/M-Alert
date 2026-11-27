@@ -337,6 +337,11 @@
     if (!m || !m[2]) return null;
     const core = m[2];
     let out = DICT[core] ? DICT[core][IDX[lang]] : null;
+    // Texte écrit sur plusieurs lignes dans la page : espaces et retours à la ligne ramenés à un espace.
+    if (out === null && /\s\s|\n/.test(core)) {
+      const flat = core.replace(/\s+/g, ' ');
+      if (DICT[flat]) out = DICT[flat][IDX[lang]];
+    }
     // Texte commençant par un emoji qui fait partie de la clé (ex. « 🔇 Touchez l'écran… »).
     const whole = text.trim();
     // (Traduction identique au texte : rien à changer, sinon la page se retraduirait sans fin.)
