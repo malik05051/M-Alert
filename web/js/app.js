@@ -43,7 +43,6 @@
     timeSensitive: true, // iOS : notifications urgentes
     streamer: false, // mode streamer : mon département n'apparaît nulle part à l'écran
     geoloc: false, // position de l'appareil pour les alertes géolocalisées (zone dessinée dans le sender)
-    levelNames: 'vigilance', // noms des niveaux : 'vigilance' (Jaune, Orange, Rouge) ou 'malert' (Avis, Avertissement, Avertissement majeur)
     serverUrl: (window.MALERT_CONFIG && window.MALERT_CONFIG.serverUrl) || 'http://localhost:8080',
   };
   let settings = { ...DEFAULTS, ...M.storage.get('malert.settings', {}) };
@@ -56,7 +55,6 @@
   // Phénomènes météo proposés (l'incendie est une catégorie).
   const METEO_PHENOMENA = Object.entries(PHENOMENA).filter(([id]) => Number(id) !== M.FIRE_PHENOMENON);
   const saveSettings = () => M.storage.set('malert.settings', settings);
-  M.setLevelNames(settings.levelNames);
   window.MAlertSound.configure(settings.sounds);
   // Sons par défaut choisis dans M-Alert-sender (gardés pour démarrer hors ligne).
   window.MAlertSound.setDefaults(M.storage.get('malert.soundDefaults', {}));
@@ -431,7 +429,6 @@
         </div>
         <select id="mapPhen" aria-label="Phénomène affiché">${opts.map(([v, t]) => `<option value="${v}">${escapeHtml(t)}</option>`).join('')}</select>
         <select id="mapZone" aria-label="Zone affichée"><option value="all">France entière</option><option value="nc">Nouvelle-Calédonie</option></select>
-        <select id="mapLevels" aria-label="Noms des niveaux" title="Noms des niveaux d'alerte"><option value="vigilance">Niveaux : Jaune · Orange · Rouge</option><option value="malert">Niveaux : Avis · Avertissement · Avertissement majeur</option></select>
         <button type="button" class="btn small" id="mapPdf" title="Carte de la vigilance M-Alert en PDF (aujourd'hui, demain, après-demain)">📄 PDF</button>`;
       document.querySelector('.map-wrap').appendChild(el);
       el.addEventListener('click', (e) => {
@@ -446,11 +443,6 @@
       $('mapPdf').addEventListener('click', downloadVigPdf);
       $('mapPhen').addEventListener('change', () => { mapView.phen = $('mapPhen').value; M.storage.set('malert.mapView', mapView); refreshMap(); });
       $('mapZone').addEventListener('change', () => { mapView.zone = $('mapZone').value; M.storage.set('malert.mapView', mapView); map.setZone(mapView.zone); renderAll(); });
-      $('mapLevels').addEventListener('change', () => {
-        settings.levelNames = M.setLevelNames($('mapLevels').value);
-        saveSettings();
-        renderAll();
-      });
       if (mapView.zone !== 'all') setTimeout(() => map.setZone(mapView.zone), 0);
       if (mapView.mode === 'vigicrues') loadVicFull();
     }
@@ -458,7 +450,6 @@
     $('mapPhen').value = mapView.phen;
     $('mapPhen').disabled = mapView.mode === 'vigicrues';
     $('mapZone').value = mapView.zone;
-    $('mapLevels').value = settings.levelNames === 'malert' ? 'malert' : 'vigilance';
   }
 
   /**
