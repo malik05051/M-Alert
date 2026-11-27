@@ -7,6 +7,9 @@
 - **Noms des niveaux au choix** : couleurs de vigilance habituelles (jaune, orange, rouge) ou niveaux M-Alert (Avis, Avertissement, Avertissement majeur), dans les réglages.
 - **Carte de vigilance en PDF** : bouton « PDF » sur la carte pour télécharger la carte de vigilance M-Alert (carte, niveaux par phénomène et par département), dans le style du PDF de Météo-France.
 - **Alertes géolocalisées** : une alerte peut viser une zone dessinée sur la carte ; avec « Utiliser ma position » (réglages), l'alerte n'est reçue que si l'appareil est dans la zone.
+- **Sons par défaut choisis par M-Alert** : les sons et volumes réglés dans M-Alert-sender s'appliquent là où vous avez gardé « Par défaut » (votre propre choix l'emporte).
+- **Mesures dans les alertes** : marégraphes, bouées et hauteurs des rivières peuvent être masqués pour une alerte (choix de M-Alert-sender).
+- **Alertes déclenchées par les mesures de la mer** : vague de tsunami vue par les marégraphes, pleine mer exceptionnelle (vagues-submersion), forte houle mesurée par les bouées (validées dans M-Alert-sender).
 - **Alertes critiques** : un avertissement de tsunami, de missile ou d'attentat, une alerte majeure ou une alerte mobile est reçu même au-dessous du niveau minimum choisi.
 - **Plus de rafale de notifications au lancement** : les alertes en cours sont regroupées en une seule notification, les messages manqués en un résumé.
 - **Vigilance Météo-France plus fiable** : plus de faux « la vigilance ne marche plus » lors d'une coupure brève du service, et plus de relance inutile des alertes quand il revient.
