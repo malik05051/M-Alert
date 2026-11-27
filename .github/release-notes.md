@@ -17,10 +17,10 @@
 - **Webcams** : les 15 caméras de circulation Criter de la Métropole de Lyon (image chaque minute) s'ajoutent aux webcams de la zone, avec leur source ; correction de l'erreur « Alerte inconnue » à l'ouverture des webcams depuis une notification.
 - **Incrustation OBS** :
   - carte crues Vigicrues avec les mesures des rivières, et mini-carte des tronçons ;
-  - nouveau bandeau tsunami « Variations du niveau de la mer possibles, mais aucun risque de dégâts dus au tsunami » ;
+  - nouveau bandeau tsunami « Malgré les variations du niveau de la mer, il n'y a aucun risque de tsunami » ;
   - cadre bleu « alerte annulée » sur la carte des intensités, des côtes, du missile et sur la mini-carte ;
   - webcam Criter (image rafraîchie chaque minute, crédit de la source) ;
-  - style d'affichage au choix pour une alerte (bandeau, carte, mini-carte, tableau, texte) depuis M-Alert-sender ;
+  - style d'affichage au choix pour une alerte (bandeau, carte, mini-carte, tableau, texte, ou style de l'alerte missile pour n'importe quelle alerte) depuis M-Alert-sender ;
   - bandeau de consigne : retournement vers le haut plus fluide, pictogramme qui remplit toute la case ;
   - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).
 - **Accès contrôlé** : M-Alert envoie sa version et son empreinte ; le serveur peut exiger une version minimale et refuser une application modifiée (écran d'explication avec le lien de mise à jour).

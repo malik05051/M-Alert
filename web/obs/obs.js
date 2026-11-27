@@ -277,6 +277,9 @@
   }
 
   let missileId = null;
+  // Alerte (de n'importe quel type) montrée avec le style de l'alerte missile, au choix dans le sender.
+  let asMissile = null;
+  const missileLike = (x) => x.category === 'missile' || x.id === asMissile;
   let missileStart = 0;
   let missileKey = '';
   let missileMapKey = '';
@@ -749,7 +752,7 @@
 
   // Couleurs des niveaux de missile (celles de l'application) : Avis en jaune, Avertissement en rouge,
   // Avertissement majeur en rose.
-  const MISSILE_COLORS = { 2: ['#ffe11a', '#111'], 4: ['#e0141e', '#fff'], 5: ['#fe05fd', '#fff'] };
+  const MISSILE_COLORS = { 2: ['#ffe11a', '#111'], 3: ['#ff9300', '#111'], 4: ['#e0141e', '#fff'], 5: ['#fe05fd', '#fff'] };
   const missileColors = (m) => MISSILE_COLORS[m && m.level] || MISSILE_COLORS[4];
   const missileLevelName = (lv) => ((M.CATEGORY_LEVELS.missile || {})[lv] || {}).name || M.alertLevelLabel({ category: 'missile', level: lv });
   const byLevel = (x, y) => (y.level - x.level) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt);
@@ -785,7 +788,7 @@
     if (v.groups.length < 2) return list(v.groups[0] ? v.groups[0].zones : []);
     return v.groups.map((g) => {
       const [bg, fg] = missileColors({ level: g.level });
-      return `<div class="mz-grp"><span class="mz-lv" style="background:${bg};color:${fg}">${esc(missileLevelName(g.level))}</span>${list(g.zones)}</div>`;
+      return `<div class="mz-grp"><span class="mz-lv" style="background:${bg};color:${fg}">${esc(v.top.category !== 'missile' ? M.alertLevelLabel({ ...v.top, level: g.level }) : missileLevelName(g.level))}</span>${list(g.zones)}</div>`;
     }).join('');
   }
 
@@ -800,17 +803,21 @@
       document.body.style.setProperty('--mlt', lv[1]);
       $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(v.top);
       // Message : la description de l'alerte (M-Alert-sender) ; sans description, le message type.
+      // Autre alerte au style missile, sans description : son titre et ses consignes.
+      const other = v.top.category !== 'missile';
+      const advice = other ? String(v.top.instructions || '').split(/\n+/).map((l) => l.trim()).filter(Boolean) : [];
       const msgLines = v.descs.length ? v.descs.flatMap((t) => t.split(/\n+/)).map((l) => l.trim()).filter(Boolean)
-        : ['Missile lancé. Missile lancé.', ...v.titles.map((t) => `${t}.`), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.'];
+        : other ? [...v.titles.map((t) => `${t}.`), ...advice]
+          : ['Missile lancé. Missile lancé.', ...v.titles.map((t) => `${t}.`), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.'];
       $('missileCard').querySelector('.mc-msg').innerHTML = msgLines.map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileCard').querySelector('.mc-zones').innerHTML = missileZonesHtml(v);
       $('missileCard').querySelector('.mc-time').textContent = `Reçu le ${v.when.toLocaleDateString('fr-FR', { timeZone: M.timeZone() })} à ${M.formatTime(v.when.toISOString()).replace(':', ' h ')}`;
-      $('missileLower').querySelector('.ml-msg').innerHTML = (v.descs.length ? msgLines
+      $('missileLower').querySelector('.ml-msg').innerHTML = (v.descs.length || other ? msgLines
         : ['Missile lancé. Missile lancé.', ...v.titles.slice(0, 2), 'Abritez-vous à l\'intérieur d\'un bâtiment ou en sous-sol.'])
         .map((l) => `<div>${esc(l)}</div>`).join('');
       $('missileLower').querySelector('.ml-zones').innerHTML = missileZonesHtml(v);
       // Légende de la carte : les niveaux en cours.
-      $('missileLegend').innerHTML = v.groups.map((g) => g.level).map((l) => `<span><i style="background:${missileColors({ level: l })[0]}"></i>${esc(missileLevelName(l))}</span>`).join('');
+      $('missileLegend').innerHTML = v.groups.map((g) => g.level).map((l) => `<span><i style="background:${missileColors({ level: l })[0]}"></i>${esc(other ? M.alertLevelLabel({ ...v.top, level: l }) : missileLevelName(l))}</span>`).join('');
       $('missileFlash').querySelector('.mf-text').textContent = v.top.title || M.alertLevelLabel(v.top);
     }
     // Textes réduits s'ils ne tiennent pas (longue description, beaucoup de départements), une fois
@@ -908,11 +915,11 @@
     if (a) markFirst(a.id);
     if (tsu && tsu.id !== coastId) { coastId = tsu.id; coastStart = Date.now(); coastShownAt = Date.now(); }
     // Alerte missile : écran plein, puis bloc en bas (pas de bandeau ni d'écran réduit pour elle).
-    const missiles = alerts.filter(wanted).filter((x) => x.category === 'missile')
+    const missiles = alerts.filter(wanted).filter(missileLike)
       .sort((x, y) => forcedFirst(x, y) || (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt));
     // Toutes les alertes missile en cours sont affichées ensemble (niveaux différents).
-    const lastMissile = lastAlert && lastAlert.category === 'missile' ? lastAlert : null;
-    const voidMissile = cancelOn() && cancelled.alert.category === 'missile' && cancelled.alert.id === missileId ? cancelled.alert : null;
+    const lastMissile = lastAlert && missileLike(lastAlert) ? lastAlert : null;
+    const voidMissile = cancelOn() && missileLike(cancelled.alert) && cancelled.alert.id === missileId ? cancelled.alert : null;
     const missileList = manualMissile === false ? [] : missiles.length ? missiles
       : (manualMissile === true || manualCard === true) && lastMissile ? [lastMissile] : voidMissile ? [voidMissile] : [];
     const missile = missileList[0] || null;
@@ -943,7 +950,7 @@
     const others = mapOn ? alerts.filter(wanted).filter((x) => x.id !== tsu.id && !isMap(x))
       .sort((x, y) => (y.updatedAt || y.createdAt).localeCompare(x.updatedAt || x.createdAt)) : [];
     // Carte plein écran ou tableau : pas de bandeau (le séisme est dans le panneau à gauche).
-    const ba = phase > 0 || boardOn || mPhase > 0 || (a && a.category === 'missile') ? null : a;
+    const ba = phase > 0 || boardOn || mPhase > 0 || (a && missileLike(a)) ? null : a;
     const autoOn = ba && (hold === 0 || Date.now() - shownAt < hold * 1000);
     // Bandeau à la main (script OBS) : affiché sans durée, ou masqué jusqu'à la prochaine alerte.
     const shown = manualBanner === true ? manualAlert() : ba;
@@ -1113,11 +1120,13 @@
         alerts = alerts.filter((x) => x.id !== a.id).concat(a);
         forcedId = a.id;
         if (isMap(a)) coastId = null; // carte plein écran à nouveau
-        if (a.category === 'missile') missileId = null;
+        // Style missile choisi pour une autre alerte : écran plein du missile, puis bloc en bas.
+        asMissile = msg.style === 'missile' ? a.id : asMissile === a.id ? null : asMissile;
+        if (missileLike(a)) { missileId = null; manualCard = null; manualMissile = null; }
         remember(a);
         arrived(a);
         // Style choisi dans M-Alert-sender pour cette alerte (sinon : comme à son arrivée).
-        if (msg.style && msg.style !== 'auto') {
+        if (msg.style && msg.style !== 'auto' && msg.style !== 'missile') {
           manualBanner = msg.style === 'banner' ? true : false;
           manualMap = msg.style === 'map' ? true : false;
           manualMini = msg.style === 'mini' ? true : false;

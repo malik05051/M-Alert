@@ -432,7 +432,7 @@ local OVERLAY_TOGGLES = {
   { cmd = "epicenter", label = "Épicentre sur la carte des intensités : afficher / masquer" },
   { cmd = "magnitude", label = "Magnitude sur la carte des intensités : afficher / masquer" },
   { cmd = "notsunami", label = "« Aucun risque de tsunami » : afficher / masquer" },
-  { cmd = "seavar", label = "« Variations du niveau de la mer, aucun risque de dégâts » : afficher / masquer" },
+  { cmd = "seavar", label = "« Malgré les variations du niveau de la mer, aucun risque de tsunami » : afficher / masquer" },
   { cmd = "final", label = "« Rapport final » : afficher / masquer" },
   { cmd = "evac", label = "Bandeau de consigne (« Tsunami : évacuez ! ») : afficher / masquer" },
   { cmd = "webcam", label = "Webcam (choisie dans M-Alert-sender) : afficher / masquer" },
