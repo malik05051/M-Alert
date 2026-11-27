@@ -33,6 +33,8 @@
   const B = window.MAlertBanner;
   const q = new URLSearchParams(location.search);
   const server = M.normalizeServerUrl(q.get('server') || (window.MALERT_CONFIG || {}).serverUrl || '');
+  // Sons envoyés depuis M-Alert-sender (.mp3) : lus sur ce serveur.
+  if (window.MAlertSound && window.MAlertSound.setServer) window.MAlertSound.setServer(server);
   const types = (q.get('types') || '').split(',').map((s) => s.trim()).filter(Boolean);
   const deps = (q.get('deps') || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
   const minLevel = Number(q.get('min') || 1);

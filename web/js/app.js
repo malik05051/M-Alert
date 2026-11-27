@@ -60,9 +60,12 @@
   window.MAlertSound.configure(settings.sounds);
   // Sons par défaut choisis dans M-Alert-sender (gardés pour démarrer hors ligne).
   window.MAlertSound.setDefaults(M.storage.get('malert.soundDefaults', {}));
+  // Sons envoyés depuis M-Alert-sender (.mp3) : lus sur le serveur de l'utilisateur.
+  if (window.MAlertSound.setServer) window.MAlertSound.setServer(M.normalizeServerUrl(settings.serverUrl));
   function applySoundDefaults(map) {
     if (!map || typeof map !== 'object') return;
     M.storage.set('malert.soundDefaults', map);
+    if (window.MAlertSound.setServer) window.MAlertSound.setServer(M.normalizeServerUrl(settings.serverUrl));
     window.MAlertSound.setDefaults(map);
   }
 
@@ -1862,6 +1865,7 @@
       ws.close();
     }
     const url = M.normalizeServerUrl(settings.serverUrl);
+    if (window.MAlertSound.setServer) window.MAlertSound.setServer(url);
     if (!url) {
       setStatus('offline', 'Serveur non configuré');
       return;

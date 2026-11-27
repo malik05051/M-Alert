@@ -9,6 +9,8 @@
  *   majeur.mp3       alertes majeures (même tsunami, crues…), sauf tremblement de terre
  *   tsunami.mp3      crues, pluie-inondation, tsunami et vagues-submersion (sauf en majeure)
  *   alerte-mobile.mp3 application mobile : alertes orange, rouges et majeures (sauf tremblement de terre)
+ * Sons envoyés dans M-Alert-sender (.mp3) : « custom:<id> », lus sur le serveur (/api/sounds/<id>.mp3) ;
+ * s'ils ne se chargent pas (hors ligne), le son d'origine est joué à la place.
  * Si un fichier manque ou ne peut pas être lu, une sirène synthétique est jouée.
  * Chaque son peut être remplacé par un autre et avoir son propre volume (réglages, configure()).
  */
@@ -39,10 +41,18 @@
   const buffers = new Map(); // nom du son -> Promise<AudioBuffer>
   let sources = [];
 
+  // Serveur M-Alert (sons envoyés depuis le sender) : adresse donnée par l'application ; vide dans
+  // l'incrustation OBS, servie par le serveur lui-même.
+  let soundBase = '';
+  function setServer(url) { soundBase = String(url || '').replace(/\/+$/, ''); }
+  const isCustom = (f) => /^custom:[a-z0-9]{4,24}$/.test(String(f || ''));
+  const srcOf = (name) => (isCustom(name) ? `${soundBase}/api/sounds/${String(name).slice(7)}.mp3` : `sounds/${name}.mp3`);
+  const playable = (f) => SOUND_FILES.includes(f) || isCustom(f);
+
   function loadBuffer(name) {
     if (!buffers.has(name)) {
       const c = audioContext();
-      const p = fetch(`sounds/${name}.mp3`)
+      const p = fetch(srcOf(name))
         .then((r) => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.arrayBuffer();
@@ -134,7 +144,7 @@
   function resolve(name) {
     const c = custom[soundKey(name)] || {};
     const d = defaults[soundKey(name)] || {};
-    const file = SOUND_FILES.includes(c.file) ? c.file : SOUND_FILES.includes(d.file) ? d.file : name;
+    const file = playable(c.file) ? c.file : playable(d.file) ? d.file : name;
     const vol = (x) => (x && x.volume !== null && x.volume !== '' && x.volume !== undefined && Number.isFinite(Number(x.volume)) ? Math.max(0, Math.min(1, Number(x.volume))) : null);
     // Volume de l'utilisateur s'il l'a changé (≠ 100 %), sinon celui du sender, sinon 100 %.
     const volume = vol(c) != null && vol(c) !== 1 ? vol(c) : vol(d) != null ? vol(d) : 1;
@@ -278,7 +288,8 @@
     const alert = typeof what === 'object' && what ? what : { level: Number(what) };
     const level = Math.max(1, Math.min(5, Number(alert.level) || 1));
     const token = loopToken;
-    const chosen = opts.file && SOUND_FILES.includes(opts.file) ? { file: opts.file, volume: 1 } : resolve(soundFile({ ...alert, level }));
+    const natural = soundFile({ ...alert, level });
+    const chosen = opts.file && playable(opts.file) ? { file: opts.file, volume: 1 } : resolve(natural);
     const volume = Math.max(0, Math.min(1, opts.volume == null ? 0.8 : opts.volume)) * chosen.volume;
     const loop = Boolean(opts.loop);
     const maxMs = opts.untilStopped ? Infinity : (opts.maxSeconds || 120) * 1000;
@@ -290,17 +301,21 @@
       if (c && c.state !== 'running') await Promise.race([c.resume().catch(() => {}), new Promise((r) => setTimeout(r, 300))]);
       if (token !== loopToken) return;
     }
+    // Son envoyé depuis le sender introuvable (hors ligne…) : son d'origine de l'alerte ensuite.
+    const names = isCustom(name) ? [name, SOUND_FILES.includes(natural) ? natural : 'eew'] : [name];
     // Web, son débloqué : Web Audio.
     if (WEB && !isLocked()) {
-      const s = await tryBuffer(name, volume, loop, token, opts.fadeIn);
-      if (token !== loopToken) return;
-      if (s) {
-        if (loop && Number.isFinite(maxMs)) synthTimer = setTimeout(stop, maxMs);
-        return;
+      for (const n of names) {
+        const s = await tryBuffer(n, volume, loop, token, opts.fadeIn);
+        if (token !== loopToken) return;
+        if (s) {
+          if (loop && Number.isFinite(maxMs)) synthTimer = setTimeout(stop, maxMs);
+          return;
+        }
       }
     }
 
-    for (const src of [`sounds/${name}.mp3`]) {
+    for (const src of names.map(srcOf)) {
       const a = await tryFile(src, volume, loop, token);
       if (token !== loopToken) {
         if (a) silence(a);
@@ -330,6 +345,7 @@
    * en cours : il ne l'interrompt pas et stop() ne le concerne pas.
    */
   async function oneShot(name, volume = 0.8) {
+    const natural = name;
     const chosen = resolve(name);
     name = chosen.file;
     volume *= chosen.volume;
@@ -349,12 +365,15 @@
         }
       } catch (_) { /* repli sur <audio> */ }
     }
-    try {
-      const a = new Audio(`sounds/${name}.mp3`);
-      a.volume = volume;
-      await a.play();
-    } catch (_) { /* son bloqué par le navigateur */ }
+    for (const n of isCustom(name) ? [name, natural] : [name]) {
+      try {
+        const a = new Audio(srcOf(n));
+        a.volume = volume;
+        await a.play();
+        return;
+      } catch (_) { /* son bloqué par le navigateur, ou introuvable : son suivant */ }
+    }
   }
 
-  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot, configure, setDefaults, resolve, SOUND_FILES };
+  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot, configure, setDefaults, setServer, resolve, isCustom, SOUND_FILES };
 })();
