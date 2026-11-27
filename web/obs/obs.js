@@ -555,7 +555,8 @@
       return r ? r.level : a.level;
     };
     const out = [];
-    for (const [code, d] of Object.entries((gaugesOn && rivers && rivers.departments) || {})) {
+    // Mesures masquées pour cette alerte (choix de M-Alert-sender) : niveaux prévus seulement.
+    for (const [code, d] of Object.entries((gaugesOn && !a.hideMeasures && rivers && rivers.departments) || {})) {
       if (!set.has('ALL') && !set.has(code)) continue;
       for (const st of (d && d.stations) || []) {
         if (typeof st.h !== 'number') continue;
@@ -577,10 +578,10 @@
     if (a.category === 'tsunami') {
       return (a.tsunamiTable || []).map((r) => {
         // Heure corrigée par les marégraphes (arrivée mesurée, ou temps de trajet recalé).
-        const fix = gaugesOn ? M.arrivalFix(sealevel, a, r.department) : null;
+        const fix = gaugesOn && !a.hideMeasures ? M.arrivalFix(sealevel, a, r.department) : null;
         if (fix && !fix.measured) r = { ...r, arrival: fix.at, estimated: true };
         // Vague mesurée dans le port : elle remplace l'estimation (« mesuré », comme la NHK).
-        const o = seaOf(r.department);
+        const o = a.hideMeasures ? null : seaOf(r.department);
         const seen = o && o.tsunami && typeof o.tsunami.height === 'number' ? o.tsunami : null;
         if (seen) return { level: r.level, name: depName(r.department), when: `mesuré ${hourText(seen.at)}`, value: M.heightText(seen.height, { digits: 2 }), h: seen.height, measured: true };
         return {
@@ -602,7 +603,7 @@
         h: r.hs > 0 ? r.hs : typeof r.water === 'number' ? -10 + r.water : -100,
       };
       // Pleine mer mesurée par le marégraphe (par rapport aux plus hautes mers du mois), sous les vagues.
-      const o = seaOf(r.department);
+      const o = a.hideMeasures ? null : seaOf(r.department);
       if (o && !o.error && o.surge && typeof o.surge.above === 'number') row.sub = `mer mesurée ${M.heightText(o.surge.above, { sign: true, digits: 2 })}`;
       // Vagues mesurées par la bouée du Cerema : elles remplacent la prévision (« mesuré »).
       if (o && o.buoy && typeof o.buoy.hs === 'number') Object.assign(row, { when: `mesuré ${hourText(o.buoy.at)}`, value: M.heightText(o.buoy.hs), h: o.buoy.hs, measured: true });
@@ -1060,6 +1061,7 @@
         status(refusedMsg);
         break;
       case 'hello':
+        if (msg.soundDefaults && window.MAlertSound) window.MAlertSound.setDefaults(msg.soundDefaults);
         alerts = (msg.alerts || []).filter(M.isActive);
         alerts.forEach(remember);
         loadLast();
@@ -1073,6 +1075,9 @@
         rivers = msg.rivers || null;
         tableKey = '';
         break;
+      case 'sound-defaults':
+        if (window.MAlertSound) window.MAlertSound.setDefaults(msg.soundDefaults);
+        break;
       case 'vigicrues':
         loadRivers(true);
         break;
@@ -1082,6 +1087,12 @@
       case 'sealevel':
         sealevel = msg.sealevel || null;
         tableKey = ''; // tableau refait avec les mesures
+        break;
+      case 'alert-measures':
+        // Mesures affichées ou masquées pour une alerte (M-Alert-sender) : tableau refait, sans son.
+        for (const a of alerts) if (a.id === msg.id) a.hideMeasures = Boolean(msg.hideMeasures);
+        if (lastAlert && lastAlert.id === msg.id) lastAlert.hideMeasures = Boolean(msg.hideMeasures);
+        tableKey = '';
         break;
       case 'obs':
         applyObs(msg.obs, Array.isArray(msg.changed) ? msg.changed : null);

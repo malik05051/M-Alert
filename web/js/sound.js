@@ -119,6 +119,13 @@
     custom = map && typeof map === 'object' ? map : {};
   }
 
+  // Sons par défaut choisis dans M-Alert-sender (même forme) : appliqués là où l'utilisateur a gardé
+  // « Par défaut » (son) ou n'a pas changé le volume.
+  let defaults = {};
+  function setDefaults(map) {
+    defaults = map && typeof map === 'object' ? map : {};
+  }
+
   function soundKey(name) {
     return String(name).startsWith('seisme-') ? 'seisme' : name;
   }
@@ -126,8 +133,11 @@
   /** Son réellement joué pour un son par défaut, et son volume relatif. */
   function resolve(name) {
     const c = custom[soundKey(name)] || {};
-    const file = SOUND_FILES.includes(c.file) ? c.file : name;
-    const volume = Number.isFinite(Number(c.volume)) && c.volume !== null && c.volume !== '' ? Math.max(0, Math.min(1, Number(c.volume))) : 1;
+    const d = defaults[soundKey(name)] || {};
+    const file = SOUND_FILES.includes(c.file) ? c.file : SOUND_FILES.includes(d.file) ? d.file : name;
+    const vol = (x) => (x && x.volume !== null && x.volume !== '' && x.volume !== undefined && Number.isFinite(Number(x.volume)) ? Math.max(0, Math.min(1, Number(x.volume))) : null);
+    // Volume de l'utilisateur s'il l'a changé (≠ 100 %), sinon celui du sender, sinon 100 %.
+    const volume = vol(c) != null && vol(c) !== 1 ? vol(c) : vol(d) != null ? vol(d) : 1;
     return { file, volume };
   }
 
@@ -346,5 +356,5 @@
     } catch (_) { /* son bloqué par le navigateur */ }
   }
 
-  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot, configure, resolve, SOUND_FILES };
+  window.MAlertSound = { play, stop, unlock, isLocked, soundFile, oneShot, configure, setDefaults, resolve, SOUND_FILES };
 })();

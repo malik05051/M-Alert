@@ -241,6 +241,8 @@
     vigilance: { label: '🟠 Vigilance Météo-France · alerte validée par M-Alert', short: '🟠 vigilance' },
     vigicrues: { label: '🌊 Vigilance crues de Vigicrues (validée dans M-Alert-sender)', short: '🌊 Vigicrues' },
     'vigicrues-auto': { label: '🤖 Alerte automatique · vigilance crues de Vigicrues', short: '🌊 automatique (Vigicrues)' },
+    mesures: { label: '📏 Mesures des marégraphes et des bouées (validée dans M-Alert-sender)', short: '📏 mesures' },
+    'mesures-auto': { label: '🤖 Alerte automatique · mesures des marégraphes et des bouées', short: '📏 automatique (mesures)' },
     'pollution-auto': { label: '🤖 Alerte automatique · prévision de qualité de l\'air (Copernicus CAMS)', short: '🌫️ automatique (prévision)' },
     pollution: { label: '🌫️ Prévision de qualité de l\'air (Copernicus CAMS) · alerte validée par M-Alert', short: '🌫️ prévision' },
     'tornado-auto': { label: '🤖 Alerte automatique · tornade (simulation des règles)', short: '🌪️ automatique' },

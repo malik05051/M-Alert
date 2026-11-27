@@ -58,6 +58,13 @@
   const saveSettings = () => M.storage.set('malert.settings', settings);
   M.setLevelNames(settings.levelNames);
   window.MAlertSound.configure(settings.sounds);
+  // Sons par défaut choisis dans M-Alert-sender (gardés pour démarrer hors ligne).
+  window.MAlertSound.setDefaults(M.storage.get('malert.soundDefaults', {}));
+  function applySoundDefaults(map) {
+    if (!map || typeof map !== 'object') return;
+    M.storage.set('malert.soundDefaults', map);
+    window.MAlertSound.setDefaults(map);
+  }
 
   // ---------- Sons des alertes (réglages) ----------
 
@@ -1203,10 +1210,10 @@
           <span class="tsu-h fc-l${level}">${value}${sub ? `<span class="tsu-max">${escapeHtml(sub)}</span>` : ''}</span>
         </div>`);
         // Vagues-submersion : pleine mer mesurée par le marégraphe de l'UNESCO.
-        const obs = !wind && !flood ? seaObs(r.department, 'surge') : '';
+        const obs = !wind && !flood && !alert.hideMeasures ? seaObs(r.department, 'surge') : '';
         if (obs) html.push(`<div class="tsu-obs">📡 ${escapeHtml(obs)}</div>`);
         // Crues et inondations : hauteur d'eau mesurée (Hub'Eau), là où l'eau monte le plus.
-        const riv = flood ? M.riverObsText(riverOf(r.department), 1) : '';
+        const riv = flood && !alert.hideMeasures ? M.riverObsText(riverOf(r.department), 1) : '';
         if (riv) html.push(`<div class="tsu-obs">💧 ${escapeHtml(riv)}</div>`);
       }
     }
@@ -1240,7 +1247,7 @@
       html.push(`<div class="tsu-head tsu-l${level}">${name}</div>`);
       for (const r of group) {
         // Heure corrigée par les marégraphes (arrivée mesurée, ou temps de trajet recalé).
-        const fix = M.arrivalFix(sealevel, alert, r.department);
+        const fix = alert.hideMeasures ? null : M.arrivalFix(sealevel, alert, r.department);
         const arrival = fix
           ? (fix.measured ? `Arrivé ${M.formatTime(fix.at)}` : new Date(fix.at).getTime() <= Date.now() ? 'Probablement arrivé' : `≈ ${M.formatTime(fix.at)}`)
           : tsunamiArrivalText(r);
@@ -1250,13 +1257,13 @@
           <span class="tsu-h${typeof r.height === 'number' ? ` tsu-l${level}` : ' empty'}"${r.heightEstimated ? ' title="Hauteur estimée par M-Alert (magnitude et distance)"' : ''}>${typeof r.height === 'number' ? `${r.heightEstimated ? '<span class="tsu-est">≈</span>' : ''}${M.heightParts(r.height).num}<small>${M.heightParts(r.height).unit}</small>` : ''}</span>
         </div>`);
         // Marégraphe de l'UNESCO : vague du tsunami mesurée dans le port.
-        const obs = seaObs(r.department, 'tsunami');
+        const obs = alert.hideMeasures ? '' : seaObs(r.department, 'tsunami');
         if (obs) html.push(`<div class="tsu-obs">📡 ${escapeHtml(obs)}</div>`);
       }
     }
     const notes = [];
     if (rows.some((r) => r.estimated)) notes.push('heure d\'arrivée estimée');
-    const fixes = sealevel && sealevel.arrivals && sealevel.arrivals.alertId === alert.id ? sealevel.arrivals : null;
+    const fixes = !alert.hideMeasures && sealevel && sealevel.arrivals && sealevel.arrivals.alertId === alert.id ? sealevel.arrivals : null;
     if (fixes && fixes.ratio) notes.push(`heures corrigées d'après l'arrivée mesurée par les marégraphes (${fixes.basis.map((b) => b.name).join(', ')} : trajet ×${fixes.ratio.toLocaleString('fr-FR')})`);
     if (rows.some((r) => r.heightEstimated)) notes.push('hauteur moyenne estimée (type de faille, magnitude, distance, profondeur de la mer)');
     if (notes.length) html.push(`<div class="tsu-note">≈ : ${notes.join(' ; ')}</div>`);
@@ -1380,7 +1387,7 @@
     const el = $('ovRivers');
     const hasBoard = alert.forecastTable && Array.isArray(alert.forecastTable.rows) && alert.forecastTable.rows.length;
     const mine = shownMine();
-    const deps = M.isFloodAlert(alert) && !hasBoard
+    const deps = M.isFloodAlert(alert) && !hasBoard && !alert.hideMeasures
       ? [...(alert.departments || [])].sort((a, b) => Number(mine.includes(b)) - Number(mine.includes(a))) : [];
     const lines = [];
     for (const d of deps) {
@@ -1916,6 +1923,16 @@
         renderAll();
         break;
       }
+      case 'alert-measures': {
+        // Mesures affichées ou masquées dans l'alerte (M-Alert-sender) : sans son ni notification.
+        for (const list of [alerts, queue]) for (const a of list) if (a.id === msg.id) a.hideMeasures = Boolean(msg.hideMeasures);
+        if (current && current.id === msg.id) { current.hideMeasures = Boolean(msg.hideMeasures); renderTsunamiBoard(current); renderRivers(current); }
+        renderAll();
+        break;
+      }
+      case 'sound-defaults':
+        applySoundDefaults(msg.soundDefaults);
+        break;
       case 'vigicrues':
         vigicrues = msg.vigicrues || null;
         vicFull = null; // tracés relus (niveaux changés)
@@ -1932,6 +1949,7 @@
         rivers = msg.rivers || null;
         vigicrues = msg.vigicrues || vigicrues;
         webcamsEnabled = Boolean(msg.webcams && msg.webcams.enabled);
+        if (msg.soundDefaults) applySoundDefaults(msg.soundDefaults);
         alerts = (msg.alerts || []).filter(M.isActive);
         renderAll();
         checkVigilanceChange(old, vigilance);
