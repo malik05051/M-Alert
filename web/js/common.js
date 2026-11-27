@@ -503,7 +503,11 @@
   }
 
   /** Intitulé complet du niveau d'une alerte : « Alerte rouge », « Avertissement de tsunami »… */
+  // Alerte montrée avec le style d'un autre type (incrustation OBS) : ses propres textes (nom, niveau,
+  // consignes) gardés, d'après styleOf (catégorie, phénomène et niveau d'origine).
+  const own = (alert) => (alert && alert.styleOf ? { ...alert, ...alert.styleOf, styleOf: null } : alert);
   function alertLevelLabel(alert) {
+    alert = own(alert);
     if (isTornado(alert)) return `Tornade EF${alert.ef}`;
     const special = specialLevel(alert);
     return special ? special.label : levelLabel(alert.level);
@@ -511,6 +515,7 @@
 
   /** Nom court du niveau, pour les étiquettes : « Rouge », « Avertissement », « Faible »… */
   function alertLevelName(alert) {
+    alert = own(alert);
     if (isTornado(alert)) return `EF${alert.ef}`;
     const special = specialLevel(alert);
     return special ? special.name : LEVELS[alert.level].name;
@@ -546,6 +551,7 @@
 
   /** Icône et libellé d'une alerte : le phénomène pour la météo, sinon la catégorie. */
   function alertKind(alert) {
+    alert = own(alert);
     const cat = categoryOf(alert);
     if (cat === 'pollution' && POLLUTION_TYPES[alert.pollutionType]) return POLLUTION_TYPES[alert.pollutionType];
     if (cat !== 'meteo') return CATEGORIES[cat];
@@ -554,6 +560,7 @@
 
   /** Consignes : celles saisies, sinon les consignes types (dès le jaune / l'avis ; pas pour une information). */
   function adviceFor(alert) {
+    alert = own(alert);
     if (alert.instructions) return alert.instructions;
     if (alert.level < 2) return '';
     const cat = categoryOf(alert);

@@ -184,7 +184,10 @@
   }
 
   /** Titre du bandeau : « Alerte sismique précoce (M-Alert) », « Vent violent (M-Alert) »… */
+  // Alerte au style d'un autre type (OBS) : titre et phrase d'avertissement de l'alerte elle-même.
+  const ownType = (alert) => (alert && alert.styleOf ? { ...alert, ...alert.styleOf } : alert);
   function headerOf(alert) {
+    alert = ownType(alert);
     const cat = alert.category || 'meteo';
     if (HEADERS[cat]) return `${HEADERS[cat]} (M-Alert)`;
     if (cat === 'meteo') {
@@ -196,6 +199,7 @@
   }
 
   function watchOf(alert) {
+    alert = ownType(alert);
     const cat = alert.category || 'meteo';
     if (WATCH[cat]) return WATCH[cat];
     if (cat === 'meteo' && WATCH[alert.phenomenon]) return WATCH[alert.phenomenon];
@@ -1179,7 +1183,8 @@
     ctx.font = `700 ${Math.round(H * 0.034)}px ${FONT}`; ctx.textBaseline = 'top';
     // Source : M-Alert, vigilance Météo-France seule, ou les deux (alerte complétée par la vigilance).
     const src = alert && alert.vigOnly ? '(Météo-France)' : alert && alert.withVigilance ? '(M-Alert + Météo-France)' : '(M-Alert)';
-    const title = surge ? `${(M && M.alertKind ? M.alertKind(alert).name : 'Vagues-submersion')} ${src}` : `Tsunami ${src}`;
+    // Alerte au style d'un tsunami (choisi dans le sender) : son propre nom dans le titre.
+    const title = surge || (alert && alert.styleOf) ? `${(M && M.alertKind ? M.alertKind(alert).name : 'Vagues-submersion')} ${src}` : `Tsunami ${src}`;
     const ts = Math.round(H * 0.034);
     ctx.font = `700 ${ts}px ${FONT}`;
     if (ctx.measureText(title).width <= legendW * 0.86) ctx.fillText(title, lx + legendW * 0.08, H * 0.08);

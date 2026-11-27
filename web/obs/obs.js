@@ -788,7 +788,7 @@
     if (v.groups.length < 2) return list(v.groups[0] ? v.groups[0].zones : []);
     return v.groups.map((g) => {
       const [bg, fg] = missileColors({ level: g.level });
-      return `<div class="mz-grp"><span class="mz-lv" style="background:${bg};color:${fg}">${esc(v.top.category !== 'missile' ? M.alertLevelLabel({ ...v.top, level: g.level }) : missileLevelName(g.level))}</span>${list(g.zones)}</div>`;
+      return `<div class="mz-grp"><span class="mz-lv" style="background:${bg};color:${fg}">${esc(v.top.category !== 'missile' || v.top.styleOf ? M.alertLevelLabel({ ...v.top, level: g.level, styleOf: v.top.styleOf ? { ...v.top.styleOf, level: g.level } : null }) : missileLevelName(g.level))}</span>${list(g.zones)}</div>`;
     }).join('');
   }
 
@@ -804,7 +804,7 @@
       $('missileCard').querySelector('.mc-bar').textContent = M.alertLevelLabel(v.top);
       // Message : la description de l'alerte (M-Alert-sender) ; sans description, le message type.
       // Autre alerte au style missile, sans description : son titre et ses consignes.
-      const other = v.top.category !== 'missile';
+      const other = v.top.category !== 'missile' || Boolean(v.top.styleOf);
       const advice = other ? String(v.top.instructions || '').split(/\n+/).map((l) => l.trim()).filter(Boolean) : [];
       const msgLines = v.descs.length ? v.descs.flatMap((t) => t.split(/\n+/)).map((l) => l.trim()).filter(Boolean)
         : other ? [...v.titles.map((t) => `${t}.`), ...advice]
@@ -1063,7 +1063,29 @@
     }
   }
 
+  // Style d'un autre type d'alerte, choisi dans le sender pour une alerte (« as:cat:tsunami »,
+  // « as:ph:9 »…) : l'alerte est montrée comme ce type (carte, écran missile, panneau…), avec ses
+  // propres textes (nom, niveau, consignes : styleOf, lu par common.js). id -> { category, phenomenon }.
+  const styleAs = {};
+  function restyle(a) {
+    const t = a && styleAs[a.id];
+    if (!t || a.styleOf) return a;
+    // Niveau le plus proche permis par le type choisi (tsunami, missile… : avis, avertissement, majeur).
+    const keys = Object.keys((M.CATEGORY_LEVELS || {})[t.category] || {}).map(Number).filter(Number.isFinite).sort((x, y) => x - y);
+    const level = keys.length ? (keys.find((k) => k >= a.level) ?? keys[keys.length - 1]) : a.level;
+    return { ...a, category: t.category, phenomenon: t.phenomenon ?? null, level, styleOf: { category: a.category || 'meteo', phenomenon: a.phenomenon ?? null, level: a.level } };
+  }
+
   function handle(msg) {
+    if (msg.type === 'obs-show' && msg.alert) {
+      const m = /^as:(cat|ph):(\w+)$/.exec(msg.style || '');
+      if (msg.style === 'missile') styleAs[msg.alert.id] = { category: 'missile' };
+      else if (m) styleAs[msg.alert.id] = m[1] === 'cat' ? { category: m[2] } : { category: 'meteo', phenomenon: Number(m[2]) };
+      else delete styleAs[msg.alert.id];
+      if (styleAs[msg.alert.id]) msg = { ...msg, style: 'auto' }; // puis comme à l'arrivée d'une alerte de ce type
+    }
+    if (msg.alert) msg = { ...msg, alert: restyle(msg.alert) };
+    if (Array.isArray(msg.alerts)) msg = { ...msg, alerts: msg.alerts.map(restyle) };
     switch (msg.type) {
       case 'refused':
         refusedMsg = `⛔ ${msg.message || 'M-Alert refusé par le serveur.'}`;

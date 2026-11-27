@@ -20,7 +20,7 @@
   - nouveau bandeau tsunami « Malgré les variations du niveau de la mer, il n'y a aucun risque de tsunami » ;
   - cadre bleu « alerte annulée » sur la carte des intensités, des côtes, du missile et sur la mini-carte ;
   - webcam Criter (image rafraîchie chaque minute, crédit de la source) ;
-  - style d'affichage au choix pour une alerte (bandeau, carte, mini-carte, tableau, texte, ou style de l'alerte missile pour n'importe quelle alerte) depuis M-Alert-sender ;
+  - style d'affichage au choix pour une alerte depuis M-Alert-sender : bandeau, carte, mini-carte, tableau, texte, ou **style de n'importe quel autre type d'alerte** (ex. pluie-inondation au style d'un tsunami, tsunami au style d'un missile), avec ses propres textes ;
   - bandeau de consigne : retournement vers le haut plus fluide, pictogramme qui remplit toute la case ;
   - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).
 - **Accès contrôlé** : M-Alert envoie sa version et son empreinte ; le serveur peut exiger une version minimale et refuser une application modifiée (écran d'explication avec le lien de mise à jour).
