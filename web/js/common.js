@@ -531,7 +531,15 @@
    */
   const LEVEL_NAMES = {
     vigilance: { 2: 'Jaune', 3: 'Orange', 4: 'Rouge', 5: 'Majeure' },
-    malert: { 2: 'Avis', 3: 'Avertissement', 4: 'Avertissement majeur', 5: 'Alerte majeure' },
+    // Comme le tsunami : Avis (jaune), Avertissement (rouge), Avertissement majeur (rose) ; orange
+    // ramené à « Avertissement » par sécurité (le sender ne le propose pas).
+    malert: { 2: 'Avis', 3: 'Avertissement', 4: 'Avertissement', 5: 'Avertissement majeur' },
+  };
+  /** Niveaux proposés avec les noms M-Alert (même forme que CATEGORY_LEVELS). */
+  const MALERT_LEVELS = {
+    2: { label: 'Avis', name: 'Avis' },
+    4: { label: 'Avertissement', name: 'Avertissement' },
+    5: { label: 'Avertissement majeur', name: 'Avertissement majeur' },
   };
   let levelNames = 'vigilance';
   function setLevelNames(mode) {
@@ -822,7 +830,7 @@
   window.MAlert = {
     appIdentity,
     PHENOMENA, CATEGORIES, CATEGORY_ADVICE, VIGILANCE, LEVELS, ADVICE, vigilanceBadge, periodDate,
-    categoryOf, alertKind, adviceFor, isCritical, inGeoZone, inPolygon, setLevelNames, LEVEL_NAMES, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
+    categoryOf, alertKind, adviceFor, isCritical, inGeoZone, inPolygon, setLevelNames, LEVEL_NAMES, MALERT_LEVELS, levelLabel, untilText, TORNADO_PHENOMENON, EF_LEVEL, isTornado, tornadoSummary, SHINDO, SHINDO_ORDER, quakeSummary, tsunamiSummary, sourceLabel, sourceShort, SOURCES, estimateIntensity, toShindo, CATEGORY_LEVELS, TSUNAMI_LEVELS, specialLevel, levelsKey, isTsunami, alertLevelLabel, alertLevelName,
     FIRE_PHENOMENON, FIRE_TYPES, FIRE_ADVICE, fireSummary, quakeMethod, quakeMethodTag, QUAKE_METHODS, seaObsText, riverStationText, riverObsText, isFloodAlert, webcamKind, heightText, heightParts, arrivalFix, POLLUTION_TYPES, POLLUTANTS, pollutionSummary, forecastOriginText,
     escapeHtml, formatDateTime, formatTime, relativeTime, clockText,
     TIME_ZONES, chosenTimeZone, setTimeZone, timeZone, timeZoneLabel, allTimeZones, deviceTimeZone, zonedInstant, toLocalInput, fromLocalInput, zonedDate, forecastTime,
