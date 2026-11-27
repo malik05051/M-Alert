@@ -25,3 +25,4 @@
   - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).
 - **Accès contrôlé** : M-Alert envoie sa version et son empreinte ; le serveur peut exiger une version minimale et refuser une application modifiée (écran d'explication avec le lien de mise à jour).
 - Script OBS mis à jour (version de la page 3.3.0) : remplacez `m-alert.lua` dans OBS.
+- Carte nette tout de suite après le choix de la zone (France entière ou Nouvelle-Calédonie), sans devoir la déplacer.

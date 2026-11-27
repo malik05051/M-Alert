@@ -66,6 +66,25 @@
       zoomSnap: 0.25,
       preferCanvas: false,
     });
+    // Netteté : avec un zoom fractionnaire (zoomSnap 0,25), un changement de vue sans glisser (zone,
+    // ajustement, redimensionnement) laisse les calques SVG/canvas décalés d'une fraction de pixel :
+    // le navigateur les affiche flous jusqu'au premier glisser. On les recale sur un pixel entier.
+    let sharpenQueued = false;
+    function sharpen() {
+      if (sharpenQueued) return;
+      sharpenQueued = true;
+      requestAnimationFrame(() => {
+        sharpenQueued = false;
+        if (map._animatingZoom) return;
+        map.eachLayer((l) => {
+          if (!(l instanceof L.Renderer) || !l._container) return;
+          const p = L.DomUtil.getPosition(l._container);
+          const t = l._container.style.transform || '';
+          if ((p && (p.x % 1 || p.y % 1)) || /scale\((?!1\))/.test(t) || /translate3d\(-?\d+\.\d/.test(t)) l._update();
+        });
+      });
+    }
+    map.on('zoomend moveend viewreset resize', sharpen);
     map.attributionControl.setPrefix(false);
     map.attributionControl.addAttribution('Contours © IGN · Vigilance © Météo-France');
     map.fitBounds(FRANCE_BOUNDS);
@@ -551,6 +570,7 @@
       setZone(zone) {
         const b = zone === 'nc' ? L.latLngBounds(INSET_BOX).pad(0.08) : zone === 'metro' ? L.latLngBounds(METRO_BOUNDS) : L.latLngBounds(FRANCE_BOUNDS);
         map.fitBounds(b, { animate: false });
+        sharpen();
       },
 
       /**

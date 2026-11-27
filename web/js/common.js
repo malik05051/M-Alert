@@ -506,9 +506,11 @@
   // Alerte montrée avec le style d'un autre type (incrustation OBS) : ses propres textes (nom, niveau,
   // consignes) gardés, d'après styleOf (catégorie, phénomène et niveau d'origine).
   const own = (alert) => (alert && alert.styleOf ? { ...alert, ...alert.styleOf, styleOf: null } : alert);
+  // Tornade avec les noms M-Alert : niveau choisi (Avis, Avertissement, Avertissement majeur) et échelle EF.
+  const tornadoMalert = (alert) => alert.levelNames === 'malert' && Boolean(MALERT_LEVELS[alert.level]);
   function alertLevelLabel(alert) {
     alert = own(alert);
-    if (isTornado(alert)) return `Tornade EF${alert.ef}`;
+    if (isTornado(alert)) return tornadoMalert(alert) ? `${MALERT_LEVELS[alert.level].name} de tornade (EF${alert.ef})` : `Tornade EF${alert.ef}`;
     const special = specialLevel(alert);
     return special ? special.label : levelLabel(alert.level, alert.levelNames);
   }
@@ -516,7 +518,7 @@
   /** Nom court du niveau, pour les étiquettes : « Rouge », « Avertissement », « Faible »… */
   function alertLevelName(alert) {
     alert = own(alert);
-    if (isTornado(alert)) return `EF${alert.ef}`;
+    if (isTornado(alert)) return tornadoMalert(alert) ? `${MALERT_LEVELS[alert.level].name} · EF${alert.ef}` : `EF${alert.ef}`;
     const special = specialLevel(alert);
     if (special) return special.name;
     // Noms choisis dans le sender pour cette alerte : Avis, Avertissement, Avertissement majeur.
