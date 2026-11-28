@@ -757,7 +757,8 @@
         } else {
           L.polyline(ll, { color: '#22d3ee', weight: 3, dashArray: '6 4', interactive: false }).addTo(drawGroup);
         }
-        for (const p of ll) L.circleMarker(p, { radius: 4, color: '#0b1220', weight: 1, fillColor: '#22d3ee', fillOpacity: 1, interactive: false }).addTo(drawGroup);
+        // Sommets marqués d'un point (zone posée point par point) ; pas pour un tracé à main levée (nombreux points).
+        if (ll.length <= 30) for (const p of ll) L.circleMarker(p, { radius: 4, color: '#0b1220', weight: 1, fillColor: '#22d3ee', fillOpacity: 1, interactive: false }).addTo(drawGroup);
       },
 
       /** Point cliqué sur la carte -> vraies coordonnées (encart de la Nouvelle-Calédonie). */
