@@ -24,7 +24,7 @@
   - bandeau de consigne : retournement vers le haut plus fluide, pictogramme qui remplit toute la case ;
   - pictogrammes redessinés et centrés (grand froid d'après Météo-France, incendie, inondation, blocus d'après le barrage K2, bonhomme).
 - **Accès contrôlé** : M-Alert envoie sa version et son empreinte ; le serveur peut exiger une version minimale et refuser une application modifiée (écran d'explication avec le lien de mise à jour).
-- Script OBS mis à jour (version de la page 3.3.0) : remplacez `m-alert.lua` dans OBS.
+- Script OBS mis à jour (version de la page 3.3.0-6) : remplacez `m-alert.lua` dans OBS. Alerte sismique précoce annulée : carte assombrie derrière le cadre bleu d'annulation (mini-carte et plein écran).
 - Carte nette tout de suite après le choix de la zone (France entière ou Nouvelle-Calédonie), sans devoir la déplacer.
 - Message de bienvenue traduit (anglais, allemand, espagnol).
 - **iOS, batterie** : plus de son silencieux en arrière-plan (la localisation suffit, comme l'application Clip) ; ping du serveur espacé selon le réseau (4 min en données mobiles, 10 à 15 min en Wi-Fi au lieu de chaque minute), raccourci tout seul si un opérateur coupe la connexion ; reconnexion avec un délai aléatoire croissant (1 s à 2 min), immédiate au changement de réseau (Wi-Fi ↔ données mobiles), rien tant qu'il n'y a pas de réseau.

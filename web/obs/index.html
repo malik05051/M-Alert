@@ -175,7 +175,8 @@
     #quakeNotes > div { display: none; }
     body.show-seavar #quakeNotes .qn-sea { display: block; background: rgba(18,20,28,.84); color: #fff; font-weight: 700; font-size: 4.6vh; line-height: 1.25; padding: .9vh 1.8vw; border-radius: .4vh; }
     /* Cadre d'annulation (fausse alerte) au milieu de la carte affichée : bleu (vert à la NHK). */
-    #voidBox { position: fixed; display: none; align-items: center; justify-content: center; pointer-events: none; z-index: 12; }
+    /* Annulation : carte assombrie derrière le cadre bleu (mini-carte comme plein écran). */
+    #voidBox { position: fixed; display: none; align-items: center; justify-content: center; pointer-events: none; z-index: 12; background: rgba(0, 0, 0, .55); }
     body.show-void #voidBox { display: flex; }
     /* Style plat : bleu uni, liseré blanc, sans dégradé ni ombre. */
     #voidBox .vb-in { max-width: 64%; padding: 1.6em 2.4em; border: .22em solid #fff; border-radius: .7em; background: #2563eb; text-align: center; color: #fff; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
@@ -218,14 +219,14 @@
   <div id="webcam"><div class="wc-view"><img alt="" referrerpolicy="no-referrer"><iframe title="Webcam" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe></div><div class="wc-cap"><span></span><span>Webcam : Windy.com</span></div></div>
   <div id="evac"><div class="evac" id="evacIn"></div></div>
   <div id="status"></div>
-  <script src="../config.js?v=3.3.0-5"></script>
-  <script src="../data/departements.js?v=3.3.0-5"></script>
-  <script src="../data/nc-communes.js?v=3.3.0-5"></script>
-  <script src="../data/cotes.js?v=3.3.0-5"></script>
-  <script src="../js/version.js?v=3.3.0-5"></script>
-  <script src="../js/common.js?v=3.3.0-5"></script>
-  <script src="../js/sound.js?v=3.3.0-5"></script>
-  <script src="../js/banner.js?v=3.3.0-5"></script>
-  <script src="obs.js?v=3.3.0-5"></script>
+  <script src="../config.js?v=3.3.0-6"></script>
+  <script src="../data/departements.js?v=3.3.0-6"></script>
+  <script src="../data/nc-communes.js?v=3.3.0-6"></script>
+  <script src="../data/cotes.js?v=3.3.0-6"></script>
+  <script src="../js/version.js?v=3.3.0-6"></script>
+  <script src="../js/common.js?v=3.3.0-6"></script>
+  <script src="../js/sound.js?v=3.3.0-6"></script>
+  <script src="../js/banner.js?v=3.3.0-6"></script>
+  <script src="obs.js?v=3.3.0-6"></script>
 </body>
 </html>
