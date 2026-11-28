@@ -2,13 +2,16 @@ import Foundation
 import UIKit
 import CoreLocation
 import Network
+import AVFoundation
 import UserNotifications
 
 /// Réception des alertes en arrière-plan sur iOS, application fermée (comme le service Android).
 ///
 /// iOS endort une application quittée ; comme l'application Clip (AltStore), M-Alert reste active en
-/// arrière-plan grâce à la localisation (mode d'arrière-plan « location », autorisation « Toujours »).
-/// Pas de son silencieux : Clip l'a abandonné (la localisation suffit, et l'audio coûte de la batterie).
+/// arrière-plan grâce à la localisation (mode d'arrière-plan « location », autorisation « Toujours »,
+/// session d'activité en arrière-plan d'iOS 17+) et à un son silencieux joué en boucle (mode « audio »,
+/// mélangé aux autres sons) : sur les iOS récents, la localisation seule ne suffit pas toujours (iOS
+/// suspendait l'application au bout de quelques minutes).
 /// Pendant ce temps, une connexion WebSocket native au serveur M-Alert reçoit les alertes et les
 /// notifie (mêmes règles que la page : départements, niveau, catégories, séismes).
 ///
@@ -24,6 +27,9 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
 
     private let defaults = UserDefaults.standard
     private let location = CLLocationManager()
+    private var player: AVAudioPlayer?
+    /// Session d'activité de localisation en arrière-plan (iOS 17+), gardée tant que l'écoute tourne.
+    private var bgSession: AnyObject?
     private var session: URLSession!
     private var task: URLSessionWebSocketTask?
     private var timer: Timer?
@@ -71,6 +77,13 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         location.activityType = .other
         pathMonitor.pathUpdateHandler = { [weak self] path in DispatchQueue.main.async { self?.pathChanged(path) } }
         pathMonitor.start(queue: DispatchQueue.global(qos: .utility))
+        // Son silencieux coupé par un appel ou une autre application : relancé dès la fin de l'interruption.
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+            guard let self = self, self.running,
+                  let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
+            self.startSilence()
+        }
         seenOrder = defaults.stringArray(forKey: "malert.seen") ?? []
         seen = Set(seenOrder)
         if let s = defaults.string(forKey: "malert.settings"),
@@ -128,6 +141,10 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         connected = false
         location.stopUpdatingLocation()
         location.stopMonitoringSignificantLocationChanges()
+        player?.stop()
+        player = nil
+        if #available(iOS 17.0, *) { (bgSession as? CLBackgroundActivitySession)?.invalidate() }
+        bgSession = nil
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [AlertListener.watchdogId])
     }
 
@@ -141,12 +158,31 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         case .authorizedAlways: startLocation()
         default: break
         }
+        startSilence()
+    }
+
+    /// Son silencieux en boucle, mélangé aux autres sons (musique, vidéos…), sans couper leur volume.
+    private func startSilence() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            if player == nil, let url = Bundle.main.url(forResource: "silence", withExtension: "caf") {
+                player = try AVAudioPlayer(contentsOf: url)
+                player?.numberOfLoops = -1
+                player?.volume = 0
+            }
+            player?.play()
+        } catch {
+            // la localisation reste active
+        }
     }
 
     private func startLocation() {
         location.allowsBackgroundLocationUpdates = true
         location.showsBackgroundLocationIndicator = false
         location.startUpdatingLocation()
+        // iOS 17+ : session d'activité en arrière-plan, qui demande à iOS de garder l'application active.
+        if #available(iOS 17.0, *), bgSession == nil { bgSession = CLBackgroundActivitySession() }
         // Relance de l'application par iOS après un déplacement important, si elle a été arrêtée.
         if location.authorizationStatus == .authorizedAlways { location.startMonitoringSignificantLocationChanges() }
     }
@@ -166,6 +202,8 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     /// Toutes les minutes : notification de garde repoussée ; ping du serveur seulement s'il est dû.
     private func tick() {
         guard running else { return }
+        // Son silencieux interrompu (appel, autre application) : relancé.
+        if player?.isPlaying == false { startSilence() }
         if let task = task, connected {
             // Réveil suivant dans 60 s (+15 s de tolérance) : ping dès maintenant s'il serait sinon en
             // retard, pour que le silence ne dépasse jamais l'intervalle (coupure des opérateurs).
