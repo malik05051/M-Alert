@@ -307,7 +307,7 @@
   const cancelOn = () => Boolean(cancelled && Date.now() < cancelled.until);
   function cancelLines(a) {
     const name = (M.alertKind(a || {}).name || 'alerte').replace(/^./, (c) => c.toLowerCase());
-    return [`Alerte de ${name} annulée`, 'Aucun danger n\'est attendu.'];
+    return [`Alerte de ${name} annulée`, 'Aucun danger est attendu.'];
   }
   // Durée de l'annonce d'annulation (secondes, paramètre cancelHold ; par défaut celle du bandeau).
   const cancelHold = q.has('cancelHold') ? Math.max(3, Number(q.get('cancelHold')) || 30) : (hold || 60);
@@ -324,12 +324,12 @@
    * d'annulation de la NHK : pendant l'annonce d'annulation, sur la carte de l'alerte annulée.
    */
   function voidText(a) {
-    if (a.category === 'seisme') return ['L\'alerte sismique précoce a été annulée', 'Aucun danger n\'est attendu.'];
+    if (a.category === 'seisme') return ['L\'alerte sismique précoce a été annulée', 'Aucun danger est attendu.'];
     const label = M.alertLevelLabel(a) || 'Alerte';
     const lower = label.replace(/^./, (c) => c.toLowerCase());
     const fem = /^(alerte|vigilance)/i.test(label);
     const head = /^[aeiouyéèh]/i.test(lower) ? `L'${lower}` : `La ${lower}`;
-    const coast = isCoast(a) ? (a.category === 'tsunami' ? 'Vous pouvez reprendre vos activités, en restant prudents près de la mer.' : 'Restez prudents près de la mer.') : 'Aucun danger n\'est attendu.';
+    const coast = isCoast(a) ? (a.category === 'tsunami' ? 'Vous pouvez reprendre vos activités, en restant prudents près de la mer.' : 'Restez prudents près de la mer.') : 'Aucun danger est attendu.';
     return [`${head} a été ${fem ? 'annulée' : 'annulé'}`, coast];
   }
   function renderVoid(target) {
