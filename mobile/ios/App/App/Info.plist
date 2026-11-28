@@ -67,7 +67,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
-		<string>audio</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>M-Alert utilise la localisation pour rester actif en arrière-plan et recevoir les alertes application fermée. Votre position n'est ni enregistrée ni envoyée.</string>

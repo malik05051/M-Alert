@@ -27,3 +27,4 @@
 - Script OBS mis à jour (version de la page 3.3.0) : remplacez `m-alert.lua` dans OBS.
 - Carte nette tout de suite après le choix de la zone (France entière ou Nouvelle-Calédonie), sans devoir la déplacer.
 - Message de bienvenue traduit (anglais, allemand, espagnol).
+- **iOS, batterie** : plus de son silencieux en arrière-plan (la localisation suffit, comme l'application Clip) ; ping du serveur espacé selon le réseau (4 min en données mobiles, 10 à 15 min en Wi-Fi au lieu de chaque minute), raccourci tout seul si un opérateur coupe la connexion ; reconnexion avec un délai aléatoire croissant (1 s à 2 min), immédiate au changement de réseau (Wi-Fi ↔ données mobiles), rien tant qu'il n'y a pas de réseau.

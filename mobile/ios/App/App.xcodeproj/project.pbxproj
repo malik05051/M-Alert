@@ -20,7 +20,6 @@
 		A1A10001AA00000000000003 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A10001AA00000000000004 /* MainViewController.swift */; };
 		A1A10001AA00000000000005 /* alerte-mobile.caf in Resources */ = {isa = PBXBuildFile; fileRef = A1A10001AA00000000000006 /* alerte-mobile.caf */; };
 		A1A10001AA00000000000008 /* AlertListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A10001AA00000000000009 /* AlertListener.swift */; };
-		A1A10001AA0000000000000A /* silence.caf in Resources */ = {isa = PBXBuildFile; fileRef = A1A10001AA0000000000000B /* silence.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,7 +39,6 @@
 		A1A10001AA00000000000006 /* alerte-mobile.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "alerte-mobile.caf"; sourceTree = "<group>"; };
 		A1A10001AA00000000000007 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A1A10001AA00000000000009 /* AlertListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertListener.swift; sourceTree = "<group>"; };
-		A1A10001AA0000000000000B /* silence.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = silence.caf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,7 +79,6 @@
 				A1A10001AA00000000000004 /* MainViewController.swift */,
 				A1A10001AA00000000000002 /* MAlertNotifyPlugin.swift */,
 				A1A10001AA00000000000009 /* AlertListener.swift */,
-				A1A10001AA0000000000000B /* silence.caf */,
 				A1A10001AA00000000000006 /* alerte-mobile.caf */,
 				A1A10001AA00000000000007 /* App.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -166,7 +163,6 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				A1A10001AA00000000000005 /* alerte-mobile.caf in Resources */,
-				A1A10001AA0000000000000A /* silence.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

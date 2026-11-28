@@ -1,16 +1,20 @@
 import Foundation
 import UIKit
 import CoreLocation
-import AVFoundation
+import Network
 import UserNotifications
 
 /// Réception des alertes en arrière-plan sur iOS, application fermée (comme le service Android).
 ///
 /// iOS endort une application quittée ; comme l'application Clip (AltStore), M-Alert reste active en
-/// arrière-plan grâce à la localisation (mode d'arrière-plan « location », autorisation « Toujours »)
-/// et à un son silencieux joué en boucle (mode « audio », mélangé aux autres sons). Pendant ce temps,
-/// une connexion WebSocket native au serveur M-Alert reçoit les alertes et les notifie (mêmes règles
-/// que la page : départements, niveau, catégories, séismes).
+/// arrière-plan grâce à la localisation (mode d'arrière-plan « location », autorisation « Toujours »).
+/// Pas de son silencieux : Clip l'a abandonné (la localisation suffit, et l'audio coûte de la batterie).
+/// Pendant ce temps, une connexion WebSocket native au serveur M-Alert reçoit les alertes et les
+/// notifie (mêmes règles que la page : départements, niveau, catégories, séismes).
+///
+/// Batterie : chaque ping réveille la radio (4G/5G : une dizaine de secondes allumée). Le ping est donc
+/// espacé selon le réseau (4 min en données mobiles, sous les délais de coupure des opérateurs ;
+/// 10 min en Wi-Fi), raccourci tout seul si une connexion inactive est coupée, rallongé peu à peu sinon.
 ///
 /// Si iOS arrête quand même l'application (mémoire, application balayée), une notification
 /// « M-Alert ne reçoit plus les alertes » est programmée en avance et repoussée tant que
@@ -20,19 +24,33 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
 
     private let defaults = UserDefaults.standard
     private let location = CLLocationManager()
-    private var player: AVAudioPlayer?
     private var session: URLSession!
     private var task: URLSessionWebSocketTask?
     private var timer: Timer?
     private var retry = 0
+    /// Dernier message reçu ou pong (heure) : le ping n'est envoyé que si rien n'est arrivé depuis l'intervalle.
+    private var lastActivity = Date()
+    private var pingToken = 0
+    private var goodPings = 0
+    private let pathMonitor = NWPathMonitor()
+    private var pathKind = "cell"   // « wifi » (ou filaire) ou « cell » (données mobiles, partage de connexion)
+    private var pathUp = true
+    private var pathKnown = false
     private var seen = Set<String>()
     private(set) var connected = false
     private(set) var running = false
     private var settings: [String: Any] = [:]
 
     private static let watchdogId = "malert-watchdog"
-    /// Ping du serveur (canal allégé, le serveur ne pinge pas) : une fois par minute.
+    /// Réveil de l'application (sans radio) : notification de garde repoussée, ping s'il est dû.
     private static let tickSeconds: TimeInterval = 60
+    /// Ping du serveur (canal allégé, le serveur ne pinge pas), par réseau : départ, minimum, maximum.
+    /// Données mobiles : 240 s, sous les 255-270 s de coupure observés chez des opérateurs.
+    private static let pingStart: [String: TimeInterval] = ["cell": 240, "wifi": 600]
+    private static let pingMax: [String: TimeInterval] = ["cell": 270, "wifi": 900]
+    private static let pingMin: TimeInterval = 120
+    /// Pong attendu au plus tard (sinon connexion considérée comme morte).
+    private static let pongTimeout: TimeInterval = 15
     /// Notification « M-Alert ne reçoit plus les alertes » : 5 minutes sans réveil de l'application.
     private static let watchdogSeconds: TimeInterval = 300
 
@@ -47,6 +65,8 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         location.distanceFilter = 3000
         location.pausesLocationUpdatesAutomatically = false
         location.activityType = .other
+        pathMonitor.pathUpdateHandler = { [weak self] path in DispatchQueue.main.async { self?.pathChanged(path) } }
+        pathMonitor.start(queue: DispatchQueue.global(qos: .utility))
         if let s = defaults.string(forKey: "malert.settings"),
            let d = s.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
@@ -85,10 +105,10 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             running = true
             keepAlive()
             connect()
-            // Un réveil par minute (ping du serveur et notification de garde ensemble) : la radio du
-            // téléphone reste en veille le reste du temps.
+            // Un réveil par minute, sans radio (notification de garde) ; le ping n'est envoyé que
+            // toutes les 4 à 15 minutes selon le réseau : la radio du téléphone reste en veille.
             timer = Timer.scheduledTimer(withTimeInterval: AlertListener.tickSeconds, repeats: true) { [weak self] _ in self?.tick() }
-            timer?.tolerance = 10
+            timer?.tolerance = 15
         }
         armWatchdog()
     }
@@ -102,8 +122,6 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         connected = false
         location.stopUpdatingLocation()
         location.stopMonitoringSignificantLocationChanges()
-        player?.stop()
-        player = nil
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [AlertListener.watchdogId])
     }
 
@@ -116,18 +134,6 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         case .authorizedWhenInUse: location.requestAlwaysAuthorization(); startLocation()
         case .authorizedAlways: startLocation()
         default: break
-        }
-        // Son silencieux en boucle, mélangé aux autres sons (musique, vidéos…).
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
-            if player == nil, let url = Bundle.main.url(forResource: "silence", withExtension: "caf") {
-                player = try AVAudioPlayer(contentsOf: url)
-                player?.numberOfLoops = -1
-            }
-            player?.play()
-        } catch {
-            // la localisation suffit
         }
     }
 
@@ -151,18 +157,75 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {}
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
 
-    /// Toutes les minutes : ping du serveur, son silencieux relancé, notification de garde repoussée.
+    /// Toutes les minutes : notification de garde repoussée ; ping du serveur seulement s'il est dû.
     private func tick() {
         guard running else { return }
-        if player?.isPlaying == false { player?.play() }
         if let task = task, connected {
-            task.sendPing { [weak self] error in
-                if error != nil { DispatchQueue.main.async { self?.reconnect() } }
-            }
-        } else if task == nil {
+            if Date().timeIntervalSince(lastActivity) >= pingInterval - 20 { ping(task) }
+        } else if task == nil && pathUp {
             connect()
         }
         armWatchdog()
+    }
+
+    // MARK: - Ping selon le réseau
+
+    private var pingKey: String { "malert.ping.\(pathKind)" }
+
+    /// Intervalle du ping pour le réseau actuel (appris : raccourci après une coupure, rallongé sinon).
+    private var pingInterval: TimeInterval {
+        let v = defaults.double(forKey: pingKey)
+        return v > 0 ? v : AlertListener.pingStart[pathKind] ?? 240
+    }
+
+    private func ping(_ t: URLSessionWebSocketTask) {
+        pingToken += 1
+        let token = pingToken
+        let idle = Date().timeIntervalSince(lastActivity)
+        t.sendPing { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self = self, token == self.pingToken, t === self.task else { return }
+                self.pingToken += 1
+                if error != nil { self.idleDeath(idle); self.reconnect(); return }
+                self.lastActivity = Date()
+                // Connexion tenue : intervalle rallongé de 30 s toutes les 12 réussites (jusqu'au maximum).
+                self.goodPings += 1
+                if self.goodPings >= 12 {
+                    self.goodPings = 0
+                    let maxV = AlertListener.pingMax[self.pathKind] ?? 270
+                    self.defaults.set(min(maxV, self.pingInterval + 30), forKey: self.pingKey)
+                }
+            }
+        }
+        // Pas de pong à temps : connexion morte (coupée par un opérateur ou le réseau).
+        DispatchQueue.main.asyncAfter(deadline: .now() + AlertListener.pongTimeout) { [weak self] in
+            guard let self = self, token == self.pingToken, t === self.task else { return }
+            self.pingToken += 1
+            self.idleDeath(idle)
+            self.reconnect()
+        }
+    }
+
+    /// Connexion morte après un long silence : l'intervalle était trop long pour ce réseau, raccourci d'un quart.
+    private func idleDeath(_ idle: TimeInterval) {
+        guard idle >= 0.8 * pingInterval else { return }
+        goodPings = 0
+        defaults.set(max(AlertListener.pingMin, (pingInterval * 0.75).rounded()), forKey: pingKey)
+    }
+
+    /// Réseau changé : Wi-Fi ou données mobiles (intervalle du ping), coupure ou retour du réseau.
+    private func pathChanged(_ path: NWPath) {
+        let up = path.status == .satisfied
+        let kind = (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet)) && !path.isExpensive ? "wifi" : "cell"
+        let changed = kind != pathKind || up != pathUp
+        let first = !pathKnown
+        pathKnown = true
+        pathKind = kind
+        pathUp = up
+        // Premier état connu (au lancement) : rien à reconnecter.
+        guard running, changed, !first else { return }
+        // Nouveau réseau : l'ancienne connexion ne passe plus, reconnexion tout de suite.
+        if up { retry = 0; goodPings = 0; connect() }
     }
 
     private func armWatchdog() {
@@ -193,6 +256,9 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         guard let url = comps?.url else { return }
         let t = session.webSocketTask(with: url)
         task = t
+        connected = false
+        pingToken += 1
+        lastActivity = Date()
         t.resume()
         receive(t)
     }
@@ -202,6 +268,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             guard let self = self, t === self.task else { return }
             switch result {
             case .success(let message):
+                DispatchQueue.main.async { self.lastActivity = Date() }
                 if case .string(let text) = message { DispatchQueue.main.async { self.handle(text) } }
                 self.receive(t)
             case .failure:
@@ -212,7 +279,6 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         connected = true
-        retry = 0
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
@@ -221,9 +287,13 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
 
     private func reconnect() {
         connected = false
+        task?.cancel(with: .goingAway, reason: nil)
         task = nil
-        guard running else { return }
-        let delay = min(60.0, 2.0 * pow(2.0, Double(min(5, retry))))
+        guard running, pathUp else { return } // pas de réseau : reconnexion au retour du réseau
+        // Délai aléatoire « full jitter » (1 s, 2 s, 4 s… 120 s au plus) : pas de rafale de reconnexions
+        // qui réveillent la radio, ni de reconnexion de tous les téléphones au même instant.
+        let cap = min(120.0, pow(2.0, Double(min(7, retry))))
+        let delay = max(1.0, Double.random(in: 0...cap))
         retry += 1
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self = self, self.running, self.task == nil else { return }
@@ -236,6 +306,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
               let msg = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
               let type = msg["type"] as? String else { return }
         if type == "hello" {
+            retry = 0 // connexion vraiment établie (le serveur a répondu)
             // Alertes déjà en cours : connues, pas renotifiées.
             for a in msg["alerts"] as? [[String: Any]] ?? [] { if let id = a["id"] as? String { seen.insert(id) } }
             return

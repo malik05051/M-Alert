@@ -7,7 +7,7 @@
  *   - « Recevoir les alertes en arrière-plan » (réglages) : démarre ou arrête le service.
  * iOS : notifications natives (plugin MAlertNotify de l'application) : urgentes, critiques, avec le
  *   son d'alerte mobile ; réception en arrière-plan, application fermée, par une connexion native
- *   (AlertListener.swift) qui reste active grâce à la localisation et à un son silencieux, comme
+ *   (AlertListener.swift) qui reste active grâce à la localisation (sans son silencieux), comme
  *   l'application Clip d'AltStore. Mêmes réglages que le service Android.
  */
 (function () {
