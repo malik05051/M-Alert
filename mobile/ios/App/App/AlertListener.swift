@@ -167,7 +167,9 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     private func tick() {
         guard running else { return }
         if let task = task, connected {
-            if Date().timeIntervalSince(lastActivity) >= pingInterval - 20 { ping(task) }
+            // Réveil suivant dans 60 s (+15 s de tolérance) : ping dès maintenant s'il serait sinon en
+            // retard, pour que le silence ne dépasse jamais l'intervalle (coupure des opérateurs).
+            if Date().timeIntervalSince(lastActivity) + AlertListener.tickSeconds + 15 >= pingInterval { ping(task) }
         } else if task == nil && pathUp {
             connect()
         }
