@@ -28,3 +28,4 @@
 - Carte nette tout de suite après le choix de la zone (France entière ou Nouvelle-Calédonie), sans devoir la déplacer.
 - Message de bienvenue traduit (anglais, allemand, espagnol).
 - **iOS, batterie** : plus de son silencieux en arrière-plan (la localisation suffit, comme l'application Clip) ; ping du serveur espacé selon le réseau (4 min en données mobiles, 10 à 15 min en Wi-Fi au lieu de chaque minute), raccourci tout seul si un opérateur coupe la connexion ; reconnexion avec un délai aléatoire croissant (1 s à 2 min), immédiate au changement de réseau (Wi-Fi ↔ données mobiles), rien tant qu'il n'y a pas de réseau.
+- **Applications mobiles (Android, iOS)** : une alerte émise pendant une coupure de la connexion ou un arrêt de l'application est notifiée au retour de la connexion (24 h au plus) au lieu d'être perdue ; alertes déjà notifiées gardées sur le téléphone (pas de doublon après un redémarrage).

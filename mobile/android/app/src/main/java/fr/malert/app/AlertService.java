@@ -50,7 +50,11 @@ public class AlertService extends Service {
 
     private final OkHttpClient http = new OkHttpClient.Builder().pingInterval(60, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS).build();
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Alertes déjà vues (gardées sur l'appareil : pas de doublon après un redémarrage du service). */
     private final Set<String> seen = new HashSet<>();
+    private final java.util.ArrayList<String> seenOrder = new java.util.ArrayList<>();
+    /** Écart entre l'horloge du serveur et celle du téléphone (ms), d'après le « hello ». */
+    private long serverOffsetMs = 0;
     private WebSocket ws;
     private JSONObject settings = new JSONObject();
     private int retry = 0;
@@ -98,6 +102,10 @@ public class AlertService extends Service {
         SharedPreferences p = getSharedPreferences(MAlertPlugin.PREFS, Context.MODE_PRIVATE);
         try {
             settings = new JSONObject(p.getString("settings", "{}"));
+            JSONArray kept = new JSONArray(p.getString("seen", "[]"));
+            seen.clear();
+            seenOrder.clear();
+            for (int i = 0; i < kept.length(); i++) { seenOrder.add(kept.getString(i)); seen.add(kept.getString(i)); }
         } catch (Exception e) {
             settings = new JSONObject();
         }
@@ -116,6 +124,10 @@ public class AlertService extends Service {
         } catch (Exception ignored) {
             // encodage UTF-8 toujours disponible
         }
+        // Dernier signe de vie (heure du serveur) : le serveur renvoie les alertes émises depuis,
+        // manquées pendant une coupure ou un arrêt du service (marge d'une minute, sans doublon).
+        long alive = prefs().getLong("aliveServerMs", 0);
+        if (alive > 0) url += "&since=" + (alive - 60000);
         ws = http.newWebSocket(new Request.Builder().url(url).build(), new WebSocketListener() {
             @Override
             public void onOpen(WebSocket s, Response r) {
@@ -126,6 +138,7 @@ public class AlertService extends Service {
             @Override
             public void onMessage(WebSocket s, String text) {
                 handle(text);
+                markAlive();
             }
 
             @Override
@@ -152,9 +165,13 @@ public class AlertService extends Service {
             JSONObject msg = new JSONObject(text);
             String type = msg.optString("type");
             if ("hello".equals(type)) {
+                if (msg.has("serverMs")) serverOffsetMs = msg.optLong("serverMs") - System.currentTimeMillis();
+                // Alertes manquées (émises pendant une coupure ou un arrêt du service) : notifiées.
+                JSONArray missed = msg.optJSONArray("missed");
+                if (missed != null) for (int i = 0; i < missed.length(); i++) process(missed.getJSONObject(i), false);
                 // Alertes déjà en cours : connues, pas renotifiées (sauf nouvelles).
                 JSONArray list = msg.optJSONArray("alerts");
-                if (list != null) for (int i = 0; i < list.length(); i++) seen.add(list.getJSONObject(i).optString("id"));
+                if (list != null) for (int i = 0; i < list.length(); i++) markSeen(list.getJSONObject(i).optString("id"));
                 return;
             }
             if ("cancel".equals(type)) {
@@ -183,20 +200,41 @@ public class AlertService extends Service {
                 if (!n.optBoolean("mobileAlert") || MainActivity.visible || !settings.optBoolean("notices", true)) return;
                 if (!settings.optBoolean("all") && !concernsMe(n)) return;
                 if (seen.contains("notice-" + n.optString("id"))) return;
-                seen.add("notice-" + n.optString("id"));
+                markSeen("notice-" + n.optString("id"));
                 notifyMobileNotice(n);
                 return;
             }
             if (!"alert".equals(type) && !"ring".equals(type)) return;
-            JSONObject a = msg.getJSONObject("alert");
-            String id = a.optString("id");
-            if ("alert".equals(type) && seen.contains(id)) return;
-            seen.add(id);
-            if (MainActivity.visible || !wanted(a)) return;
-            notifyAlert(a);
+            process(msg.getJSONObject("alert"), "ring".equals(type));
         } catch (Exception ignored) {
             // message illisible
         }
+    }
+
+    /** Nouvelle alerte (ou relance) : notifiée une seule fois, si elle me concerne. */
+    private void process(JSONObject a, boolean ring) throws Exception {
+        String id = a.optString("id");
+        if (!ring && seen.contains(id)) return;
+        markSeen(id);
+        if (MainActivity.visible || !wanted(a)) return;
+        notifyAlert(a);
+    }
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences(MAlertPlugin.PREFS, Context.MODE_PRIVATE);
+    }
+
+    private void markSeen(String id) {
+        if (id.isEmpty() || seen.contains(id)) return;
+        seen.add(id);
+        seenOrder.add(id);
+        if (seenOrder.size() > 300) seen.remove(seenOrder.remove(0));
+        prefs().edit().putString("seen", new JSONArray(seenOrder).toString()).apply();
+    }
+
+    /** Signe de vie de la connexion (message reçu) : heure gardée, en heure du serveur. */
+    private void markAlive() {
+        prefs().edit().putLong("aliveServerMs", System.currentTimeMillis() + serverOffsetMs).apply();
     }
 
     /** Mêmes règles que la page : départements suivis, niveau minimum, catégories et phénomènes. */

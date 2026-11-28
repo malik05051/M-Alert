@@ -36,7 +36,11 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     private var pathKind = "cell"   // « wifi » (ou filaire) ou « cell » (données mobiles, partage de connexion)
     private var pathUp = true
     private var pathKnown = false
+    /// Alertes déjà vues (gardées sur l'appareil : pas de doublon après un redémarrage de l'application).
     private var seen = Set<String>()
+    private var seenOrder: [String] = []
+    /// Écart entre l'horloge du serveur et celle du téléphone (ms), d'après le « hello ».
+    private var serverOffsetMs: Double = 0
     private(set) var connected = false
     private(set) var running = false
     private var settings: [String: Any] = [:]
@@ -67,6 +71,8 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
         location.activityType = .other
         pathMonitor.pathUpdateHandler = { [weak self] path in DispatchQueue.main.async { self?.pathChanged(path) } }
         pathMonitor.start(queue: DispatchQueue.global(qos: .utility))
+        seenOrder = defaults.stringArray(forKey: "malert.seen") ?? []
+        seen = Set(seenOrder)
         if let s = defaults.string(forKey: "malert.settings"),
            let d = s.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
@@ -187,7 +193,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
                 guard let self = self, token == self.pingToken, t === self.task else { return }
                 self.pingToken += 1
                 if error != nil { self.idleDeath(idle); self.reconnect(); return }
-                self.lastActivity = Date()
+                self.markAlive()
                 // Connexion tenue : intervalle rallongé de 30 s toutes les 12 réussites (jusqu'au maximum).
                 self.goodPings += 1
                 if self.goodPings >= 12 {
@@ -253,6 +259,10 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             URLQueryItem(name: "v", value: settings["appVersion"] as? String ?? ""),
             URLQueryItem(name: "b", value: settings["appBuild"] as? String ?? ""),
         ]
+        // Dernier signe de vie (heure du serveur) : le serveur renvoie les alertes émises depuis,
+        // manquées pendant une coupure ou un arrêt de l'application (marge d'une minute, sans doublon).
+        let alive = defaults.double(forKey: "malert.aliveServerMs")
+        if alive > 0 { comps?.queryItems?.append(URLQueryItem(name: "since", value: String(Int64(alive - 60000)))) }
         guard let url = comps?.url else { return }
         let t = session.webSocketTask(with: url)
         task = t
@@ -268,7 +278,7 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             guard let self = self, t === self.task else { return }
             switch result {
             case .success(let message):
-                DispatchQueue.main.async { self.lastActivity = Date() }
+                DispatchQueue.main.async { self.markAlive() }
                 if case .string(let text) = message { DispatchQueue.main.async { self.handle(text) } }
                 self.receive(t)
             case .failure:
@@ -278,7 +288,8 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        connected = true
+        // Seulement la connexion en cours (pas une ancienne, annulée entre-temps).
+        if webSocketTask === task { connected = true }
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
@@ -307,8 +318,12 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
               let type = msg["type"] as? String else { return }
         if type == "hello" {
             retry = 0 // connexion vraiment établie (le serveur a répondu)
+            if let ms = num(msg["serverMs"]) { serverOffsetMs = ms - Date().timeIntervalSince1970 * 1000 }
+            // Alertes manquées (émises pendant une coupure ou un arrêt de l'application) : notifiées.
+            for a in msg["missed"] as? [[String: Any]] ?? [] { process(a, ring: false) }
             // Alertes déjà en cours : connues, pas renotifiées.
-            for a in msg["alerts"] as? [[String: Any]] ?? [] { if let id = a["id"] as? String { seen.insert(id) } }
+            for a in msg["alerts"] as? [[String: Any]] ?? [] { if let id = a["id"] as? String { markSeen(id) } }
+            markAlive()
             return
         }
         if type == "cancel" {
@@ -338,13 +353,33 @@ final class AlertListener: NSObject, CLLocationManagerDelegate, URLSessionWebSoc
             AlertNotifier.notifyMobileNotice(n, settings: settings)
             return
         }
-        guard type == "alert" || type == "ring", let a = msg["alert"] as? [String: Any], let id = a["id"] as? String else { return }
-        if type == "alert" && seen.contains(id) { return }
-        seen.insert(id)
+        guard type == "alert" || type == "ring", let a = msg["alert"] as? [String: Any] else { return }
+        process(a, ring: type == "ring")
+    }
+
+    /// Nouvelle alerte (ou relance) : notifiée une seule fois, si elle me concerne.
+    private func process(_ a: [String: Any], ring: Bool) {
+        guard let id = a["id"] as? String else { return }
+        if !ring && seen.contains(id) { return }
+        markSeen(id)
         // Application à l'écran : la page affiche et notifie elle-même.
         if UIApplication.shared.applicationState == .active { return }
         guard wanted(a) else { return }
         AlertNotifier.notifyAlert(a, settings: settings)
+    }
+
+    private func markSeen(_ id: String) {
+        guard !seen.contains(id) else { return }
+        seen.insert(id)
+        seenOrder.append(id)
+        if seenOrder.count > 300 { seen.remove(seenOrder.removeFirst()) }
+        defaults.set(seenOrder, forKey: "malert.seen")
+    }
+
+    /// Signe de vie de la connexion (message ou pong) : heure gardée, en heure du serveur.
+    private func markAlive() {
+        lastActivity = Date()
+        defaults.set(Date().timeIntervalSince1970 * 1000 + serverOffsetMs, forKey: "malert.aliveServerMs")
     }
 
     // MARK: - Règles de la page
